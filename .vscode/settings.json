@@ -1,8 +1,0 @@
-{
-  "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
-  },
-  "eslint.useFlatConfig": false,
-  "eslint.workingDirectories": [{ "mode": "auto" }]
-}
