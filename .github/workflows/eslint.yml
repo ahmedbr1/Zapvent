@@ -32,10 +32,10 @@ jobs:
 
       - name: Run ESLint (app)
         if: matrix.part == 'app'
-        run: npm run lint:app
+        run: npm run lint # TODO: seperate linting for server and app.
         shell: bash
 
       - name: Run ESLint (server)
         if: matrix.part == 'server'
-        run: npm run lint:server
+        run: npm run lint # TODO: seperate linting for server and app.
         shell: bash
