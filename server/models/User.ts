@@ -2,7 +2,8 @@ import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 
 export interface IUser extends IBaseModel {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   role: "Student" | "Staff" | "Professor" | "TA";
