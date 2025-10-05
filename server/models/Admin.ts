@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
+import bcrypt from "bcrypt";
 
 export interface IAdmin extends IBaseModel {
   firstName: string;
@@ -8,6 +9,7 @@ export interface IAdmin extends IBaseModel {
   password: string;
   status: "Active" | "Blocked";
 }
+
 const AdminSchema = new Schema<IAdmin>(
   {
     firstName: { type: String, required: true },
@@ -18,6 +20,18 @@ const AdminSchema = new Schema<IAdmin>(
   },
   { timestamps: true }
 );
+
+AdminSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err as Error);
+  }
+});
+
 const AdminModel =
   mongoose.models.Admin || mongoose.model<IAdmin>("Admin", AdminSchema);
 export default AdminModel;
