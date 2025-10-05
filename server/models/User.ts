@@ -4,12 +4,41 @@ import { IBaseModel } from "./BaseModel";
 export interface IUser extends IBaseModel {
   name: string;
   email: string;
+  password: string;
+  role: "Student" | "Staff" | "Professor" | "TA";
+  id: string;
+  status: "Active" | "Blocked";
+  registeredEvents?: string[];
+  balance?: number;
+  verified: boolean;
+  favorites?: string[];
+  notifications?: string[];
+  workshops?: string[];
+  registedGymSessions?: string[];
+  reservedCourts?: string[];
 }
 
 const UserSchema = new Schema<IUser>(
   {
-    name: { type: String, required: true },
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ["Student", "Staff", "Professor", "TA"],
+      required: true,
+    },
+    id: { type: String, required: true, unique: true },
+    status: { type: String, enum: ["Active", "Blocked"], default: "Active" },
+    registeredEvents: [{ type: String }],
+    balance: { type: Number, default: 0 },
+    verified: { type: Boolean, default: false },
+    favorites: [{ type: String }],
+    notifications: [{ type: String }],
+    workshops: [{ type: String }],
+    registedGymSessions: [{ type: String }],
+    reservedCourts: [{ type: String }],
   },
   { timestamps: true }
 );
