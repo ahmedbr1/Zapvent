@@ -1,6 +1,7 @@
 // Vendors need to be verified
 import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
+import bcrypt from "bcrypt";
 
 export enum VendorStatus {
   PENDING = "pending",
@@ -50,6 +51,18 @@ const vendorSchema = new Schema<IVendor>(
   },
   { timestamps: true }
 );
+vendorSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  try {
+    const saltRounds = Number(process.env.ENCRYPTION_SALT_ROUNDS) || 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err as Error);
+  }
+});
+
 const vendorModel =
   mongoose.models.Vendor || mongoose.model<IVendor>("Vendor", vendorSchema);
 

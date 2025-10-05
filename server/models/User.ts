@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
+import bcrypt from "bcrypt";
 
 export enum userRole {
   STUDENT = "Student",
@@ -19,7 +20,6 @@ export interface IUser extends IBaseModel {
   email: string;
   password: string;
   role: userRole;
-  id: string;
   status: userStatus;
   registeredEvents?: string[];
   balance?: number;
@@ -27,7 +27,7 @@ export interface IUser extends IBaseModel {
   favorites?: string[];
   notifications?: string[];
   workshops?: string[];
-  registedGymSessions?: string[];
+  registeredGymSessions?: string[];
   reservedCourts?: string[];
 }
 
@@ -36,13 +36,12 @@ const UserSchema = new Schema<IUser>(
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, required: true, select: false },
     role: {
       type: String,
       enum: Object.values(userRole),
       required: true,
     },
-    id: { type: String, required: true, unique: true },
     status: {
       type: String,
       required: true,
@@ -60,6 +59,19 @@ const UserSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
+
+UserSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+
+  try {
+    const saltRounds = Number(process.env.ENCRYPTION_SALT_ROUNDS) || 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error as Error);
+  }
+});
 
 const UserModel =
   mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
