@@ -2,15 +2,29 @@
 import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 
+export enum VendorStatus {
+  PENDING = "pending",
+  APPROVED = "approved",
+  REJECTED = "rejected",
+}
+
 export interface IVendor extends IBaseModel {
   email: string;
   isVerified: boolean;
   password: string;
   companyName: string;
-  // docuements: string[];
-  logo: URL;
-  taxCard: URL;
+  docuements: string;
+  logo: string;
+  taxCard: string;
   requests?: string[];
+  status: VendorStatus;
+  // bazaar type ?
+  boothSize?: number;
+  boothLocation?: string;
+  boothStartTime?: Date;
+  boothEndTime?: Date;
+  NamesOfMembers?: string; // A URL to a document containing the names of members
+  LoyltyForum: string; // URL containing the forum link
 }
 const vendorSchema = new Schema<IVendor>(
   {
@@ -18,10 +32,21 @@ const vendorSchema = new Schema<IVendor>(
     isVerified: { type: Boolean, default: false },
     password: { type: String, required: true },
     companyName: { type: String, required: true },
-    // docuements: [{ type: String }],
-    logo: { type: URL, required: true },
-    taxCard: { type: URL, required: true },
+    docuements: { type: String, required: true },
+    logo: { type: String, required: true },
+    taxCard: { type: String, required: true },
     requests: [{ type: String }],
+    status: {
+      type: String,
+      enum: Object.values(VendorStatus),
+      default: VendorStatus.PENDING,
+    },
+    boothSize: { type: Number },
+    boothLocation: { type: String },
+    boothStartTime: { type: Date },
+    boothEndTime: { type: Date },
+    NamesOfMembers: { type: String }, // URL
+    LoyltyForum: { type: String, required: true }, // URL
   },
   { timestamps: true }
 );

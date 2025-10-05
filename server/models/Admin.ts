@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 
 export interface IAdmin extends IBaseModel {
+  // could maybe be under users?
   firstName: string;
   lastName: string;
   email: string;
