@@ -26,6 +26,6 @@ const vendorSchema = new Schema<IVendor>(
   { timestamps: true }
 );
 const vendorModel =
-  mongoose.models.User || mongoose.model<IVendor>("User", vendorSchema);
+  mongoose.models.Vendor || mongoose.model<IVendor>("Vendor", vendorSchema);
 
 export default vendorModel;
