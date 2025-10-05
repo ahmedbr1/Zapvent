@@ -1,6 +1,7 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Schema } from "mongoose";
+import { IBaseModel } from "./BaseModel";
 
-export interface IEvent extends Document {
+export interface IEvent extends IBaseModel {
   title: string;
   description: string;
   date: Date;
@@ -19,3 +20,4 @@ const EventSchema = new Schema<IEvent>(
 );
 const EventModel =
   mongoose.models.Event || mongoose.model<IEvent>("Event", EventSchema);
+export default EventModel;

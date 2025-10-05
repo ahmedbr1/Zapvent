@@ -1,8 +1,8 @@
 // Vendors need to be verified
-import mongoose, { Document, Schema } from "mongoose";
-import { Url } from "next/dist/shared/lib/router/router";
+import mongoose, { Schema } from "mongoose";
+import { IBaseModel } from "./BaseModel";
 
-export interface IVendor extends Document {
+export interface IVendor extends IBaseModel {
   email: string;
   isVerified: boolean;
   password: string;

@@ -1,6 +1,7 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Schema } from "mongoose";
+import { IBaseModel } from "./BaseModel";
 
-export interface IAdmin extends Document {
+export interface IAdmin extends IBaseModel {
   firstName: string;
   lastName: string;
   email: string;
@@ -19,3 +20,4 @@ const AdminSchema = new Schema<IAdmin>(
 );
 const AdminModel =
   mongoose.models.Admin || mongoose.model<IAdmin>("Admin", AdminSchema);
+export default AdminModel;
