@@ -20,7 +20,6 @@ export interface IUser extends IBaseModel {
   email: string;
   password: string;
   role: userRole;
-  id: string;
   status: userStatus;
   registeredEvents?: string[];
   balance?: number;
@@ -43,7 +42,6 @@ const UserSchema = new Schema<IUser>(
       enum: Object.values(userRole),
       required: true,
     },
-    id: { type: String, required: true, unique: true },
     status: {
       type: String,
       required: true,
