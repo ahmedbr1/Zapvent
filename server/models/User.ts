@@ -28,7 +28,7 @@ export interface IUser extends IBaseModel {
   favorites?: string[];
   notifications?: string[];
   workshops?: string[];
-  registedGymSessions?: string[];
+  registeredGymSessions?: string[];
   reservedCourts?: string[];
 }
 
