@@ -1,6 +1,7 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Schema } from "mongoose";
+import { IBaseModel } from "./BaseModel";
 
-export interface IUser extends Document {
+export interface IUser extends IBaseModel {
   name: string;
   email: string;
 }
