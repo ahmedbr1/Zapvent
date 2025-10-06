@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"next dev\" \"npm:dev:server\"",
     "dev:server": "tsx watch server/server.ts",
-    "build": "next build && tsc -p tsconfig.server.json",
+    "build": "next build && tsc -p tsconfig.json",
     "start": "concurrently \"next start\" \"node dist-server/server.js\"",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0"
   },
