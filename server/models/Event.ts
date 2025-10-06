@@ -2,8 +2,8 @@ import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 
 export enum Location {
-  GUCCairo = "GUC Cairo",
-  GUCBERLIN = "GUC Berlin",
+  GUCCAIRO = "GUC Cairo",
+  GUCCBERLIN = "GUC Berlin",
 }
 export enum Faculty {
   // can be added to later
@@ -13,8 +13,8 @@ export enum Faculty {
   ARCH = "ARCH",
   BI = "BI",
   CIVIL = "Civil",
-  DENTISRTY = "Dentistry",
-  Pharmacy = "Pharmacy",
+  DENTISTRY = "Dentistry",
+  PHARMACY = "Pharmacy",
 }
 export enum FundingSource {
   EXTERNAL = "External",
@@ -30,17 +30,17 @@ export interface IEvent extends IBaseModel {
   capacity?: number; // workshops and trips only
   startDate: Date;
   endDate: Date;
-  registerationDeadline: Date;
+  registrationDeadline: Date;
   price?: number; //trips only
   fullAgenda?: string; // A URL to a document containing the full agenda maybe?
   faculty?: Faculty; // Only for workshops
   requiredBudget?: number; // For conferences and workshops only
-  ParticipatingProfessors?: string[]; // List of professor pr professor IDs
+  participatingProfessors?: string[]; // List of professor pr professor IDs
   fundingSource: FundingSource;
-  WebsiteLink?: string; // Only for conferences
+  websiteLink?: string; // Only for conferences
   revenue: number;
   archived: boolean;
-  registedUsers: string[]; // List of users
+  registeredUsers: string[]; // List of users
 }
 const EventSchema = new Schema<IEvent>(
   {
@@ -55,7 +55,7 @@ const EventSchema = new Schema<IEvent>(
     capacity: { type: Number },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
-    registerationDeadline: { type: Date, required: true },
+    registrationDeadline: { type: Date, required: true },
     price: { type: Number },
     fullAgenda: { type: String }, // URL
     faculty: {
@@ -63,16 +63,16 @@ const EventSchema = new Schema<IEvent>(
       enum: Object.values(Faculty),
     },
     requiredBudget: { type: Number },
-    ParticipatingProfessors: [{ type: String }],
+    participatingProfessors: [{ type: String }],
     fundingSource: {
       type: String,
       enum: Object.values(FundingSource),
       required: true,
     },
-    WebsiteLink: { type: String }, // URL
+    websiteLink: { type: String }, // URL
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
-    registedUsers: [{ type: String }],
+    registeredUsers: [{ type: String }],
   },
   { timestamps: true }
 );
