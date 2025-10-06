@@ -2,6 +2,7 @@
   "name": "zapvent",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "concurrently \"next dev\" \"npm:dev:server\"",
     "dev:server": "ts-node-dev --respawn --transpile-only server/server.ts",
@@ -22,6 +23,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^20.19.19",
     "@types/react": "^19",
