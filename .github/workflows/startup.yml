@@ -29,7 +29,17 @@ jobs:
             - name: Build Next.js app
               run: npm run build
 
-            - name: Test server startup
+            - name: Test server startup (Unix)
+              if: runner.os != 'Windows'
               run: |
                   timeout 5s npm run dev:server || true
                   echo "Server startup test completed"
+
+            - name: Test server startup (Windows)
+              if: runner.os == 'Windows'
+              run: |
+                  Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "run", "dev:server"
+                  Start-Sleep -Seconds 5
+                  Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                  Write-Output "Server startup test completed"
+              shell: powershell
