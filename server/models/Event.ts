@@ -30,7 +30,21 @@ export interface IEvent extends IBaseModel {
   capacity?: number; // workshops and trips only
   startDate: Date;
   endDate: Date;
-  registerationDeadline: Date;
+// In server/models/Event.ts
+
+// … within the IEvent interface (around line 33)
+interface IEvent {
+  // … other fields …
+  registrationDeadline: Date;
+  // … other fields …
+}
+
+// … later, in the Mongoose schema definition (around line 58)
+const EventSchema = new Schema({
+  // … other schema fields …
+    registrationDeadline: { type: Date, required: true },
+  // … other schema fields …
+});
   price?: number; //trips only
   fullAgenda?: string; // A URL to a document containing the full agenda maybe?
   faculty?: Faculty; // Only for workshops
