@@ -7,13 +7,13 @@ export interface IDurationRange {
 }
 
 export interface IVendorVote {
-  vendor: mongoose.Types.ObjectId;   // reference to Vendor._id
+  vendor: mongoose.Types.ObjectId;   
   votes: number;
 }
 
 export interface IPoll extends IBaseModel {
   boothName: string;
-  durations: IDurationRange[];       // list of time ranges
+  durations: IDurationRange[];       
   vendorsWithVotes: IVendorVote[];
 }
 

@@ -1,0 +1,39 @@
+import mongoose, { Schema } from "mongoose";
+import { IBaseModel } from "./BaseModel";
+
+
+
+export enum GymSessionType {
+  YOGA = "Yoga",
+  CARDIO = "Cardio",
+  STRENGTH = "Strength",
+  PILATES = "Pilates",
+  CROSSFIT = "CrossFit",
+}
+//assumption Date and time are separated
+export interface IGymSession extends IBaseModel {
+  date: Date;                
+  time: Date;              
+  duration: number;          
+  type: GymSessionType;              
+  maxParticipants: number;  
+}
+
+
+const GymSessionSchema = new Schema<IGymSession>(
+  {
+    date: { type: Date, required: true },
+    time: { type: Date, required: true },
+    duration: { type: Number, required: true, min: 1 },
+    type: { type: String, enum: Object.values(GymSessionType), required: true },
+    maxParticipants: { type: Number, required: true, min: 1 },
+  },
+  { timestamps: true }
+);
+
+
+const GymSessionModel =
+  mongoose.models.GymSession ||
+  mongoose.model<IGymSession>("GymSession", GymSessionSchema);
+
+export default GymSessionModel;
