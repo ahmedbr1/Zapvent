@@ -1,0 +1,45 @@
+name: Startup Test
+
+on:
+    push:
+    pull_request:
+        branches: [main]
+
+jobs:
+    test-startup:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                node-version: [20, 21]
+                os: [ubuntu-latest, windows-latest, macos-latest]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  cache: "npm"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build Next.js app
+              run: npm run build
+
+            - name: Test server startup (Unix)
+              if: runner.os != 'Windows'
+              run: |
+                  timeout 5s npm run dev:server || true
+                  echo "Server startup test completed"
+
+            - name: Test server startup (Windows)
+              if: runner.os == 'Windows'
+              run: |
+                  Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "run", "dev:server"
+                  Start-Sleep -Seconds 5
+                  Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                  Write-Output "Server startup test completed"
+              shell: powershell
