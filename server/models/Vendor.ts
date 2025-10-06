@@ -14,7 +14,19 @@ export interface IVendor extends IBaseModel {
   isVerified: boolean;
   password: string;
   companyName: string;
-  docuements: string;
+// server/models/Vendor.ts
+
+export interface IVendor {
+  // … other fields …
+  documents: string;
+  // … other fields …
+}
+
+const vendorSchema = new mongoose.Schema({
+  // … other fields …
+  documents: { type: String, required: true },
+  // … other fields …
+});
   logo: string;
   taxCard: string;
   requests?: string[];
