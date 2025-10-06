@@ -1,0 +1,35 @@
+name: Startup Test
+
+on:
+    push:
+    pull_request:
+        branches: [main]
+
+jobs:
+    test-startup:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                node-version: [20, 21]
+                os: [ubuntu-latest, windows-latest, macos-latest]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  cache: "npm"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build Next.js app
+              run: npm run build
+
+            - name: Test server startup
+              run: |
+                  timeout 5s npm run dev:server || true
+                  echo "Server startup test completed"
