@@ -13,7 +13,7 @@ export enum Faculty {
   ARCH = "ARCH",
   BI = "BI",
   CIVIL = "Civil",
-  DENTISRTY = "Dentistry",
+  DENTISTRY = "Dentistry",
   Pharmacy = "Pharmacy",
 }
 export enum FundingSource {
