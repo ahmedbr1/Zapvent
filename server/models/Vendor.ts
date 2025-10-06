@@ -24,8 +24,8 @@ export interface IVendor extends IBaseModel {
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;
-  NamesOfMembers?: string; // A URL to a document containing the names of members
-  LoyltyForum: string; // URL containing the forum link
+  namesOfMembers?: string; // A URL to a document containing the names of members
+  loyaltyForum: string; // URL containing the forum link
 }
 const vendorSchema = new Schema<IVendor>(
   {
@@ -46,8 +46,8 @@ const vendorSchema = new Schema<IVendor>(
     boothLocation: { type: String },
     boothStartTime: { type: Date },
     boothEndTime: { type: Date },
-    NamesOfMembers: { type: String }, // URL
-    LoyltyForum: { type: String, required: true }, // URL
+    namesOfMembers: { type: String }, // URL
+    loyaltyForum: { type: String, required: true }, // URL
   },
   { timestamps: true }
 );
