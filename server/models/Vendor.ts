@@ -36,8 +36,9 @@ const vendorSchema = new mongoose.Schema({
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;
-  NamesOfMembers?: string; // A URL to a document containing the names of members
-  LoyltyForum: string; // URL containing the forum link
+  // In the IVendor interface (around lines 27–28)
+  namesOfMembers?: string; // A URL to a document containing the names of members
+  loyaltyForum: string;    // URL containing the forum link
 }
 const vendorSchema = new Schema<IVendor>(
   {
