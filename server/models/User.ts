@@ -54,7 +54,7 @@ const UserSchema = new Schema<IUser>(
     favorites: [{ type: String }],
     notifications: [{ type: String }],
     workshops: [{ type: String }],
-    registedGymSessions: [{ type: String }],
+    registeredGymSessions: [{ type: String }],
     reservedCourts: [{ type: String }],
   },
   { timestamps: true }

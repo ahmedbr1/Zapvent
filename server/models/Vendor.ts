@@ -31,7 +31,7 @@ const vendorSchema = new Schema<IVendor>(
   {
     email: { type: String, required: true, unique: true },
     isVerified: { type: Boolean, default: false },
-    password: { type: String, required: true },
+    password: { type: String, required: true, select: false },
     companyName: { type: String, required: true },
     docuements: { type: String, required: true },
     logo: { type: String, required: true },
@@ -60,6 +60,18 @@ vendorSchema.pre("save", async function (next) {
     next();
   } catch (err) {
     next(err as Error);
+  }
+});
+vendorSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+
+  try {
+    const saltRounds = Number(process.env.ENCRYPTION_SALT_ROUNDS) || 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error as Error);
   }
 });
 
