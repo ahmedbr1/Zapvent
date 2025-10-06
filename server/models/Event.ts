@@ -22,7 +22,7 @@ export enum FundingSource {
 }
 
 export interface IEvent extends IBaseModel {
-  // Event type? workshop, seminar, etc. Not decied yet
+  // Event type? workshop, seminar, etc. Not decided yet
   name: string;
   description: string;
   date: Date;
