@@ -17,6 +17,12 @@ export async function userLoginController(req: Request, res: Response) {
       return res.status(401).json(result);
     }
 
+    res.cookie("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
     return res.status(200).json(result);
   } catch (error) {
     console.error("User login controller error:", error);
@@ -44,6 +50,12 @@ export async function adminLoginController(req: Request, res: Response) {
       return res.status(401).json(result);
     }
 
+    res.cookie("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
     return res.status(200).json(result);
   } catch (error) {
     console.error("Admin login controller error:", error);
@@ -70,6 +82,12 @@ export async function vendorLoginController(req: Request, res: Response) {
       return res.status(401).json(result);
     }
 
+    res.cookie("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
     return res.status(200).json(result);
   } catch (error) {
     console.error("Vendor login controller error:", error);
