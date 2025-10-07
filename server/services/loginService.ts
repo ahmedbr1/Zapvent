@@ -289,7 +289,7 @@ export function verifyToken(token: string): string | jwt.JwtPayload | null {
     const decoded = jwt.verify(token, JWT_SECRET);
     return decoded;
   } catch (error) {
-    console.error("An error occured while verifying the token:", error);
+    console.error("An error occurred while verifying the token:", error);
     return null;
   }
 }
