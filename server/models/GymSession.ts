@@ -17,6 +17,7 @@ export interface IGymSession extends IBaseModel {
   duration: number;          
   type: GymSessionType;              
   maxParticipants: number;  
+  registeredUsers: string[];
 }
 
 
@@ -27,6 +28,7 @@ const GymSessionSchema = new Schema<IGymSession>(
     duration: { type: Number, required: true, min: 1 },
     type: { type: String, enum: Object.values(GymSessionType), required: true },
     maxParticipants: { type: Number, required: true, min: 1 },
+    registeredUsers: [{ type: String }],
   },
   { timestamps: true }
 );
