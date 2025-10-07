@@ -6,8 +6,9 @@ import VendorModel from "../models/Vendor";
 
 const JWT_SECRET: string =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
-const JWT_EXPIRES_IN: number =
-  parseInt(process.env.JWT_EXPIRES_IN!) || 3600 * 24;
+const JWT_EXPIRES_IN: number = process.env.JWT_EXPIRES_IN
+  ? parseInt(process.env.JWT_EXPIRES_IN, 10)
+  : 3600 * 24;
 
 // Base login response
 interface BaseLoginResponse {
@@ -288,7 +289,7 @@ export function verifyToken(token: string): string | jwt.JwtPayload | null {
     });
     return decoded;
   } catch (error) {
-    console.error("An error occured while verifying the token:", error);
+    console.error("An error occurred while verifying the token:", error);
     return null;
   }
 }
