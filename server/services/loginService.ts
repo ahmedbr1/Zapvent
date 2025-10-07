@@ -1,35 +1,81 @@
 import bcrypt from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
-import AdminModel, { IAdmin } from "../models/Admin";
-import UserModel, { IUser } from "../models/User";
-import VendorModel, { IVendor } from "../models/Vendor";
+import AdminModel from "../models/Admin";
+import UserModel from "../models/User";
+import VendorModel from "../models/Vendor";
 
 const JWT_SECRET: string =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
 const JWT_EXPIRES_IN: number =
   parseInt(process.env.JWT_EXPIRES_IN!) || 3600 * 24;
 
-interface LoginResponse {
+// Base login response
+interface BaseLoginResponse {
   success: boolean;
-  token?: string;
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    [key: string]: any;
-  };
   message?: string;
 }
 
-async function login(
-  model: typeof UserModel | typeof AdminModel | typeof VendorModel,
+// Specific response types for each user type
+interface UserLoginSuccess extends BaseLoginResponse {
+  success: true;
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    role: "User";
+    firstName: string;
+    lastName: string;
+    userRole: string;
+    status: string;
+    verified: boolean;
+    balance?: number;
+  };
+}
+
+interface AdminLoginSuccess extends BaseLoginResponse {
+  success: true;
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    role: "Admin";
+    firstName: string;
+    lastName: string;
+    status: string;
+  };
+}
+
+interface VendorLoginSuccess extends BaseLoginResponse {
+  success: true;
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    role: "Vendor";
+    companyName: string;
+    isVerified: boolean;
+    status: string;
+    logo: string;
+  };
+}
+
+interface LoginFailure extends BaseLoginResponse {
+  success: false;
+  message: string;
+}
+
+type UserLoginResponse = UserLoginSuccess | LoginFailure;
+type AdminLoginResponse = AdminLoginSuccess | LoginFailure;
+type VendorLoginResponse = VendorLoginSuccess | LoginFailure;
+
+// User login
+export async function loginUser(
   email: string,
-  password: string,
-  modelType: "User" | "Admin" | "Vendor"
-): Promise<LoginResponse> {
+  password: string
+): Promise<UserLoginResponse> {
   try {
     // Find user by email and explicitly select password field
-    const user = await model.findOne({ email }).select("+password");
+    const user = await UserModel.findOne({ email }).select("+password");
 
     if (!user) {
       return {
@@ -38,28 +84,12 @@ async function login(
       };
     }
 
-    // Check if user is blocked (for User and Admin)
-    if (modelType !== "Vendor" && user.status === "Blocked") {
+    // Check if user is blocked
+    if (user.status === "Blocked") {
       return {
         success: false,
         message: "Account is blocked. Please contact support.",
       };
-    }
-
-    // Check vendor verification status
-    if (modelType === "Vendor") {
-      if (!user.isVerified) {
-        return {
-          success: false,
-          message: "Vendor account is not verified yet.",
-        };
-      }
-      if (user.status !== "approved") {
-        return {
-          success: false,
-          message: `Vendor account is ${user.status}. Please contact support.`,
-        };
-      }
     }
 
     // Verify password
@@ -76,8 +106,8 @@ async function login(
     const payload = {
       id: user._id,
       email: user.email,
-      role: modelType,
-      ...(modelType === "User" && { userRole: user.role }),
+      role: "User" as const,
+      userRole: user.role,
     };
 
     const signOptions: SignOptions = {
@@ -86,42 +116,23 @@ async function login(
 
     const token = jwt.sign(payload, JWT_SECRET, signOptions);
 
-    // Prepare user response (exclude password)
-    const userResponse: any = {
-      id: user._id,
-      email: user.email,
-      role: modelType,
-    };
-
-    // Add model-specific fields
-    if (modelType === "User") {
-      const u = user as IUser;
-      userResponse.firstName = u.firstName;
-      userResponse.lastName = u.lastName;
-      userResponse.userRole = u.role;
-      userResponse.status = u.status;
-      userResponse.verified = u.verified;
-      userResponse.balance = u.balance;
-    } else if (modelType === "Admin") {
-      const a = user as IAdmin;
-      userResponse.firstName = a.firstName;
-      userResponse.lastName = a.lastName;
-      userResponse.status = a.status;
-    } else if (modelType === "Vendor") {
-      const v = user as IVendor;
-      userResponse.companyName = v.companyName;
-      userResponse.isVerified = v.isVerified;
-      userResponse.status = v.status;
-      userResponse.logo = v.logo;
-    }
-
     return {
       success: true,
       token,
-      user: userResponse,
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        role: "User",
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userRole: user.role,
+        status: user.status,
+        verified: user.verified,
+        balance: user.balance,
+      },
     };
   } catch (error) {
-    console.error(`${modelType} login error:`, error);
+    console.error("User login error:", error);
     return {
       success: false,
       message: "An error occurred during login. Please try again.",
@@ -129,32 +140,156 @@ async function login(
   }
 }
 
-export async function loginUser(
-  email: string,
-  password: string
-): Promise<LoginResponse> {
-  return login(UserModel, email, password, "User");
-}
-
+// Admin login
 export async function loginAdmin(
   email: string,
   password: string
-): Promise<LoginResponse> {
-  return login(AdminModel, email, password, "Admin");
+): Promise<AdminLoginResponse> {
+  try {
+    // Find admin by email and explicitly select password field
+    const admin = await AdminModel.findOne({ email }).select("+password");
+
+    if (!admin) {
+      return {
+        success: false,
+        message: "Invalid email or password",
+      };
+    }
+
+    // Check if admin is blocked
+    if (admin.status === "Blocked") {
+      return {
+        success: false,
+        message: "Account is blocked. Please contact support.",
+      };
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+
+    if (!isPasswordValid) {
+      return {
+        success: false,
+        message: "Invalid email or password",
+      };
+    }
+
+    // Generate JWT token
+    const payload = {
+      id: admin._id,
+      email: admin.email,
+      role: "Admin" as const,
+    };
+
+    const signOptions: SignOptions = {
+      expiresIn: JWT_EXPIRES_IN,
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, signOptions);
+
+    return {
+      success: true,
+      token,
+      user: {
+        id: admin._id.toString(),
+        email: admin.email,
+        role: "Admin",
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        status: admin.status,
+      },
+    };
+  } catch (error) {
+    console.error("Admin login error:", error);
+    return {
+      success: false,
+      message: "An error occurred during login. Please try again.",
+    };
+  }
 }
 
+// Vendor login
 export async function loginVendor(
   email: string,
   password: string
-): Promise<LoginResponse> {
-  return login(VendorModel, email, password, "Vendor");
+): Promise<VendorLoginResponse> {
+  try {
+    // Find vendor by email and explicitly select password field
+    const vendor = await VendorModel.findOne({ email }).select("+password");
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Invalid email or password",
+      };
+    }
+
+    // Check vendor verification status
+    if (!vendor.isVerified) {
+      return {
+        success: false,
+        message: "Vendor account is not verified yet.",
+      };
+    }
+
+    if (vendor.status !== "approved") {
+      return {
+        success: false,
+        message: `Vendor account is ${vendor.status}. Please contact support.`,
+      };
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, vendor.password);
+
+    if (!isPasswordValid) {
+      return {
+        success: false,
+        message: "Invalid email or password",
+      };
+    }
+
+    // Generate JWT token
+    const payload = {
+      id: vendor._id,
+      email: vendor.email,
+      role: "Vendor" as const,
+    };
+
+    const signOptions: SignOptions = {
+      expiresIn: JWT_EXPIRES_IN,
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, signOptions);
+
+    return {
+      success: true,
+      token,
+      user: {
+        id: vendor._id.toString(),
+        email: vendor.email,
+        role: "Vendor",
+        companyName: vendor.companyName,
+        isVerified: vendor.isVerified,
+        status: vendor.status,
+        logo: vendor.logo,
+      },
+    };
+  } catch (error) {
+    console.error("Vendor login error:", error);
+    return {
+      success: false,
+      message: "An error occurred during login. Please try again.",
+    };
+  }
 }
 
-export function verifyToken(token: string): any {
+export function verifyToken(token: string): string | jwt.JwtPayload | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    return { success: true, decoded };
+    return decoded;
   } catch (error) {
-    return { success: false, message: "Invalid or expired token" };
+    console.error("An error occured while verifying the token:", error);
+    return null;
   }
 }
