@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import jwt, { SignOptions } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import AdminModel from "../models/Admin";
 import UserModel from "../models/User";
 import VendorModel from "../models/Vendor";
@@ -110,11 +110,10 @@ export async function loginUser(
       userRole: user.role,
     };
 
-    const signOptions: SignOptions = {
+    const token = jwt.sign(payload, JWT_SECRET, {
+      algorithm: "HS256",
       expiresIn: JWT_EXPIRES_IN,
-    };
-
-    const token = jwt.sign(payload, JWT_SECRET, signOptions);
+    });
 
     return {
       success: true,
@@ -181,11 +180,10 @@ export async function loginAdmin(
       role: "Admin" as const,
     };
 
-    const signOptions: SignOptions = {
+    const token = jwt.sign(payload, JWT_SECRET, {
+      algorithm: "HS256",
       expiresIn: JWT_EXPIRES_IN,
-    };
-
-    const token = jwt.sign(payload, JWT_SECRET, signOptions);
+    });
 
     return {
       success: true,
@@ -256,11 +254,10 @@ export async function loginVendor(
       role: "Vendor" as const,
     };
 
-    const signOptions: SignOptions = {
+    const token = jwt.sign(payload, JWT_SECRET, {
+      algorithm: "HS256",
       expiresIn: JWT_EXPIRES_IN,
-    };
-
-    const token = jwt.sign(payload, JWT_SECRET, signOptions);
+    });
 
     return {
       success: true,
@@ -286,7 +283,9 @@ export async function loginVendor(
 
 export function verifyToken(token: string): string | jwt.JwtPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: ["HS256"],
+    });
     return decoded;
   } catch (error) {
     console.error("An error occured while verifying the token:", error);
