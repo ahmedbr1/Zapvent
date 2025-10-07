@@ -21,6 +21,8 @@ export interface IUser extends IBaseModel {
   password: string;
   role: userRole;
   status: userStatus;
+  studentId?: string;
+  staffId?: string;
   registeredEvents?: string[];
   balance?: number;
   verified: boolean;
@@ -47,6 +49,22 @@ const UserSchema = new Schema<IUser>(
       required: true,
       enum: Object.values(userStatus),
       default: userStatus.ACTIVE,
+    },
+    studentId?: { 
+      type: String, 
+      unique: true, 
+      sparse: true,
+      required: function(this: IUser) { 
+        return this.role === userRole.STUDENT; 
+      }
+    },
+    staffId?: { 
+      type: String, 
+      unique: true, 
+      sparse: true,
+      required: function(this: IUser) { 
+        return [userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(this.role);
+      }
     },
     registeredEvents: [{ type: String }],
     balance: { type: Number, default: 0 },
