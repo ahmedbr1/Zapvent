@@ -1,9 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "your-secret-key-change-in-production";
+// Replace the default-fallback with a fail-fast check
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET is required for authentication");
+}
 
+const JWT_SECRET = process.env.JWT_SECRET;
 export type UserRole = "User" | "Admin" | "Vendor";
 
 export interface AuthRequest extends Request {
