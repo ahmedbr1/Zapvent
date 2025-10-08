@@ -1,9 +1,15 @@
 import { Request, Response } from "express";
 import { loginUser, loginAdmin, loginVendor } from "../services/loginService";
 
-const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN
-  ? parseInt(process.env.JWT_EXPIRES_IN) * 1000 // Convert seconds to milliseconds
-  : 24 * 60 * 60 * 1000; // Default to 24 hours in milliseconds
+const TOKEN_EXPIRY = (() => {
+  const raw = process.env.JWT_EXPIRES_IN;
+  if (!raw) return 24 * 60 * 60 * 1000;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error("JWT_EXPIRES_IN must be a positive number (seconds)");
+  }
+  return value * 1000;
+})();
 
 export async function userLoginController(req: Request, res: Response) {
   try {
