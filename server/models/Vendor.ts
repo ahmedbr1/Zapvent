@@ -11,14 +11,14 @@ export enum VendorStatus {
 
 export interface IVendor extends IBaseModel {
   email: string;
-  isVerified: boolean;
+  isVerified?: boolean;
   password: string;
   companyName: string;
-  docuements: string;
-  logo: string;
-  taxCard: string;
+  documents?: string;
+  logo?: string;
+  taxCard?: string;
   requests?: string[];
-  status: VendorStatus;
+  status?: VendorStatus;
   // bazaar type ?
   boothSize?: number;
   boothLocation?: string;
@@ -31,11 +31,11 @@ const vendorSchema = new Schema<IVendor>(
   {
     email: { type: String, required: true, unique: true },
     isVerified: { type: Boolean, default: false },
-    password: { type: String, required: true, select: false },
+    password: { type: String, select: false },
     companyName: { type: String, required: true },
-    docuements: { type: String, required: true },
-    logo: { type: String, required: true },
-    taxCard: { type: String, required: true },
+    documents: { type: String },
+    logo: { type: String },
+    taxCard: { type: String},
     requests: [{ type: String }],
     status: {
       type: String,
@@ -47,7 +47,7 @@ const vendorSchema = new Schema<IVendor>(
     boothStartTime: { type: Date },
     boothEndTime: { type: Date },
     namesOfMembers: { type: String }, // URL
-    loyaltyForum: { type: String, required: true }, // URL
+    loyaltyForum: { type: String}, // URL
   },
   { timestamps: true }
 );
