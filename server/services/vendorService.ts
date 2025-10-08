@@ -1,4 +1,4 @@
-import vendorModel from "../models/Vendor";
+import vendorModel, { IVendor } from "../models/Vendor";  
 import { z } from "zod";
 
 // Zod schema for vendor signup validation
@@ -23,7 +23,7 @@ export async function findAll() {
   return vendorModel.find().lean();
 }
 
-export async function create(data: any) {
+export async function create(data: Partial<IVendor>) {
   const doc = new vendorModel(data);
   return doc.save();
 }
