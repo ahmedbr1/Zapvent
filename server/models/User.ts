@@ -50,7 +50,7 @@ const UserSchema = new Schema<IUser>(
       enum: Object.values(userStatus),
       default: userStatus.ACTIVE,
     },
-    studentId?: { 
+    studentId: { 
       type: String, 
       unique: true, 
       sparse: true,
@@ -58,7 +58,7 @@ const UserSchema = new Schema<IUser>(
         return this.role === userRole.STUDENT; 
       }
     },
-    staffId?: { 
+    staffId: { 
       type: String, 
       unique: true, 
       sparse: true,
