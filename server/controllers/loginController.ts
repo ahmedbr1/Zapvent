@@ -1,6 +1,16 @@
 import { Request, Response } from "express";
 import { loginUser, loginAdmin, loginVendor } from "../services/loginService";
 
+const TOKEN_EXPIRY = (() => {
+  const raw = process.env.JWT_EXPIRES_IN;
+  if (!raw) return 24 * 60 * 60 * 1000;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error("JWT_EXPIRES_IN must be a positive number (seconds)");
+  }
+  return value * 1000;
+})();
+
 export async function userLoginController(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
@@ -17,6 +27,12 @@ export async function userLoginController(req: Request, res: Response) {
       return res.status(401).json(result);
     }
 
+    res.cookie("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: TOKEN_EXPIRY,
+    });
     return res.status(200).json(result);
   } catch (error) {
     console.error("User login controller error:", error);
@@ -44,6 +60,12 @@ export async function adminLoginController(req: Request, res: Response) {
       return res.status(401).json(result);
     }
 
+    res.cookie("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: TOKEN_EXPIRY,
+    });
     return res.status(200).json(result);
   } catch (error) {
     console.error("Admin login controller error:", error);
@@ -70,6 +92,12 @@ export async function vendorLoginController(req: Request, res: Response) {
       return res.status(401).json(result);
     }
 
+    res.cookie("token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: TOKEN_EXPIRY,
+    });
     return res.status(200).json(result);
   } catch (error) {
     console.error("Vendor login controller error:", error);
