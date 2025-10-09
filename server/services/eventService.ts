@@ -17,3 +17,30 @@ export const editBazaarDetails = async (
     throw error;
   }
 };
+
+export const createTrip = async (
+  tripData: Partial<IEvent>
+): Promise<IEvent | null> => {
+  try {
+    const newTrip = await eventModel.create(tripData);
+    return newTrip;
+  } catch (error) {
+    console.error("Error creating trip:", error);
+    throw error;
+  }
+};
+
+export const editTripDetails = async (
+  tripId: string,
+  updateData: Partial<IEvent>
+): Promise<IEvent | null> => {
+  try {
+    const updatedTrip = await eventModel.findByIdAndUpdate(tripId, updateData, {
+      new: true,
+    });
+    return updatedTrip;
+  } catch (error) {
+    console.error("Error updating trip:", error);
+    throw error;
+  }
+};
