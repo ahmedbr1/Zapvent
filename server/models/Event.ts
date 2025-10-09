@@ -41,6 +41,7 @@ export interface IEvent extends IBaseModel {
   revenue: number;
   archived: boolean;
   registeredUsers: string[]; // List of users
+  vendors: string[]; // List of vendors
 }
 const EventSchema = new Schema<IEvent>(
   {
@@ -73,6 +74,7 @@ const EventSchema = new Schema<IEvent>(
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
     registeredUsers: [{ type: String }],
+    vendors: [{ type: String }]
   },
   { timestamps: true }
 );
