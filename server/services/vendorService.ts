@@ -2,7 +2,7 @@ import vendorModel, { IVendor } from "../models/Vendor";
 import { z } from "zod";
 
 // Zod schema for vendor signup validation
-export const VendorSignupSchema = z.object({
+export const vendorSignupSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }).trim(),
   password: z.string()
     .min(8, { message: 'Password must be at least 8 characters long' })
@@ -17,7 +17,7 @@ export const VendorSignupSchema = z.object({
     .trim(),
 });
 
-export type VendorSignupData = z.infer<typeof VendorSignupSchema>;
+export type vendorSignupData = z.infer<typeof vendorSignupSchema>;
 
 export async function findAll() {
   return vendorModel.find().lean();
@@ -29,9 +29,9 @@ export async function create(data: Partial<IVendor>) {
 }
 
 // Vendor signup service function
-export async function signup(vendorData: VendorSignupData) {
+export async function signup(vendorData: vendorSignupData) {
   // Validate with Zod
-  const validatedData = VendorSignupSchema.parse(vendorData);
+  const validatedData = vendorSignupSchema.parse(vendorData);
   
   // Create vendor with default values for required fields
   const vendorDataWithDefaults = {
@@ -48,6 +48,7 @@ export async function signup(vendorData: VendorSignupData) {
   await vendor.save();
   
   // Return vendor without password
-  const { password, ...vendorWithoutPassword } = vendor.toObject();
+  const vendorWithoutPassword = vendor.toObject();
+  delete (vendorWithoutPassword as Partial<IVendor>).password;
   return vendorWithoutPassword;
 }

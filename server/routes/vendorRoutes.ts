@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { vendorSignup } from "../controllers/vendorController";
+import { vendorControllerInstance } from "../controllers/vendorController"; // Import instance
 
 const router = Router();
 
-router.post("/signUp", vendorSignup);
+router.post("/signUp", vendorControllerInstance.vendorSignup.bind(vendorControllerInstance));
 
 export default router;

@@ -1,13 +1,11 @@
-import UserModel, { userRole, IUser } from "../models/User";
+import UserModel, { IUser } from "../models/User";
 import { z } from "zod";
 
 export async function findAll() {
   return UserModel.find().lean();
 }
 
-// TODO: Replace 'any' with a proper type/interface for user data
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function create(data: any) {
+export async function create(data: Partial<IUser>) {
   const doc = new UserModel(data);
   return doc.save();
 }
@@ -72,6 +70,7 @@ export async function signup(userData: SignupData) {
   await user.save();
   
   // Return user without password
-  const { password, ...userWithoutPassword } = user.toObject();
+  const userWithoutPassword = user.toObject();
+  delete (userWithoutPassword as Partial<IUser>).password;
   return userWithoutPassword;
 }
