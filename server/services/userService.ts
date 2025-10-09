@@ -1,4 +1,4 @@
-import UserModel, { IUser } from "../models/User";
+import UserModel, { IUser, userRole } from "../models/User";
 import { z } from "zod";
 
 export async function findAll() {
@@ -35,12 +35,12 @@ export const SignupSchema = z.object({
     .regex(/[0-9]/, { message: 'Password must contain at least one number.' })
     .regex(/[^a-zA-Z0-9]/, { message: 'Password must contain at least one special character.' })
     .trim(),
-  role: z.enum(["Student", "Staff", "Professor", "TA"], { message: 'Please select a valid role.' }),
+  role: z.enum(userRole, { message: 'Please select a valid role.' }),
   studentId: z.string().optional(),
   staffId: z.string().optional(),
 })
 .refine((data) => {
-  if (data.role === "Student") {
+  if (data.role === userRole.STUDENT) {
     return data.studentId && data.studentId.length > 0;
   }
   return true;
@@ -49,7 +49,7 @@ export const SignupSchema = z.object({
   path: ['studentId']
 })
 .refine((data) => {
-  if (["Staff", "Professor", "TA"].includes(data.role)) {
+  if ([userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(data.role)) {
     return data.staffId && data.staffId.length > 0;
   }
   return true;
@@ -72,5 +72,11 @@ export async function signup(userData: SignupData) {
   // Return user without password
   const userWithoutPassword = user.toObject();
   delete (userWithoutPassword as Partial<IUser>).password;
-  return userWithoutPassword;
+
+  // status message based on role
+  const message = [userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(user.role)
+  ? 'Registration submitted successfully. Your account is pending admin approval.'
+  : 'Registration completed successfully. You can now log in.';
+
+  return { user: userWithoutPassword, message, needsApproval: !user.verified };
 }

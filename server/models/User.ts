@@ -68,7 +68,7 @@ const UserSchema = new Schema<IUser>(
     },
     registeredEvents: [{ type: String }],
     balance: { type: Number, default: 0 },
-    verified: { type: Boolean, default: false },
+    verified: { type: Boolean, default: function() { return this.role === userRole.STUDENT; } },
     favorites: [{ type: String }],
     notifications: [{ type: String }],
     workshops: [{ type: String }],

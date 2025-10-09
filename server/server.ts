@@ -14,7 +14,7 @@ app.use("/api", api);
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
 async function start() {
-  await connectDB("mongodb+srv://ahmedd:ahmed123@acl.llavwvi.mongodb.net/aclDB");
+  await connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/aclDB');
   app.listen(PORT, () => console.log(`✅ API listening on :${PORT}`));
 }
 
