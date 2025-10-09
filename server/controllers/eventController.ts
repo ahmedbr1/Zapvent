@@ -32,12 +32,6 @@ export async function createNewTrip(req: Request, res: Response) {
 
     const result = await createTrip(tripData);
 
-    if (!result) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Failed to create trip" });
-    }
-
     res.status(201).json({ success: true, data: result });
   } catch (error) {
     console.error("Error creating trip:", error);

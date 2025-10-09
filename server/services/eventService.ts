@@ -9,7 +9,7 @@ export const editBazaarDetails = async (
     const updatedEvent = await eventModel.findByIdAndUpdate(
       eventId,
       updateData,
-      { new: true }
+      { new: true, runValidators: true }
     );
     return updatedEvent;
   } catch (error) {
@@ -20,7 +20,7 @@ export const editBazaarDetails = async (
 
 export const createTrip = async (
   tripData: Partial<IEvent>
-): Promise<IEvent | null> => {
+): Promise<IEvent> => {
   try {
     const newTrip = await eventModel.create(tripData);
     return newTrip;
@@ -37,6 +37,7 @@ export const editTripDetails = async (
   try {
     const updatedTrip = await eventModel.findByIdAndUpdate(tripId, updateData, {
       new: true,
+      runValidators: true,
     });
     return updatedTrip;
   } catch (error) {
