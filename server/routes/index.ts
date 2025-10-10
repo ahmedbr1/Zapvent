@@ -5,6 +5,7 @@ import courtRoutes from "./courtRoutes";
 import eventRoutes from "./eventRoutes";
 import gymSessionRoutes from "./gymSessionRoutes";
 
+
 const api = Router();
 api.use("/users", userRoutes);
 api.use("/auth", loginRoutes);
