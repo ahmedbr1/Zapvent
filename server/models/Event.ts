@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
+import e from "express";
 
 export enum Location {
   GUCCAIRO = "GUC Cairo",
@@ -21,9 +22,17 @@ export enum FundingSource {
   GUC = "GUC",
 }
 
+export enum EventType {
+  WORKSHOP = "Workshop",
+  SEMINAR = "Seminar",
+  CONFERENCE = "Conference",
+  TRIP = "Trip",
+}
+
 export interface IEvent extends IBaseModel {
   // Event type? workshop, seminar, etc. Not decided yet
   name: string;
+  eventType: EventType;
   description: string;
   date: Date;
   location: Location; // which hall or online
@@ -51,6 +60,11 @@ const EventSchema = new Schema<IEvent>(
     location: {
       type: String,
       enum: Object.values(Location),
+      required: true,
+    },
+    eventType: {
+      type: String,
+      enum: Object.values(EventType),
       required: true,
     },
     capacity: { type: Number },
