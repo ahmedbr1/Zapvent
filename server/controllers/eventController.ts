@@ -24,7 +24,7 @@ class EventController {
   }
   @LoginRequired()
   @AllowedRoles(["Vendor"])
-  async getUpcomingBazaarsController(req: Request, res: Response) {
+  async getUpcomingBazaarsController(req: AuthRequest, res: Response) {
     try {
       const bazaars = await getUpcomingBazaars();
       res.status(200).json({ success: true, bazaars });
