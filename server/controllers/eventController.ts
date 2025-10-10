@@ -1,5 +1,5 @@
 // server/controllers/eventController.ts
-import type { Response, NextFunction } from "express";
+import type { Response } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 import { deleteEventById } from "../services/eventService";
@@ -7,7 +7,7 @@ import { deleteEventById } from "../services/eventService";
 class eventController {
   @LoginRequired()
   @AllowedRoles(["Admin"]) // should add the 'EventOffice' also
-  async deleteAnyEvent(req: AuthRequest, res: Response, _next: NextFunction) {
+  async deleteAnyEvent(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params as { eventId: string };
       const deleted = await deleteEventById(eventId);
@@ -26,4 +26,5 @@ class eventController {
   }
 }
 
-export default new eventController();
+const EventController = new eventController();
+export default EventController;

@@ -1,21 +1,22 @@
 // server/routes/eventRoutes.ts
-import { Router } from 'express';
-import eventController from '../controllers/eventController';
-import { deleteEventById } from '../services/eventService';
+import { Request, Response, Router } from "express";
+import eventController from "../controllers/eventController";
+import { deleteEventById } from "../services/eventService";
 
 const router = Router();
 
 // quick check route
 router.get("/events/health", (_req, res) => res.json({ ok: true }));
 
- // EventOffice/Admin deletes any event
-  router.delete('/events/:eventId', (req, res, next) =>
-    eventController.deleteAnyEvent(req, res, next)
-  );
+// EventOffice/Admin deletes any event
+router.delete("/events/:eventId", (req, res) =>
+  eventController.deleteAnyEvent(req, res)
+);
 
 // BYPASS AUTH: dev-only hard delete
-router.delete("/events/_debug_hard_delete/:eventId",
-  async (req: any, res) => {
+router.delete(
+  "/events/_debug_hard_delete/:eventId",
+  async (req: Request, res: Response) => {
     try {
       const deleted = await deleteEventById(req.params.eventId);
       if (!deleted) return res.status(404).json({ message: "Not found" });
@@ -29,7 +30,5 @@ router.delete("/events/_debug_hard_delete/:eventId",
     }
   }
 );
-
-
 
 export default router;
