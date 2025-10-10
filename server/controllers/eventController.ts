@@ -28,7 +28,7 @@ class EventController {
     try {
       const bazaars = await getUpcomingBazaars();
       res.status(200).json({ success: true, bazaars });
-    } catch (error) {
+    } catch {
       res
         .status(500)
         .json({ success: false, message: "Internal server error" });
@@ -36,4 +36,5 @@ class EventController {
   }
 }
 
-export default new EventController();
+const eventController = new EventController();
+export default eventController;
