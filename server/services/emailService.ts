@@ -1,7 +1,10 @@
 import { Resend } from 'resend';
 import { IUser } from '../models/User';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 'your-default-key');
+if (!process.env.RESEND_API_KEY) {
+  throw new Error('RESEND_API_KEY environment variable is required');
+}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export class EmailService {
   async sendApprovalEmail(user: IUser) {
@@ -16,8 +19,7 @@ export class EmailService {
             <p>Excellent news! Your <strong>${user.role}</strong> account has been approved by our admin team.</p>
             <p>Your account is now active and you can start using all Zapvent features.</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/login" 
-                 style="background-color: #007cba; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" style="background-color: #007cba; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
                 Login to Your Account
               </a>
             </div>

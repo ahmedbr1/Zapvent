@@ -35,7 +35,7 @@ export const SignupSchema = z.object({
     .regex(/[0-9]/, { message: 'Password must contain at least one number.' })
     .regex(/[^a-zA-Z0-9]/, { message: 'Password must contain at least one special character.' })
     .trim(),
-  role: z.enum(userRole, { message: 'Please select a valid role.' }),
+  role: z.nativeEnum(userRole, { message: 'Please select a valid role.' }),
   studentId: z.string().optional(),
   staffId: z.string().optional(),
 })

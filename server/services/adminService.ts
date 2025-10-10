@@ -51,8 +51,6 @@ export async function rejectUser(userId: string, reason?: string) {
   // Send rejection email before deleting
   await emailService.sendRejectionEmail(user, reason);
 
-  // Delete the rejected user
-  await UserModel.findByIdAndDelete(userId);
 
   return {
     message: 'User rejected and notified successfully',

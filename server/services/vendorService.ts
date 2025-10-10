@@ -44,11 +44,13 @@ export async function signup(vendorData: vendorSignupData) {
     loyaltyForum: ""
   };
   
+
   const vendor = new vendorModel(vendorDataWithDefaults);
   await vendor.save();
-  
+
   // Return vendor without password
   const vendorWithoutPassword = vendor.toObject();
   delete (vendorWithoutPassword as Partial<IVendor>).password;
   return vendorWithoutPassword;
+  
 }
