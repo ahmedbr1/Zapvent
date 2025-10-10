@@ -1,12 +1,12 @@
 // server/services/eventService.ts
-import { Types } from 'mongoose';
-import  Event  from '../models/Event';
-import  Comment  from '../models/Comment';
-import  Rating  from '../models/Rating';
+import { Types } from "mongoose";
+import Event from "../models/Event";
+import Comment from "../models/Comment";
+import Rating from "../models/Rating";
 
 export async function deleteEventById(eventId: string) {
   if (!Types.ObjectId.isValid(eventId)) {
-    throw new Error('INVALID_EVENT_ID');
+    throw new Error("INVALID_EVENT_ID");
   }
 
   const event = await Event.findById(eventId);
