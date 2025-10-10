@@ -21,8 +21,8 @@ router.delete(
       const deleted = await deleteEventById(req.params.eventId);
       if (!deleted) return res.status(404).json({ message: "Not found" });
       return res.status(204).send();
-    } catch (e: any) {
-      if (e?.message === "INVALID_EVENT_ID") {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === "INVALID_EVENT_ID") {
         return res.status(400).json({ message: "Invalid id" });
       }
       console.error(e);

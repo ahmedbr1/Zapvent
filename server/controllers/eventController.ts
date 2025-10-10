@@ -16,8 +16,8 @@ class eventController {
         return res.status(404).json({ message: "Event not found" });
       }
       return res.status(204).send();
-    } catch (err: any) {
-      if (err?.message === "INVALID_EVENT_ID") {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === "INVALID_EVENT_ID") {
         return res.status(400).json({ message: "Invalid event id" });
       }
       console.error(err);
