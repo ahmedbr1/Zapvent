@@ -1,4 +1,4 @@
-import GymSessionModel from "../models/GymSession";
+import GymSessionModel, { IGymSession } from "../models/GymSession";
 
 export async function cancelGymSession(sessionId: string) {
   try {
@@ -21,6 +21,23 @@ export async function cancelGymSession(sessionId: string) {
     return {
       success: false,
       message: "An error occurred while cancelling the gym session.",
+    };
+  }
+}
+
+export async function createGymSession(sessionData: Partial<IGymSession>) {
+  try {
+    const newSession = await GymSessionModel.create(sessionData);
+    return {
+      success: true,
+      message: "Gym session created successfully.",
+      data: newSession,
+    };
+  } catch (error) {
+    console.error("Error creating gym session:", error);
+    return {
+      success: false,
+      message: "An error occurred while creating the gym session.",
     };
   }
 }

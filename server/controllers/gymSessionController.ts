@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { cancelGymSession } from "../services/gymSessionService";
+import { cancelGymSession, createGymSession } from "../services/gymSessionService";
 
 export async function cancelGymSessionController(req: Request, res: Response) {
   try {
@@ -21,6 +21,34 @@ export async function cancelGymSessionController(req: Request, res: Response) {
     return res.status(200).json(result);
   } catch (error) {
     console.error("Cancel gym session controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+}
+
+export async function createGymSessionController(req: Request, res: Response) {
+  try {
+    // Optionally check user role here if you have authentication middleware
+    const { date, time, duration, type, maxParticipants } = req.body;
+
+    if (!date || !time || !duration || !type || !maxParticipants) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required.",
+      });
+    }
+
+    const result = await createGymSession({ date, time, duration, type, maxParticipants });
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error("Create gym session controller error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error.",
