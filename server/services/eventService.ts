@@ -1,24 +1,119 @@
-import EventModel from "../models/Event";
+import EventModel, { FundingSource, Location } from "../models/Event";
 
+export interface IGetAllEventsResponse {
+  success: boolean;
+  data?: unknown;
+  message?: string;
+}
 
-export async function getAllEvents() {
-    try {
-      const currentDate = new Date();
-  
-      // Fetch only events that haven't started yet
-      const events = await EventModel.find({
-        startDate: { $gt: currentDate },
-      });
-  
-      return {
-        success: true,
-        data: events,
-      };
-    } catch (error) {
-      console.error("Error fetching events:", error);
+export interface ICreateBazaarInput {
+  name: string;
+  description: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  registrationDeadline: string | Date;
+  location: Location;
+}
+
+export interface ICreateBazaarResponse {
+  success: boolean;
+  message: string;
+  data?: unknown;
+}
+
+export async function getAllEvents(): Promise<IGetAllEventsResponse> {
+  try {
+    const currentDate = new Date();
+
+    // Fetch only events that haven't started yet
+    const events = await EventModel.find({
+      startDate: { $gt: currentDate },
+    });
+
+    return {
+      success: true,
+      data: events,
+    };
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching events.",
+    };
+  }
+}
+
+export async function createBazaar(
+  payload: ICreateBazaarInput,
+): Promise<ICreateBazaarResponse> {
+  try {
+    const {
+      name,
+      description,
+      startDate,
+      endDate,
+      registrationDeadline,
+      location,
+    } = payload;
+
+    const parsedStart = new Date(startDate);
+    const parsedEnd = new Date(endDate);
+    const parsedDeadline = new Date(registrationDeadline);
+
+    if (
+      Number.isNaN(parsedStart.getTime()) ||
+      Number.isNaN(parsedEnd.getTime()) ||
+      Number.isNaN(parsedDeadline.getTime())
+    ) {
       return {
         success: false,
-        message: "An error occurred while fetching events.",
+        message: "Invalid date format provided.",
       };
     }
+
+    if (parsedStart > parsedEnd) {
+      return {
+        success: false,
+        message: "Start date must be before end date.",
+      };
+    }
+
+    if (parsedDeadline >= parsedStart) {
+      return {
+        success: false,
+        message: "Registration deadline must be before the start date.",
+      };
+    }
+
+    const bazaar = await EventModel.create({
+      name,
+      description,
+      startDate: parsedStart,
+      endDate: parsedEnd,
+      date: parsedStart,
+      registrationDeadline: parsedDeadline,
+      location,
+      fundingSource: FundingSource.GUC,
+    });
+
+    return {
+      success: true,
+      message: "Bazaar created successfully.",
+      data: {
+        id: bazaar._id.toString(),
+        name: bazaar.name,
+        startDate: bazaar.startDate,
+        endDate: bazaar.endDate,
+        location: bazaar.location,
+        registrationDeadline: bazaar.registrationDeadline,
+        description: bazaar.description,
+      },
+    };
+  } catch (error) {
+    console.error("Error creating bazaar:", error);
+    return {
+      success: false,
+      message: "An error occurred while creating the bazaar.",
+    };
   }
+}
