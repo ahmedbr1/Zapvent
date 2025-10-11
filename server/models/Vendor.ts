@@ -1,5 +1,8 @@
 // Vendors need to be verified
-import mongoose, { Schema } from "mongoose";
+import mongoose, {
+  Schema,
+  StringExpressionOperatorReturningArray,
+} from "mongoose";
 import { IBaseModel } from "./BaseModel";
 import bcrypt from "bcrypt";
 
@@ -9,22 +12,35 @@ export enum VendorStatus {
   REJECTED = "rejected",
 }
 
+export interface BoothInfo {
+  boothSize?: number;
+  boothLocation?: string;
+  boothStartTime?: Date;
+  boothEndTime?: Date;
+  namesOfMembers?: string;
+}
+
+export interface BazaarApplication {
+  eventId: string;
+  status: VendorStatus;
+  applicationDate: Date;
+  attendees: {
+    name: string;
+    email: string;
+  }[];
+  boothSize: number;
+  boothInfo?: BoothInfo; // Only filled after approval
+}
+
 export interface IVendor extends IBaseModel {
   email: string;
   isVerified: boolean;
   password: string;
   companyName: string;
-  docuements: string;
+  documents: string;
   logo: string;
   taxCard: string;
-  requests?: string[];
-  status: VendorStatus;
-  // bazaar type ?
-  boothSize?: number;
-  boothLocation?: string;
-  boothStartTime?: Date;
-  boothEndTime?: Date;
-  namesOfMembers?: string; // A URL to a document containing the names of members
+  applications?: BazaarApplication[];
   loyaltyForum: string; // URL containing the forum link
 }
 const vendorSchema = new Schema<IVendor>(
@@ -33,20 +49,34 @@ const vendorSchema = new Schema<IVendor>(
     isVerified: { type: Boolean, default: false },
     password: { type: String, required: true, select: false },
     companyName: { type: String, required: true },
-    docuements: { type: String, required: true },
+    documents: { type: String, required: true },
     logo: { type: String, required: true },
     taxCard: { type: String, required: true },
-    requests: [{ type: String }],
-    status: {
-      type: String,
-      enum: Object.values(VendorStatus),
-      default: VendorStatus.PENDING,
-    },
-    boothSize: { type: Number },
-    boothLocation: { type: String },
-    boothStartTime: { type: Date },
-    boothEndTime: { type: Date },
-    namesOfMembers: { type: String }, // URL
+    applications: [
+      {
+        eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true },
+        status: {
+          type: String,
+          enum: Object.values(VendorStatus),
+          required: true,
+        },
+        applicationDate: { type: Date, required: true },
+        attendees: [
+          {
+            name: { type: String, required: true },
+            email: { type: String, required: true },
+          },
+        ],
+        boothSize: { type: Number, required: true },
+        boothInfo: {
+          boothSize: { type: Number },
+          namesOfMembers: { type: String },
+          boothLocation: { type: String },
+          boothStartTime: { type: Date },
+          boothEndTime: { type: Date },
+        },
+      },
+    ],
     loyaltyForum: { type: String, required: true }, // URL
   },
   { timestamps: true }
