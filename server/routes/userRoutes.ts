@@ -7,7 +7,7 @@ import {
 
 const router = Router();
 
-router.get("/", getUserRegisteredEvents);
+router.get("/:userId/registered-events", getUserRegisteredEvents);
 router.post("/", createUser);
 router.get("/all", getUsers);
 
