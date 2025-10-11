@@ -35,7 +35,7 @@ class EventController {
           .json({ success: false, message: "Conference not found" });
       }
       return res.status(200).json({ success: true, data: updated });
-    } catch (error) {
+    } catch {
       return res
         .status(500)
         .json({ success: false, message: "Internal server error" });

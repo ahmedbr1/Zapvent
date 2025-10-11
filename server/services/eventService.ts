@@ -1,4 +1,4 @@
-import EventModel from "../models/Event";
+import EventModel, { IEvent } from "../models/Event";
 
 export async function getAllEvents() {
   try {
@@ -22,6 +22,9 @@ export async function getAllEvents() {
   }
 }
 
-export async function updateConferenceById(eventId: string, updateData: any) {
+export async function updateConferenceById(
+  eventId: string,
+  updateData: Partial<IEvent>
+) {
   return EventModel.findByIdAndUpdate(eventId, updateData, { new: true });
 }

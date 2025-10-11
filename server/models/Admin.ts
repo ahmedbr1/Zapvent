@@ -9,7 +9,7 @@ export interface IAdmin extends IBaseModel {
   email: string;
   password: string;
   status: "Active" | "Blocked";
-  adminType: String; // "Event Office" or "Admin"
+  adminType: string; // "Event Office" or "Admin"
 }
 
 const AdminSchema = new Schema<IAdmin>(
