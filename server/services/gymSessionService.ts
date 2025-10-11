@@ -41,3 +41,26 @@ export async function createGymSession(sessionData: Partial<IGymSession>) {
     };
   }
 }
+
+export async function getGymSessionsByMonth(year: number, month: number) {
+  try {
+    // month: 1-12
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+
+    const sessions = await GymSessionModel.find({
+      date: { $gte: startDate, $lt: endDate },
+    });
+
+    return {
+      success: true,
+      data: sessions,
+    };
+  } catch (error) {
+    console.error("Error fetching gym sessions by month:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching gym sessions.",
+    };
+  }
+}
