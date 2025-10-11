@@ -1,9 +1,17 @@
 import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
+import { userRole } from "./User";
 
 export enum Location {
   GUCCAIRO = "GUC Cairo",
   GUCCBERLIN = "GUC Berlin",
+}
+export enum EventType {
+  WORKSHOP = "Workshop",
+  TRIP = "Trip",
+  CONFERENCE = "Conference",
+  SEMINAR = "Seminar",
+  OTHER = "Other",
 }
 export enum Faculty {
   // can be added to later
@@ -21,11 +29,20 @@ export enum FundingSource {
   GUC = "GUC",
 }
 
+export interface IEventRegistration {
+  fullName: string;
+  email: string;
+  universityId: string;
+  role: userRole;
+  registeredAt: Date;
+}
+
 export interface IEvent extends IBaseModel {
   // Event type? workshop, seminar, etc. Not decided yet
   name: string;
   description: string;
   date: Date;
+  eventType: EventType;
   location: Location; // which hall or online
   capacity?: number; // workshops and trips only
   startDate: Date;
@@ -41,13 +58,36 @@ export interface IEvent extends IBaseModel {
   revenue: number;
   archived: boolean;
   registeredUsers: string[]; // List of users
+  registrations: IEventRegistration[];
   vendors: string[]; // List of vendors
 }
+
+const registrationSchema = new Schema<IEventRegistration>(
+  {
+    fullName: { type: String, required: true },
+    email: { type: String, required: true },
+    universityId: { type: String, required: true },
+    role: {
+      type: String,
+      enum: Object.values(userRole),
+      required: true,
+    },
+    registeredAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const EventSchema = new Schema<IEvent>(
   {
     name: { type: String, required: true },
     description: { type: String, required: true },
     date: { type: Date, required: true },
+    eventType: {
+      type: String,
+      enum: Object.values(EventType),
+      required: true,
+      default: EventType.WORKSHOP,
+    },
     location: {
       type: String,
       enum: Object.values(Location),
@@ -74,6 +114,7 @@ const EventSchema = new Schema<IEvent>(
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
     registeredUsers: [{ type: String }],
+    registrations: { type: [registrationSchema], default: [] },
     vendors: [{ type: String }]
   },
   { timestamps: true }
