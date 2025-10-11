@@ -9,6 +9,7 @@ export interface IAdmin extends IBaseModel {
   email: string;
   password: string;
   status: "Active" | "Blocked";
+  adminType: String; // "Event Office" or "Admin"
 }
 
 const AdminSchema = new Schema<IAdmin>(
@@ -18,6 +19,11 @@ const AdminSchema = new Schema<IAdmin>(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true, select: false },
     status: { type: String, enum: ["Active", "Blocked"], default: "Active" },
+    adminType: {
+      type: String,
+      enum: ["Event Office", "Admin"],
+      required: true,
+    },
   },
   { timestamps: true }
 );

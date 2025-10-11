@@ -1,8 +1,7 @@
 import { Router } from "express";
-import {getAllEventsController} from "../controllers/eventController";
-
+import eventController from "../controllers/eventController";
 const router = Router();
 
-router.get("/", getAllEventsController);
-
+router.get("/", eventController.getAllEventsController);
+router.put("/conferences/:eventId", eventController.updateConferenceController);
 export default router;
