@@ -1,5 +1,10 @@
 import eventModel from "../models/Event";
-import { IEvent } from "../models/Event";
+import EventModel, {
+  EventType,
+  FundingSource,
+  Location,
+  IEvent,
+} from "../models/Event";
 
 export const editBazaarDetails = async (
   eventId: string,
@@ -45,11 +50,6 @@ export const editTripDetails = async (
     throw error;
   }
 };
-import EventModel, {
-  EventType,
-  FundingSource,
-  Location,
-} from "../models/Event";
 
 export interface IGetAllEventsResponse {
   success: boolean;

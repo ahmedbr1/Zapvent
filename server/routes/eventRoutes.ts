@@ -1,17 +1,15 @@
 import { Router } from "express";
-import {
-  updateBazaarDetails,
-  createNewTrip,
-  updateTripDetails,
-} from "../controllers/eventController";
 import { adminRequired } from "../middleware/authMiddleware";
+import eventController from "../controllers/eventController";
 
 const router = Router();
 
-router.put("/:id", adminRequired, updateBazaarDetails);
-router.post("/trip", adminRequired, createNewTrip);
-router.put("/trip/:id", adminRequired, updateTripDetails);
-import eventController from "../controllers/eventController";
+// Admin-only routes
+router.put("/:id", adminRequired, eventController.updateBazaarDetails);
+router.post("/trip", adminRequired, eventController.createNewTrip);
+router.put("/trip/:id", adminRequired, eventController.updateTripDetails);
+
+// Public/authenticated routes
 router.get("/", eventController.getAllEventsController);
 router.get("/upcoming-bazaars", eventController.getUpcomingBazaarsController);
 router.post("/bazaar", eventController.createBazaarController);
