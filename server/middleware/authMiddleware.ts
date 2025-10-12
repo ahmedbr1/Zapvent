@@ -16,6 +16,7 @@ export interface AuthRequest extends Request {
     role: UserRole;
     iat?: number;
     exp?: number;
+    adminType?: string; // For Admin sub-roles (EventOffice, etc.)
   };
 }
 

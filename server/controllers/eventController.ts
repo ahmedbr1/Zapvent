@@ -1,8 +1,7 @@
-// server/controllers/eventController.ts
 import type { Request, Response } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { LoginRequired, AllowedRoles, AdminRequired } from "../middleware/authDecorators";
-import { deleteEventById, getAllEvents, getUpcomingBazaars, createBazaar } from "../services/eventService";
+import { deleteEventById, getAllEvents, getUpcomingBazaars, createBazaar, updateConferenceById } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
   editBazaarDetails,
@@ -11,6 +10,25 @@ import {
 } from "../services/eventService";
 
 export class EventController {
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async updateConferenceController(req: AuthRequest, res: Response) {
+    try {
+      const { eventId } = req.params;
+      const updateData = req.body;
+      const updated = await updateConferenceById(eventId, updateData);
+      if (!updated) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Conference not found" });
+      }
+      return res.status(200).json({ success: true, data: updated });
+    } catch {
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
+  }
   @LoginRequired()
   @AllowedRoles(["Admin", "EventOffice"])
   async deleteAnyEvent(req: AuthRequest, res: Response) {

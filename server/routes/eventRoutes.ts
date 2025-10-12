@@ -4,6 +4,8 @@ import eventController from "../controllers/eventController";
 
 const router = Router();
 
+router.put("/conferences/:eventId", eventController.updateConferenceController);
+
 // quick check route
 router.get("/events/health", (_req, res) => res.json({ ok: true }));
 
