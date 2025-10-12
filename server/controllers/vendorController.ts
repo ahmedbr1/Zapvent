@@ -2,6 +2,7 @@ import type { Response } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { applyToBazaar } from "../services/vendorService";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
+import vendorModel, { VendorStatus } from "../models/Vendor";
 
 class VendorController {
   @LoginRequired()
@@ -38,6 +39,76 @@ class VendorController {
       return res.status(201).json(result);
     } catch (error) {
       console.error("Apply to bazaar controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Admin"])
+  async updateBazaarApplicationStatus(req: AuthRequest, res: Response) {
+    try {
+      const { vendorId, eventId, status } = req.body;
+
+      if (!vendorId || !eventId || !status) {
+        return res.status(400).json({
+          success: false,
+          message: "vendorId, eventId, and status are required",
+        });
+      }
+
+      if (![VendorStatus.APPROVED, VendorStatus.REJECTED].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Status must be 'approved' or 'rejected'",
+        });
+      }
+
+      const vendor = await vendorModel.findById(vendorId);
+      if (!vendor) {
+        return res.status(404).json({
+          success: false,
+          message: "Vendor not found",
+        });
+      }
+
+      interface VendorApplication {
+        eventId: string;
+        status: VendorStatus;
+        attendees?: number;
+        boothSize?: string;
+        // Add other fields as needed
+      }
+
+      interface VendorDocument {
+        applications?: VendorApplication[];
+        // Add other fields as needed
+        save: () => Promise<void>;
+      }
+
+      const vendorTyped = vendor as VendorDocument;
+
+      const application: VendorApplication | undefined = vendorTyped.applications?.find(
+        (app: VendorApplication) => app.eventId.toString() === eventId
+      );
+      if (!application) {
+        return res.status(404).json({
+          success: false,
+          message: "Application not found",
+        });
+      }
+
+      application.status = status;
+      await vendor.save();
+
+      return res.json({
+        success: true,
+        message: `Application status updated to '${status}'`,
+      });
+    } catch (error) {
+      console.error("Update bazaar application status error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
