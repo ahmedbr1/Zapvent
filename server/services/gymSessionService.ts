@@ -54,14 +54,15 @@ export async function editGymSession(
 
     const updatedGymSession = await GymSessionModel.findByIdAndUpdate(
       sessionId,
-      updates
+      updates,
+      { new: true }
     );
 
     if (!updatedGymSession) {
       return {
         success: false,
         message: "Gym session not found.",
-        statusCode: 400,
+        statusCode: 404,
       };
     }
     return {
