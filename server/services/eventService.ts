@@ -128,19 +128,27 @@ export async function getAllEvents(
 export async function updateConferenceById(
   eventId: string,
   updateData: Partial<IEvent>
-) {
-  const event = await EventModel.findById(eventId);
+): Promise<IEvent | null> {
+  try {
+    const event = await EventModel.findById(eventId);
 
-  if (!event) {
-    throw new Error("Event not found");
-  }
+    if (!event) {
+      throw new Error("Event not found");
+    }
 
-  if (event.eventType !== EventType.CONFERENCE) {
-    throw new Error("Event is not a conference");
-  }
+    if (event.eventType !== EventType.CONFERENCE) {
+      throw new Error("Event is not a conference");
+    }
 
-  return EventModel.findByIdAndUpdate(eventId, updateData, { new: true }); 
+    return EventModel.findByIdAndUpdate(eventId, updateData, {
+      new: true,
+      runValidators: true,
+    });
+  } catch (error) {
+    console.error("Error updating conference:", error);
+    throw error;
   }
+}
 
 export async function getUpcomingBazaars() {
   const now = new Date();
