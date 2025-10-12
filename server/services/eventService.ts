@@ -1,5 +1,4 @@
-import eventModel from "../models/Event";
-import EventModel, {
+import eventModel, {
   EventType,
   FundingSource,
   Location,
@@ -77,7 +76,7 @@ export async function getAllEvents(): Promise<IGetAllEventsResponse> {
     const currentDate = new Date();
 
     // Fetch only events that haven't started yet
-    const events = await EventModel.find({
+    const events = await eventModel.find({
       startDate: { $gt: currentDate },
     });
 
@@ -97,7 +96,7 @@ export async function getAllEvents(): Promise<IGetAllEventsResponse> {
 export async function getUpcomingBazaars() {
   const now = new Date();
 
-  const allBazaars = await EventModel.find({
+  const allBazaars = await eventModel.find({
     eventType: EventType.BAZAAR,
     archived: false,
   });
@@ -154,7 +153,7 @@ export async function createBazaar(
       };
     }
 
-    const bazaar = await EventModel.create({
+    const bazaar = await eventModel.create({
       name,
       description,
       startDate: parsedStart,
