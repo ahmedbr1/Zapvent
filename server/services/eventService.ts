@@ -1,4 +1,4 @@
-import EventModel, { FundingSource, Location } from "../models/Event";
+import EventModel, { EventType, FundingSource, Location } from "../models/Event";
 
 export interface IGetAllEventsResponse {
   success: boolean;
@@ -41,6 +41,24 @@ export async function getAllEvents(): Promise<IGetAllEventsResponse> {
       message: "An error occurred while fetching events.",
     };
   }
+}
+
+export async function getUpcomingBazaars() {
+  const now = new Date();
+
+  const allBazaars = await EventModel.find({
+    eventType: EventType.BAZAAR,
+    archived: false,
+  });
+
+  allBazaars.forEach((bazaar) => {
+    console.log(
+      `- ${bazaar.name}: startDate = ${bazaar.startDate}, comparison: ${bazaar.startDate >= now}`
+    );
+  });
+
+  const bazaars = allBazaars.filter((bazaar) => bazaar.startDate >= now);
+  return bazaars;
 }
 
 export async function createBazaar(

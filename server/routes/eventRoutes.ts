@@ -1,12 +1,10 @@
 import { Router } from "express";
-import {
-  createBazaarController,
-  getAllEventsController,
-} from "../controllers/eventController";
+import eventController from "../controllers/eventController";
 
 const router = Router();
 
-router.get("/", getAllEventsController);
-router.post("/", createBazaarController);
+router.get("/", eventController.getAllEventsController);
+router.get("/upcoming-bazaars", eventController.getUpcomingBazaarsController);
+router.post("/bazaar", eventController.createBazaarController);
 
 export default router;
