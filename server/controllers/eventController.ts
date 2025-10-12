@@ -35,7 +35,9 @@ class EventController {
         .json({ success: false, message: "Internal server error" });
     }
   }
-  async function createBazaarController(req: Request, res: Response) {
+  @LoginRequired()
+  @AllowedRoles(["Admin"])
+  async createBazaarController(req: AuthRequest, res: Response) {
     try {
       const {
         name,

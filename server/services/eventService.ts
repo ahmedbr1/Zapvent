@@ -1,4 +1,4 @@
-import EventModel, { EventType }, { FundingSource, Location } from "../models/Event";
+import EventModel, { EventType, FundingSource, Location } from "../models/Event";
 
 export interface IGetAllEventsResponse {
   success: boolean;
@@ -60,6 +60,7 @@ export async function getUpcomingBazaars() {
   const bazaars = allBazaars.filter((bazaar) => bazaar.startDate >= now);
   return bazaars;
 }
+
 export async function createBazaar(
   payload: ICreateBazaarInput,
 ): Promise<ICreateBazaarResponse> {
