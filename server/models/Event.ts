@@ -67,11 +67,6 @@ const EventSchema = new Schema<IEvent>(
       enum: Object.values(Location),
       required: true,
     },
-    eventType: {
-      type: String,
-      enum: Object.values(EventType),
-      required: true,
-    },
     capacity: { type: Number },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
