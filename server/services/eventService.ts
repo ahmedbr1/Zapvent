@@ -24,17 +24,18 @@ export async function getAllEvents() {
 
 export async function getUpcomingBazaars() {
   const now = new Date();
-  console.log(now);
-  const bazaars = await EventModel.find({})
-    .where({
-      eventType: EventType.BAZAAR,
-      startDate: {
-        $gte: new Date("2025-10-01T17:00:00.000Z"),
-        $lt: new Date("2025-12-21T17:00:00.000Z"),
-      },
-      archived: false,
-    })
-    .sort({ startDate: 1 });
-  console.log(bazaars);
+
+  const allBazaars = await EventModel.find({
+    eventType: EventType.BAZAAR,
+    archived: false,
+  });
+
+  allBazaars.forEach((bazaar) => {
+    console.log(
+      `- ${bazaar.name}: startDate = ${bazaar.startDate}, comparison: ${bazaar.startDate >= now}`
+    );
+  });
+
+  const bazaars = allBazaars.filter((bazaar) => bazaar.startDate >= now);
   return bazaars;
 }
