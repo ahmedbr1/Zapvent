@@ -1,8 +1,5 @@
 // Vendors need to be verified
-import mongoose, {
-  Schema,
-  StringExpressionOperatorReturningArray,
-} from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 import bcrypt from "bcrypt";
 

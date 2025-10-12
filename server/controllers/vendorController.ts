@@ -3,7 +3,7 @@ import type { AuthRequest } from "../middleware/authMiddleware";
 import { applyToBazaar } from "../services/vendorService";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 
-class vendorController {
+class VendorController {
   @LoginRequired()
   @AllowedRoles(["Vendor"])
   async applyToBazaar(req: AuthRequest, res: Response) {
@@ -46,5 +46,5 @@ class vendorController {
   }
 }
 
-const VendorController = new vendorController();
-export default VendorController;
+const vendorController = new VendorController();
+export default vendorController;

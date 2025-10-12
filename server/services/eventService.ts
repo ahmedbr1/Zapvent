@@ -1,5 +1,4 @@
 import EventModel from "../models/Event";
-import VendorModel, { VendorStatus } from "../models/Vendor";
 
 export async function getAllEvents() {
   try {
