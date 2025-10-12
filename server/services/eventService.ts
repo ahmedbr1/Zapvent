@@ -78,7 +78,7 @@ export async function getAllEvents(
     const currentDate = new Date();
 
     // Create the base query for events that haven't started yet
-    let query = eventModel.find({
+    let query = EventModel.find({
       startDate: { $gt: currentDate },
     });
 
@@ -163,7 +163,7 @@ export async function createBazaar(
       };
     }
 
-    const bazaar = await eventModel.create({
+    const bazaar = await EventModel.create({
       name,
       description,
       startDate: parsedStart,
