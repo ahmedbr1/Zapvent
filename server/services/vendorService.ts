@@ -21,9 +21,23 @@ export async function applyToBazaar(
       return { success: false, message: "Event is not a bazaar" };
     }
 
+    // Validate attendees count (1..5)
+    if (
+      !Array.isArray(applicationData.attendees) ||
+      applicationData.attendees.length < 1
+    ) {
+      return { success: false, message: "At least 1 attendee is required" };
+    }
     // Validate attendees count (max 5)
     if (applicationData.attendees.length > 5) {
       return { success: false, message: "Maximum 5 attendees allowed" };
+    }
+    // Validate booth size
+    if (
+      !Number.isFinite(applicationData.boothSize) ||
+      applicationData.boothSize < 1
+    ) {
+      return { success: false, message: "boothSize must be a number >= 1" };
     }
 
     // Prepare application payload
@@ -63,7 +77,11 @@ export async function applyToBazaar(
       message: "Application submitted successfully",
       data: savedApp,
     };
-  } catch (error) {
+  } catch (error: any) {
+    // Surface validation errors clearly
+    if (error?.name === "ValidationError") {
+      return { success: false, message: error.message };
+    }
     console.error("Error applying to bazaar:", error);
     return {
       success: false,
