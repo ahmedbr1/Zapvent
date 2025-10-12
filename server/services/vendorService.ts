@@ -104,7 +104,7 @@ export async function applyToBazaar(
     };
 
     // Atomically insert only if no existing application for this event
-    const updatedVendor = await VendorModel.findOneAndUpdate(
+    const updatedVendor = await vendorModel.findOneAndUpdate(
       {
         _id: vendorId,
         "applications.eventId": { $ne: applicationData.eventId },
@@ -118,7 +118,7 @@ export async function applyToBazaar(
     );
 
     if (!updatedVendor) {
-      const exists = await VendorModel.exists({ _id: vendorId });
+      const exists = await vendorModel.exists({ _id: vendorId });
       if (!exists) {
         return { success: false, message: "Vendor not found" };
       }

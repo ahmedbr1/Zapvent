@@ -5,7 +5,6 @@ import vendorRoutes from "./vendorRoutes";
 import courtRoutes from "./courtRoutes";
 import eventRoutes from "./eventRoutes";
 import gymSessionRoutes from "./gymSessionRoutes";
-import vendorRoutes from "./vendorRoutes";
 import adminRoutes from "./adminRoutes";
 
 const api = Router();

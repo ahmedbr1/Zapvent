@@ -1,12 +1,11 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import * as vendorService from "../services/vendorService";
 import { z } from "zod";
-import type { Response } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { applyToBazaar } from "../services/vendorService";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 
-export class vendorController {
+export class VendorController {
   
   async vendorSignup(req: Request, res: Response) {
     try {
