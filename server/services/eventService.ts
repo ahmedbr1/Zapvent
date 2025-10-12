@@ -1,4 +1,4 @@
-import eventModel, {
+import EventModel, {
   EventType,
   FundingSource,
   Location,
@@ -10,7 +10,7 @@ export const editBazaarDetails = async (
   updateData: Partial<IEvent>
 ): Promise<IEvent | null> => {
   try {
-    const updatedEvent = await eventModel.findByIdAndUpdate(
+    const updatedEvent = await EventModel.findByIdAndUpdate(
       eventId,
       updateData,
       { new: true, runValidators: true }
@@ -26,7 +26,7 @@ export const createTrip = async (
   tripData: Partial<IEvent>
 ): Promise<IEvent> => {
   try {
-    const newTrip = await eventModel.create(tripData);
+    const newTrip = await EventModel.create(tripData);
     return newTrip;
   } catch (error) {
     console.error("Error creating trip:", error);
@@ -39,7 +39,7 @@ export const editTripDetails = async (
   updateData: Partial<IEvent>
 ): Promise<IEvent | null> => {
   try {
-    const updatedTrip = await eventModel.findByIdAndUpdate(tripId, updateData, {
+    const updatedTrip = await EventModel.findByIdAndUpdate(tripId, updateData, {
       new: true,
       runValidators: true,
     });
@@ -106,7 +106,7 @@ export async function getAllEvents(
 export async function getUpcomingBazaars() {
   const now = new Date();
 
-  const allBazaars = await eventModel.find({
+  const allBazaars = await EventModel.find({
     eventType: EventType.BAZAAR,
     archived: false,
   });

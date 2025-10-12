@@ -20,6 +20,13 @@ export enum FundingSource {
   EXTERNAL = "External",
   GUC = "GUC",
 }
+export enum EventType {
+  WORKSHOP = "Workshop",
+  SEMINAR = "Seminar",
+  CONFERENCE = "Conference",
+  TRIP = "Trip",
+  BAZAAR = "Bazaar",
+}
 
 export enum EventType {
   WORKSHOP = "Workshop",
@@ -55,6 +62,11 @@ export interface IEvent extends IBaseModel {
 const EventSchema = new Schema<IEvent>(
   {
     name: { type: String, required: true },
+    eventType: {
+      type: String,
+      enum: Object.values(EventType),
+      required: true,
+    },
     description: { type: String, required: true },
     date: { type: Date, required: true },
     location: {
