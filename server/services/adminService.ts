@@ -3,6 +3,9 @@ import { emailService } from "./emailService";
 
 
 export async function approveUser(userId: string) {
+   if (!isValidObjectId(userId)) {
+    throw new Error('Invalid user ID format');
+  }
   const user = await UserModel.findById(userId);
   
   if (!user) {
@@ -19,10 +22,10 @@ export async function approveUser(userId: string) {
 
   // Approve the user
   user.verified = true;
+  await emailService.sendApprovalEmail(user);
+
   await user.save();
 
-  // Send approval email
-  await emailService.sendApprovalEmail(user);
 
   return {
     message: 'User approved successfully and notification email sent',
@@ -38,6 +41,9 @@ export async function approveUser(userId: string) {
 }
 
 export async function rejectUser(userId: string, reason?: string) {
+   if (!isValidObjectId(userId)) {
+    throw new Error('Invalid user ID format');
+  }
   const user = await UserModel.findById(userId);
   
   if (!user) {

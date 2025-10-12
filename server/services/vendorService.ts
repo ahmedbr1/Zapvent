@@ -38,8 +38,6 @@ export async function signup(vendorData: vendorSignupData) {
   // Create vendor with default values for required fields
   const vendorDataWithDefaults = {
     ...validatedData,
-    phoneNumber: "",
-    contactPersonName: "",
     documents: "", // Fixed: use correct field name
     logo: "",
     taxCard: "",

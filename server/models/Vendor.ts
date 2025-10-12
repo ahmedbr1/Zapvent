@@ -32,21 +32,21 @@ export interface IVendor extends IBaseModel {
   isVerified?: boolean;
   password: string;
   companyName: string;
-  documents: string;
-  logo: string;
-  taxCard: string;
+  documents?: string;
+  logo?: string;
+  taxCard?: string;
   applications?: BazaarApplication[];
-  loyaltyForum: string; // URL containing the forum link
+  loyaltyForum?: string; // URL containing the forum link
 }
 const vendorSchema = new Schema<IVendor>(
   {
     email: { type: String, required: true, unique: true },
     isVerified: { type: Boolean, default: false },
-    password: { type: String, select: false },
+    password: { type: String, select: false, required: true },
     companyName: { type: String, required: true },
-    documents: { type: String, required: true },
-    logo: { type: String, required: true },
-    taxCard: { type: String, required: true },
+    documents: { type: String },
+    logo: { type: String },
+    taxCard: { type: String },
     applications: {
       type: [
         {
@@ -91,7 +91,7 @@ const vendorSchema = new Schema<IVendor>(
       ],
       default: [],
     },
-    loyaltyForum: { type: String, required: true }, // URL
+    loyaltyForum: { type: String }, // URL
   },
   { timestamps: true }
 );
