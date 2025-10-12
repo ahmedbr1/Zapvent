@@ -23,7 +23,7 @@ export async function findAll(): Promise<AdminResponse[]> {
   const admins = await AdminModel.find().lean();
 
   return admins.map((admin) => ({
-    id: admin._id.toString(),
+    id: admin._id as string,
     firstName: admin.firstName,
     lastName: admin.lastName,
     email: admin.email,
@@ -41,7 +41,7 @@ export async function findById(id: string): Promise<AdminResponse | null> {
   }
 
   return {
-    id: admin._id.toString(),
+    id: admin._id as string,
     firstName: admin.firstName,
     lastName: admin.lastName,
     email: admin.email,
@@ -135,7 +135,7 @@ export async function updateAdminStatus(
     return {
       success: true,
       admin: {
-        id: admin._id.toString(),
+        id: admin._id as string,
         firstName: admin.firstName,
         lastName: admin.lastName,
         email: admin.email,
