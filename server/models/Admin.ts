@@ -21,7 +21,7 @@ const AdminSchema = new Schema<IAdmin>(
     status: { type: String, enum: ["Active", "Blocked"], default: "Active" },
     adminType: {
       type: String,
-      enum: ["Event Office", "Admin"],
+      enum: ["EventOffice", "Admin"],
       required: true,
     },
   },

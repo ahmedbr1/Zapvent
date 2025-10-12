@@ -1,4 +1,5 @@
 import EventModel, { IEvent } from "../models/Event";
+import { EventType } from "../models/Event";
 
 export async function getAllEvents() {
   try {
@@ -26,5 +27,15 @@ export async function updateConferenceById(
   eventId: string,
   updateData: Partial<IEvent>
 ) {
+  const event = await EventModel.findById(eventId);
+
+  if (!event) {
+    throw new Error("Event not found");
+  }
+
+  if (event.eventType !== EventType.CONFERENCE) {
+    throw new Error("Event is not a conference");
+  }
+
   return EventModel.findByIdAndUpdate(eventId, updateData, { new: true });
 }
