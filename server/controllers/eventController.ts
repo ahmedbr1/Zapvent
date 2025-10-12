@@ -6,6 +6,11 @@ import {
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import { AdminRequired } from "../middleware/authDecorators";
+import { getAllEvents } from "../services/eventService";
+import { getUpcomingBazaars } from "../services/eventService";
+import { AllowedRoles, LoginRequired } from "../middleware/authDecorators";
+import type { AuthRequest } from "../middleware/authMiddleware";
+import { createBazaar } from "../services/eventService";
 
 export class EventController {
   @AdminRequired()
@@ -69,24 +74,6 @@ export class EventController {
         .json({ success: false, message: "Failed to update trip" });
     }
   }
-}
-
-// Create an instance and export the bound methods for use in routes
-const eventController = new EventController();
-
-export const updateBazaarDetails =
-  eventController.updateBazaarDetails.bind(eventController);
-export const createNewTrip =
-  eventController.createNewTrip.bind(eventController);
-export const updateTripDetails =
-  eventController.updateTripDetails.bind(eventController);
-import { getAllEvents } from "../services/eventService";
-import { getUpcomingBazaars } from "../services/eventService";
-import { AllowedRoles, LoginRequired } from "../middleware/authDecorators";
-import type { AuthRequest } from "../middleware/authMiddleware";
-import { createBazaar } from "../services/eventService";
-
-class EventController {
   async getAllEventsController(req: Request, res: Response) {
     try {
       const result = await getAllEvents();
@@ -165,6 +152,14 @@ class EventController {
   }
 }
 
+// Create an instance and export the bound methods for use in routes
 const eventController = new EventController();
-export default eventController;
 
+export const updateBazaarDetails =
+  eventController.updateBazaarDetails.bind(eventController);
+export const createNewTrip =
+  eventController.createNewTrip.bind(eventController);
+export const updateTripDetails =
+  eventController.updateTripDetails.bind(eventController);
+
+export default eventController;

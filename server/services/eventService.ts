@@ -45,7 +45,11 @@ export const editTripDetails = async (
     throw error;
   }
 };
-import EventModel, { EventType, FundingSource, Location } from "../models/Event";
+import EventModel, {
+  EventType,
+  FundingSource,
+  Location,
+} from "../models/Event";
 
 export interface IGetAllEventsResponse {
   success: boolean;
@@ -109,7 +113,7 @@ export async function getUpcomingBazaars() {
 }
 
 export async function createBazaar(
-  payload: ICreateBazaarInput,
+  payload: ICreateBazaarInput
 ): Promise<ICreateBazaarResponse> {
   try {
     const {
