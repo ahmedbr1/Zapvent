@@ -11,9 +11,7 @@ export async function applyToBazaar(
 ) {
   try {
     // Validate event exists and is a bazaar
-    console.log("Looking for event with ID:", applicationData.eventId);
     const event = await EventModel.findById(applicationData.eventId);
-    console.log("Found event:", event);
     if (!event) {
       return { success: false, message: "Event not found" };
     }
@@ -77,10 +75,15 @@ export async function applyToBazaar(
       message: "Application submitted successfully",
       data: savedApp,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Surface validation errors clearly
-    if (error?.name === "ValidationError") {
-      return { success: false, message: error.message };
+    if (
+      error &&
+      typeof error === "object" &&
+      "name" in error &&
+      error.name === "ValidationError"
+    ) {
+      return { success: false, message: (error as any).message };
     }
     console.error("Error applying to bazaar:", error);
     return {
