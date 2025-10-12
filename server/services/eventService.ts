@@ -140,7 +140,7 @@ export async function updateConferenceById(
       throw new Error("Event is not a conference");
     }
 
-    return EventModel.findByIdAndUpdate(eventId, updateData, {
+    return await EventModel.findByIdAndUpdate(eventId, updateData, {
       new: true,
       runValidators: true,
     });
