@@ -6,7 +6,7 @@ import { deleteEventById } from "../services/eventService";
 
 class eventController {
   @LoginRequired()
-  @AllowedRoles(["Admin"]) // should add the 'EventOffice' also
+  @AllowedRoles(["Admin", "EventOffice"])
   async deleteAnyEvent(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params as { eventId: string };

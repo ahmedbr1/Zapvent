@@ -13,7 +13,7 @@ export async function deleteEventById(eventId: string) {
   if (!event) return null;
 
   // OPTIONAL: cleanup related docs if they reference Event by id
-  await Promise.allSettled([
+  await Promise.all([
     Comment.deleteMany({ event: event._id }),
     Rating.deleteMany({ event: event._id }),
   ]);
