@@ -71,19 +71,23 @@ export interface ICreateBazaarResponse {
   data?: unknown;
 }
 
-export async function getAllEvents(sortOrder: number = 0): Promise<IGetAllEventsResponse> {
+export async function getAllEvents(
+  sortOrder: number = 0
+): Promise<IGetAllEventsResponse> {
   try {
     const currentDate = new Date();
 
-    // Fetch only events that haven't started yet
-    const events = await eventModel.find({
+    // Create the base query for events that haven't started yet
+    let query = eventModel.find({
       startDate: { $gt: currentDate },
     });
 
+    // Apply sorting if specified
     if (sortOrder === 1 || sortOrder === -1) {
       query = query.sort({ startDate: sortOrder });
     }
 
+    // Execute the query
     const events = await query;
 
     return {
