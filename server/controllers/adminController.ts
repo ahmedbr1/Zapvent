@@ -2,6 +2,7 @@ import type { Response } from "express";
 import * as adminService from "../services/adminService";
 import { AdminRequired } from "../middleware/authDecorators";
 import type { AuthRequest } from "../middleware/authMiddleware";
+import { ValidateBody } from "../middleware/validationDecorators";
 
 export class AdminController {
 
@@ -45,16 +46,11 @@ export class AdminController {
       });
     }
   }
-}
+
 
 // Export an instance
-export const adminController = new AdminController();
-import type { AuthRequest } from "../middleware/authMiddleware";
-import { AdminRequired } from "../middleware/authDecorators";
-import { ValidateBody } from "../middleware/validationDecorators";
-import * as adminService from "../services/adminService";
 
-export class AdminController {
+
   @AdminRequired()
   async getAllAdmins(req: AuthRequest, res: Response) {
     const admins = await adminService.findAll();
@@ -154,6 +150,7 @@ export class AdminController {
       },
     });
   }
+
 }
 
 export const adminController = new AdminController();

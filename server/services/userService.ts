@@ -81,6 +81,7 @@ export async function signup(userData: SignupData) {
   : 'Registration completed successfully. You can now log in.';
 
   return { user: userWithoutPassword, message, needsApproval: !user.verified };
+}
 export interface IUserRegisteredEventItem {
   id: string;
   name: string;
@@ -144,3 +145,4 @@ export async function findRegisteredEvents(
     };
   }
 }
+

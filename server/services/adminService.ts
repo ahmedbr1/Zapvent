@@ -62,6 +62,7 @@ export async function rejectUser(userId: string, reason?: string) {
       role: user.role
     }
   };
+}
 import AdminModel, { IAdmin } from "../models/Admin";
 import { isValidObjectId } from "mongoose";
 
@@ -248,3 +249,4 @@ export async function deleteAdmin(
     };
   }
 }
+

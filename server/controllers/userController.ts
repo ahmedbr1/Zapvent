@@ -40,11 +40,9 @@ export class UserController {
       });
     }
   }
-}
 
-// Export an instance
-export const userController = new UserController();
-export async function getUserRegisteredEvents(req: Request, res: Response) {
+
+  async getUserRegisteredEvents(req: Request, res: Response) {
   const userId =
     (req.params.userId as string | undefined) ??
     (req.query.userId as string | undefined);
@@ -65,3 +63,7 @@ export async function getUserRegisteredEvents(req: Request, res: Response) {
 
   return res.json(result);
 }
+}
+
+
+export const userController = new UserController();
