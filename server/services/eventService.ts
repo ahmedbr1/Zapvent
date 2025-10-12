@@ -71,7 +71,7 @@ export interface ICreateBazaarResponse {
   data?: unknown;
 }
 
-export async function getAllEvents(): Promise<IGetAllEventsResponse> {
+export async function getAllEvents(sortOrder: number = 0): Promise<IGetAllEventsResponse> {
   try {
     const currentDate = new Date();
 
@@ -79,6 +79,12 @@ export async function getAllEvents(): Promise<IGetAllEventsResponse> {
     const events = await eventModel.find({
       startDate: { $gt: currentDate },
     });
+
+    if (sortOrder === 1 || sortOrder === -1) {
+      query = query.sort({ startDate: sortOrder });
+    }
+
+    const events = await query;
 
     return {
       success: true,
