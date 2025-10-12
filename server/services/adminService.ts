@@ -2,7 +2,6 @@ import AdminModel, { IAdmin } from "../models/Admin";
 import { isValidObjectId } from "mongoose";
 
 export interface CreateAdminData {
-  id: string;
   firstName: string;
   lastName: string;
   email: string;
