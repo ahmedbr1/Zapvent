@@ -5,5 +5,19 @@ import eventRoutes from "./eventRoutes";
 const api = Router();
 api.use("/users", userRoutes);
 api.use("/events", eventRoutes);
+import loginRoutes from "./loginRoutes";
+import courtRoutes from "./courtRoutes";
+import eventRoutes from "./eventRoutes";
+import gymSessionRoutes from "./gymSessionRoutes";
+import adminRoutes from "./adminRoutes";
+
+
+const api = Router();
+api.use("/users", userRoutes);
+api.use("/auth", loginRoutes);
+api.use("/courts", courtRoutes);
+api.use("/events", eventRoutes);
+api.use("/gym-sessions", gymSessionRoutes);
+api.use("/admin", adminRoutes);
 
 export default api;
