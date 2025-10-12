@@ -26,6 +26,7 @@ export enum EventType {
   SEMINAR = "Seminar",
   CONFERENCE = "Conference",
   TRIP = "Trip",
+  BAZAAR = "Bazaar",
 }
 
 export interface IEvent extends IBaseModel {
