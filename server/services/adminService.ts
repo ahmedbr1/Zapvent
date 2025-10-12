@@ -1,4 +1,5 @@
 import AdminModel, { IAdmin } from "../models/Admin";
+import { isValidObjectId } from "mongoose";
 
 export interface CreateAdminData {
   id: string;
@@ -157,6 +158,12 @@ export async function deleteAdmin(
   id: string
 ): Promise<{ success: boolean; message?: string }> {
   try {
+    if (!isValidObjectId(id)) {
+      return {
+        success: false,
+        message: "Invalid admin ID",
+      };
+    }
     const admin = await AdminModel.findByIdAndDelete(id);
 
     if (!admin) {
