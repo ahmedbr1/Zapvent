@@ -1,14 +1,12 @@
 import { Router } from "express";
-import {
-  getUsers,
-  createUser,
-  getUserRegisteredEvents,
-} from "../controllers/userController";
+import { userController } from "../controllers/userController";
 
 const router = Router();
 
-router.get("/:userId/registered-events", getUserRegisteredEvents);
-router.post("/", createUser);
-router.get("/all", getUsers);
+
+
+router.post("/signUp", userController.signup.bind(userController));
+router.get("/:userId/registered-events", userController.getUserRegisteredEvents.bind(userController));
+
 
 export default router;

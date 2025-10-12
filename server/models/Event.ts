@@ -20,13 +20,6 @@ export enum FundingSource {
   EXTERNAL = "External",
   GUC = "GUC",
 }
-export enum EventType {
-  WORKSHOP = "Workshop",
-  SEMINAR = "Seminar",
-  CONFERENCE = "Conference",
-  TRIP = "Trip",
-  BAZAAR = "Bazaar",
-}
 
 export enum EventType {
   WORKSHOP = "Workshop",
@@ -72,11 +65,6 @@ const EventSchema = new Schema<IEvent>(
     location: {
       type: String,
       enum: Object.values(Location),
-      required: true,
-    },
-    eventType: {
-      type: String,
-      enum: Object.values(EventType),
       required: true,
     },
     capacity: { type: Number },
