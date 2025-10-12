@@ -1,6 +1,7 @@
 import AdminModel, { IAdmin } from "../models/Admin";
 
 export interface CreateAdminData {
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -9,6 +10,7 @@ export interface CreateAdminData {
 }
 
 export interface AdminResponse {
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -21,6 +23,7 @@ export async function findAll(): Promise<AdminResponse[]> {
   const admins = await AdminModel.find().lean();
 
   return admins.map((admin) => ({
+    id: admin._id.toString(),
     firstName: admin.firstName,
     lastName: admin.lastName,
     email: admin.email,
@@ -38,6 +41,7 @@ export async function findById(id: string): Promise<AdminResponse | null> {
   }
 
   return {
+    id: admin._id.toString(),
     firstName: admin.firstName,
     lastName: admin.lastName,
     email: admin.email,
@@ -92,6 +96,7 @@ export async function createAdmin(
     return {
       success: true,
       admin: {
+        id: savedAdmin._id.toString(),
         firstName: savedAdmin.firstName,
         lastName: savedAdmin.lastName,
         email: savedAdmin.email,
@@ -130,6 +135,7 @@ export async function updateAdminStatus(
     return {
       success: true,
       admin: {
+        id: admin._id.toString(),
         firstName: admin.firstName,
         lastName: admin.lastName,
         email: admin.email,
