@@ -83,7 +83,10 @@ export async function applyToBazaar(
       "name" in error &&
       error.name === "ValidationError"
     ) {
-      return { success: false, message: (error as any).message };
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Validation failed",
+      };
     }
     console.error("Error applying to bazaar:", error);
     return {
