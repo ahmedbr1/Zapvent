@@ -10,6 +10,8 @@ import adminRoutes from "./adminRoutes";
 const api = Router();
 api.use("/users", userRoutes);
 api.use("/auth", loginRoutes);
+// Mount event routes (e.g., DELETE /api/events/:eventId)
+api.use("/", eventRoutes);
 api.use("/vendors", vendorRoutes);
 api.use("/courts", courtRoutes);
 api.use("/events", eventRoutes);
