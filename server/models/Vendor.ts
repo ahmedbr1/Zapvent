@@ -1,5 +1,5 @@
 // Vendors need to be verified
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 import bcrypt from "bcrypt";
 
@@ -10,17 +10,15 @@ export enum VendorStatus {
 }
 
 export interface BoothInfo {
-  boothSize?: number;
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;
-  namesOfMembers?: string;
 }
 
 export interface BazaarApplication {
-  eventId: string;
+  eventId: Types.ObjectId;
   status: VendorStatus;
-  applicationDate: Date;
+  applicationDate?: Date;
   attendees: {
     name: string;
     email: string;
@@ -49,31 +47,50 @@ const vendorSchema = new Schema<IVendor>(
     documents: { type: String, required: true },
     logo: { type: String, required: true },
     taxCard: { type: String, required: true },
-    applications: [
-      {
-        eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true },
-        status: {
-          type: String,
-          enum: Object.values(VendorStatus),
-          required: true,
-        },
-        applicationDate: { type: Date, required: true },
-        attendees: [
-          {
-            name: { type: String, required: true },
-            email: { type: String, required: true },
+    applications: {
+      type: [
+        {
+          eventId: {
+            type: Schema.Types.ObjectId,
+            ref: "Event",
+            required: true,
           },
-        ],
-        boothSize: { type: Number, required: true },
-        boothInfo: {
-          boothSize: { type: Number },
-          namesOfMembers: { type: String },
-          boothLocation: { type: String },
-          boothStartTime: { type: Date },
-          boothEndTime: { type: Date },
+          status: {
+            type: String,
+            enum: Object.values(VendorStatus),
+            required: true,
+            default: VendorStatus.PENDING,
+          },
+          applicationDate: { type: Date, required: true, default: Date.now },
+          attendees: {
+            type: [
+              {
+                name: { type: String, required: true, trim: true },
+                email: {
+                  type: String,
+                  required: true,
+                  trim: true,
+                  lowercase: true,
+                  match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                },
+              },
+            ],
+            validate: {
+              validator: (arr: unknown[]) =>
+                Array.isArray(arr) && arr.length > 0 && arr.length <= 5,
+              message: "Attendees must include 1 to 5 entries.",
+            },
+          },
+          boothSize: { type: Number, required: true, min: 1 },
+          boothInfo: {
+            boothLocation: { type: String },
+            boothStartTime: { type: Date },
+            boothEndTime: { type: Date },
+          },
         },
-      },
-    ],
+      ],
+      default: [],
+    },
     loyaltyForum: { type: String, required: true }, // URL
   },
   { timestamps: true }

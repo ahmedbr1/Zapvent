@@ -26,20 +26,7 @@ export async function applyToBazaar(
       return { success: false, message: "Maximum 5 attendees allowed" };
     }
 
-    // Check if vendor already applied for this bazaar
-    const vendor = await VendorModel.findById(vendorId);
-    if (!vendor) {
-      return { success: false, message: "Vendor not found" };
-    }
-
-    const existingApplication = vendor.applications.find(
-      (app: { eventId: string }) => app.eventId === applicationData.eventId
-    );
-    if (existingApplication) {
-      return { success: false, message: "Already applied for this bazaar" };
-    }
-
-    // Create application
+    // Prepare application payload
     const newApplication = {
       eventId: applicationData.eventId,
       status: VendorStatus.PENDING,
@@ -48,14 +35,33 @@ export async function applyToBazaar(
       boothSize: applicationData.boothSize,
     };
 
-    // Add application to vendor
-    vendor.applications.push(newApplication);
-    await vendor.save();
+    // Atomically insert only if no existing application for this event
+    const updatedVendor = await VendorModel.findOneAndUpdate(
+      {
+        _id: vendorId,
+        "applications.eventId": { $ne: applicationData.eventId },
+      },
+      { $push: { applications: newApplication } },
+      {
+        new: true,
+        runValidators: true,
+        projection: { applications: { $slice: -1 } }, // return only the inserted subdoc
+      }
+    );
 
+    if (!updatedVendor) {
+      const exists = await VendorModel.exists({ _id: vendorId });
+      if (!exists) {
+        return { success: false, message: "Vendor not found" };
+      }
+      return { success: false, message: "Already applied for this bazaar" };
+    }
+
+    const savedApp = updatedVendor.applications[0];
     return {
       success: true,
       message: "Application submitted successfully",
-      data: newApplication,
+      data: savedApp,
     };
   } catch (error) {
     console.error("Error applying to bazaar:", error);

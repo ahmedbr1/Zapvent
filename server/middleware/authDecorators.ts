@@ -38,7 +38,7 @@ export function LoginRequired() {
         .then(() => originalMethod.apply(this, [req, res, next]))
         .catch(() => {
           if (!res.headersSent) {
-            return res.status(500).json({
+            return res.status(401).json({
               success: false,
               message: "Authentication error",
             });
@@ -80,7 +80,7 @@ export function AdminRequired() {
         .then(() => originalMethod.apply(this, [req, res, next]))
         .catch(() => {
           if (!res.headersSent) {
-            return res.status(500).json({
+            return res.status(401).json({
               success: false,
               message: "Authorization error",
             });
@@ -123,7 +123,7 @@ export function AllowedRoles(roles: UserRole[]) {
         .then(() => originalMethod.apply(this, [req, res, next]))
         .catch(() => {
           if (!res.headersSent) {
-            return res.status(500).json({
+            return res.status(401).json({
               success: false,
               message: "Authorization error",
             });
@@ -162,7 +162,7 @@ export function OptionalAuth() {
         .then(() => originalMethod.apply(this, [req, res, next]))
         .catch(() => {
           if (!res.headersSent) {
-            return res.status(500).json({
+            return res.status(401).json({
               success: false,
               message: "Authorization error",
             });
