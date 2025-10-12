@@ -21,9 +21,18 @@ export enum FundingSource {
   GUC = "GUC",
 }
 
+export enum EventType {
+  WORKSHOP = "Workshop",
+  SEMINAR = "Seminar",
+  CONFERENCE = "Conference",
+  TRIP = "Trip",
+  BAZAAR = "Bazaar",
+}
+
 export interface IEvent extends IBaseModel {
   // Event type? workshop, seminar, etc. Not decided yet
   name: string;
+  eventType: EventType;
   description: string;
   date: Date;
   location: Location; // which hall or online
@@ -41,6 +50,7 @@ export interface IEvent extends IBaseModel {
   revenue: number;
   archived: boolean;
   registeredUsers: string[]; // List of users
+  vendors: string[]; // List of vendors
 }
 const EventSchema = new Schema<IEvent>(
   {
@@ -50,6 +60,11 @@ const EventSchema = new Schema<IEvent>(
     location: {
       type: String,
       enum: Object.values(Location),
+      required: true,
+    },
+    eventType: {
+      type: String,
+      enum: Object.values(EventType),
       required: true,
     },
     capacity: { type: Number },
@@ -73,6 +88,7 @@ const EventSchema = new Schema<IEvent>(
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
     registeredUsers: [{ type: String }],
+    vendors: [{ type: String }],
   },
   { timestamps: true }
 );

@@ -2,12 +2,21 @@ import { Router } from "express";
 import { adminController } from "../controllers/adminController";
 import { loginRequired } from "../middleware/authMiddleware";
 
-const adminRoutes = Router();
+const router = Router();
 
-adminRoutes.use(loginRequired);
+router.use(loginRequired);
 
-adminRoutes.post("/approve/:userId", adminController.approveUser.bind(adminController));
+router.post("/approve/:userId", adminController.approveUser.bind(adminController));
 
-adminRoutes.post("/reject/:userId", adminController.rejectUser.bind(adminController));
+router.post("/reject/:userId", adminController.rejectUser.bind(adminController));
 
-export default adminRoutes;
+
+
+
+
+router.get("/", adminController.getAllAdmins.bind(adminController));
+router.get("/:id", adminController.getAdminById.bind(adminController));
+router.post("/", adminController.createAdmin.bind(adminController));
+router.delete("/:id", adminController.deleteAdmin.bind(adminController));
+
+export default router;
