@@ -1,7 +1,6 @@
 // server/routes/eventRoutes.ts
-import { Request, Response, Router } from "express";
+import { Router } from "express";
 import eventController from "../controllers/eventController";
-import { deleteEventById } from "../services/eventService";
 
 const router = Router();
 
