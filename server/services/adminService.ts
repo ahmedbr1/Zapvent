@@ -286,7 +286,7 @@ export async function blockUser(
       return { success: false, message: "Invalid user ID" };
     }
 
-    const blocked = await UserModel.findByIdAndUpdate(userId, { status: "Blocked" });
+    const blocked = await UserModel.findByIdAndUpdate(userId, { status: "Blocked" }, { new: true , runValidators: true });
 
     if (!blocked) {
       return { success: false, message: "User not found" };
