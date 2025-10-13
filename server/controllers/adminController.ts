@@ -186,6 +186,15 @@ export class AdminController {
   async blockUser(req: AuthRequest, res: Response) {
     try {
       const { userId } = req.params;
+
+      // Prevent admin from blocking themselves
+    if (userId === req.user?.id) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot block yourself",
+      });
+    }
+
       const result = await adminService.blockUser(userId);
 
       if (!result.success) {
