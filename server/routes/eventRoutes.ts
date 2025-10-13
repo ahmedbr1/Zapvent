@@ -1,20 +1,12 @@
 import { Router } from "express";
-import { allowedRoles } from "../middleware/authMiddleware";
-import {
-  createBazaarController,
-  getAllEventsController,
-} from "../controllers/eventController";
-import { editGymSessionController } from "../controllers/gymSessionController";
 import { adminRequired } from "../middleware/authMiddleware";
 import eventController from "../controllers/eventController";
 
 const router = Router();
 
-router.get("/", getAllEventsController);
-router.post("/", createBazaarController);
+router.get("/", eventController.getAllEventsController);
+router.post("/", eventController.createBazaarController);
 router.get("/upcoming-bazaars", eventController.getUpcomingBazaarsController);
-
-router.put("/:id", allowedRoles(["EventsOffice"]), editGymSessionController);
 
 router.put("/conferences/:eventId", eventController.updateConferenceController);
 
@@ -26,9 +18,9 @@ router.delete("/events/:eventId", (req, res) =>
   eventController.deleteAnyEvent(req, res)
 );
 // Admin-only routes
-router.put("/:id", adminRequired, eventController.updateBazaarDetails);
+// use distinct path for bazaar update to avoid clashing with gym-session edit route
+router.put("/bazaar/:id", adminRequired, eventController.updateBazaarDetails);
 router.post("/trip", adminRequired, eventController.createNewTrip);
 router.put("/trip/:id", adminRequired, eventController.updateTripDetails);
-
 
 export default router;

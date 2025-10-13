@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 
-import { cancelGymSession, createGymSession, getGymSessionsByMonth, editGymSession } from "../services/gymSessionService";
-
+import {
+  cancelGymSession,
+  createGymSession,
+  getGymSessionsByMonth,
+  editGymSession,
+} from "../services/gymSessionService";
 
 export async function cancelGymSessionController(req: Request, res: Response) {
   try {
@@ -59,6 +63,10 @@ export async function editGymSessionController(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: "Internal server error ",
+    });
+  }
+}
+
 export async function createGymSessionController(req: Request, res: Response) {
   try {
     // Optionally check user role here if you have authentication middleware
@@ -71,7 +79,13 @@ export async function createGymSessionController(req: Request, res: Response) {
       });
     }
 
-    const result = await createGymSession({ date, time, duration, type, maxParticipants });
+    const result = await createGymSession({
+      date,
+      time,
+      duration,
+      type,
+      maxParticipants,
+    });
 
     if (!result.success) {
       return res.status(400).json(result);
@@ -87,7 +101,10 @@ export async function createGymSessionController(req: Request, res: Response) {
   }
 }
 
-export async function viewGymScheduleByMonthController(req: Request, res: Response) {
+export async function viewGymScheduleByMonthController(
+  req: Request,
+  res: Response
+) {
   try {
     const year = parseInt(req.query.year as string);
     const month = parseInt(req.query.month as string);

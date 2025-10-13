@@ -76,6 +76,10 @@ export async function editGymSession(
     return {
       success: false,
       message: "An error occurred while editing the gym session.",
+    };
+  }
+}
+
 export async function createGymSession(sessionData: Partial<IGymSession>) {
   try {
     const newSession = await GymSessionModel.create(sessionData);
