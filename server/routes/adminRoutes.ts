@@ -9,6 +9,10 @@ router.use(loginRequired);
 router.post("/approve/:userId", adminController.approveUser.bind(adminController));
 router.post("/reject/:userId", adminController.rejectUser.bind(adminController));
 router.post("/", adminController.createAdmin.bind(adminController));
+router.patch(
+  "/users/:userId/block",
+  adminController.blockUser.bind(adminController)
+);
 
 router.get("/", adminController.getAllAdmins.bind(adminController));
 router.get("/:id", adminController.getAdminById.bind(adminController));
