@@ -300,7 +300,6 @@ export async function blockUser(
 }
 
 type UserDetails = {
-  id: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -339,7 +338,6 @@ export async function viewAllUsers(): Promise<{
     }
 
     const normalizedUsers: UserDetails[] = users.map((user) => ({
-      id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
