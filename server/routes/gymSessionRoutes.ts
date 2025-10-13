@@ -1,5 +1,11 @@
 import express from "express";
-import { cancelGymSessionController, createGymSessionController, viewGymScheduleByMonthController } from "../controllers/gymSessionController";
+import {
+  cancelGymSessionController,
+  createGymSessionController,
+  viewGymScheduleByMonthController,
+  editGymSessionController,
+} from "../controllers/gymSessionController";
+import { allowedRoles } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
@@ -12,4 +18,5 @@ router.delete("/:id", cancelGymSessionController);
 // GET /api/gym-sessions/schedule?year=2025&month=10
 router.get("/schedule", viewGymScheduleByMonthController);
 
+router.put("/:id", allowedRoles(["EventsOffice"]), editGymSessionController);
 export default router;
