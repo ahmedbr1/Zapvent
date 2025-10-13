@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { LoginRequired, AllowedRoles, AdminRequired } from "../middleware/authDecorators";
-import { deleteEventById, getAllEvents, getUpcomingBazaars, createBazaar, updateConferenceById } from "../services/eventService";
+import { deleteEventById, getAllEvents, getUpcomingBazaars, createBazaar, updateConferenceById, registerUserForWorkshop } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
   editBazaarDetails,
@@ -193,6 +193,36 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Create bazaar controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  async registerForWorkshop(req: AuthRequest, res: Response) {
+    try {
+      const { workshopId } = req.params as { workshopId?: string };
+      const rawUserId = req.body?.userId;
+      const fallbackUserId = req.user?.id;
+      const userId =
+        typeof rawUserId === "string" && rawUserId.trim().length > 0
+          ? rawUserId.trim()
+          : fallbackUserId;
+
+      if (!workshopId || !userId) {
+        return res.status(400).json({
+          success: false,
+          message: "workshopId parameter and an authenticated user are required.",
+        });
+      }
+
+      const result = await registerUserForWorkshop(userId, workshopId);
+      const { statusCode, ...responseBody } = result;
+      return res.status(statusCode).json(responseBody);
+    } catch (error) {
+      console.error("Error registering to workshop:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

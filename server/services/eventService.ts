@@ -8,6 +8,7 @@ import EventModel, {
   Location,
   IEvent,
 } from "../models/Event";
+import UserModel from "../models/User";
 
 export async function deleteEventById(eventId: string) {
   if (!Types.ObjectId.isValid(eventId)) {
@@ -91,6 +92,120 @@ export interface ICreateBazaarResponse {
   success: boolean;
   message: string;
   data?: unknown;
+}
+
+export interface IWorkshopRegistrationResponse {
+  success: boolean;
+  message: string;
+  statusCode: number;
+  data?: {
+    event: IEvent;
+  };
+}
+
+export async function registerUserForWorkshop(
+  userId: string,
+  workshopId: string
+): Promise<IWorkshopRegistrationResponse> {
+  if (!Types.ObjectId.isValid(workshopId)) {
+    return {
+      success: false,
+      message: "Invalid workshop id.",
+      statusCode: 400,
+    };
+  }
+
+  if (!Types.ObjectId.isValid(userId)) {
+    return {
+      success: false,
+      message: "Invalid user id.",
+      statusCode: 400,
+    };
+  }
+
+  const [event, user] = await Promise.all([
+    EventModel.findById(workshopId),
+    UserModel.findById(userId),
+  ]);
+
+  if (!event) {
+    return {
+      success: false,
+      message: "Workshop not found.",
+      statusCode: 404,
+    };
+  }
+
+  if (event.eventType !== EventType.WORKSHOP) {
+    return {
+      success: false,
+      message: "Event is not a workshop.",
+      statusCode: 400,
+    };
+  }
+
+  if (!user) {
+    return {
+      success: false,
+      message: "User not found.",
+      statusCode: 404,
+    };
+  }
+
+  const registeredUsers = Array.isArray(event.registeredUsers)
+    ? event.registeredUsers.map((id: string) => id.toString())
+    : [];
+
+  const alreadyRegistered = registeredUsers.includes(userId);
+
+  if (alreadyRegistered) {
+    return {
+      success: false,
+      message: "User already registered for this workshop.",
+      statusCode: 409,
+    };
+  }
+
+  const capacity = typeof event.capacity === "number" ? event.capacity : null;
+  const registeredCount = registeredUsers.length;
+
+  if (capacity !== null && registeredCount >= capacity) {
+    return {
+      success: false,
+      message: "Workshop capacity has been reached.",
+      statusCode: 400,
+    };
+  }
+
+  await Promise.all([
+    EventModel.updateOne(
+      { _id: event._id },
+      { $addToSet: { registeredUsers: userId } }
+    ),
+    UserModel.updateOne(
+      { _id: user._id },
+      { $addToSet: { workshops: workshopId } }
+    ),
+  ]);
+
+  const updatedEvent = await EventModel.findById(workshopId).lean<IEvent | null>();
+
+  if (!updatedEvent) {
+    return {
+      success: false,
+      message: "Failed to load updated workshop.",
+      statusCode: 500,
+    };
+  }
+
+  return {
+    success: true,
+    message: "User registered for workshop successfully.",
+    statusCode: 200,
+    data: {
+      event: updatedEvent,
+    },
+  };
 }
 
 export async function getAllEvents(
