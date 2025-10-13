@@ -182,7 +182,7 @@ export class AdminController {
     }
   }
 
-  
+  @AdminRequired()
   async blockUser(req: AuthRequest, res: Response) {
     try {
       const { userId } = req.params;
