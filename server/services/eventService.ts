@@ -1,16 +1,38 @@
-import eventModel, {
+// server/services/eventService.ts
+import { Types } from "mongoose";
+import Comment from "../models/Comment";
+import Rating from "../models/Rating";
+import EventModel, {
   EventType,
   FundingSource,
   Location,
   IEvent,
 } from "../models/Event";
 
+export async function deleteEventById(eventId: string) {
+  if (!Types.ObjectId.isValid(eventId)) {
+    throw new Error("INVALID_EVENT_ID");
+  }
+
+  const event = await EventModel.findById(eventId);
+  if (!event) return null;
+
+  // OPTIONAL: cleanup related docs if they reference Event by id
+  await Promise.all([
+    Comment.deleteMany({ event: event._id }),
+    Rating.deleteMany({ event: event._id }),
+  ]);
+
+  await event.deleteOne(); // or Event.findByIdAndDelete(eventId)
+  return event;
+}
+
 export const editBazaarDetails = async (
   eventId: string,
   updateData: Partial<IEvent>
 ): Promise<IEvent | null> => {
   try {
-    const updatedEvent = await eventModel.findByIdAndUpdate(
+    const updatedEvent = await EventModel.findByIdAndUpdate(
       eventId,
       updateData,
       { new: true, runValidators: true }
@@ -26,7 +48,7 @@ export const createTrip = async (
   tripData: Partial<IEvent>
 ): Promise<IEvent> => {
   try {
-    const newTrip = await eventModel.create(tripData);
+    const newTrip = await EventModel.create(tripData);
     return newTrip;
   } catch (error) {
     console.error("Error creating trip:", error);
@@ -39,7 +61,7 @@ export const editTripDetails = async (
   updateData: Partial<IEvent>
 ): Promise<IEvent | null> => {
   try {
-    const updatedTrip = await eventModel.findByIdAndUpdate(tripId, updateData, {
+    const updatedTrip = await EventModel.findByIdAndUpdate(tripId, updateData, {
       new: true,
       runValidators: true,
     });
@@ -78,7 +100,7 @@ export async function getAllEvents(
     const currentDate = new Date();
 
     // Create the base query for events that haven't started yet
-    let query = eventModel.find({
+    let query = EventModel.find({
       startDate: { $gt: currentDate },
     });
 
@@ -103,10 +125,35 @@ export async function getAllEvents(
   }
 }
 
+export async function updateConferenceById(
+  eventId: string,
+  updateData: Partial<IEvent>
+): Promise<IEvent | null> {
+  try {
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      throw new Error("Event not found");
+    }
+
+    if (event.eventType !== EventType.CONFERENCE) {
+      throw new Error("Event is not a conference");
+    }
+
+    return await EventModel.findByIdAndUpdate(eventId, updateData, {
+      new: true,
+      runValidators: true,
+    });
+  } catch (error) {
+    console.error("Error updating conference:", error);
+    throw error;
+  }
+}
+
 export async function getUpcomingBazaars() {
   const now = new Date();
 
-  const allBazaars = await eventModel.find({
+  const allBazaars = await EventModel.find({
     eventType: EventType.BAZAAR,
     archived: false,
   });
@@ -163,7 +210,7 @@ export async function createBazaar(
       };
     }
 
-    const bazaar = await eventModel.create({
+    const bazaar = await EventModel.create({
       name,
       description,
       startDate: parsedStart,

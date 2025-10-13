@@ -55,16 +55,16 @@ export interface IEvent extends IBaseModel {
 const EventSchema = new Schema<IEvent>(
   {
     name: { type: String, required: true },
+    eventType: {
+      type: String,
+      enum: Object.values(EventType),
+      required: true,
+    },
     description: { type: String, required: true },
     date: { type: Date, required: true },
     location: {
       type: String,
       enum: Object.values(Location),
-      required: true,
-    },
-    eventType: {
-      type: String,
-      enum: Object.values(EventType),
       required: true,
     },
     capacity: { type: Number },

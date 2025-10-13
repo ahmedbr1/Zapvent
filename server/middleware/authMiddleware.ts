@@ -7,7 +7,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
-export type UserRole = "User" | "Admin" | "Vendor";
+export type UserRole = "User" | "Admin" | "Vendor" | "EventOffice";
 
 export interface AuthRequest extends Request {
   user?: {
@@ -16,6 +16,7 @@ export interface AuthRequest extends Request {
     role: UserRole;
     iat?: number;
     exp?: number;
+    adminType?: string; // For Admin sub-roles (EventOffice, etc.)
   };
 }
 
@@ -49,7 +50,7 @@ function extractAndVerifyToken(req: AuthRequest): {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
-      algorithms: ['HS256'], // Or ['RS256'] if using asymmetric keys
+      algorithms: ["HS256"], // Or ['RS256'] if using asymmetric keys
     }) as {
       id: string;
       email: string;
