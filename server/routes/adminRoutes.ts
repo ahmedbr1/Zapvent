@@ -4,8 +4,6 @@ import { loginRequired } from "../middleware/authMiddleware";
 
 const router = Router();
 
-// Temporary public endpoints for comment testing (remove in production)
-
 router.use(loginRequired);
 
 router.post("/approve/:userId", adminController.approveUser.bind(adminController));
