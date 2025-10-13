@@ -1,5 +1,11 @@
 import { Request, Response } from "express";
-import { cancelGymSession, createGymSession, getGymSessionsByMonth } from "../services/gymSessionService";
+
+import {
+  cancelGymSession,
+  createGymSession,
+  getGymSessionsByMonth,
+  editGymSession,
+} from "../services/gymSessionService";
 
 export async function cancelGymSessionController(req: Request, res: Response) {
   try {
@@ -28,6 +34,39 @@ export async function cancelGymSessionController(req: Request, res: Response) {
   }
 }
 
+export async function editGymSessionController(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Gym session id is missing",
+      });
+    }
+
+    const updates = req.body;
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No updates provided",
+      });
+    }
+
+    const result = await editGymSession(id, updates);
+
+    if (result.statusCode !== 200) {
+      return res.status(result.statusCode ?? 500).json(result);
+    }
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Edit gym session controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error ",
+    });
+  }
+}
+
 export async function createGymSessionController(req: Request, res: Response) {
   try {
     // Optionally check user role here if you have authentication middleware
@@ -40,7 +79,13 @@ export async function createGymSessionController(req: Request, res: Response) {
       });
     }
 
-    const result = await createGymSession({ date, time, duration, type, maxParticipants });
+    const result = await createGymSession({
+      date,
+      time,
+      duration,
+      type,
+      maxParticipants,
+    });
 
     if (!result.success) {
       return res.status(400).json(result);
@@ -56,7 +101,10 @@ export async function createGymSessionController(req: Request, res: Response) {
   }
 }
 
-export async function viewGymScheduleByMonthController(req: Request, res: Response) {
+export async function viewGymScheduleByMonthController(
+  req: Request,
+  res: Response
+) {
   try {
     const year = parseInt(req.query.year as string);
     const month = parseInt(req.query.month as string);
