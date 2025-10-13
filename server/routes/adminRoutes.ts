@@ -15,6 +15,7 @@ router.patch(
 );
 
 router.get("/", adminController.getAllAdmins.bind(adminController));
+router.get("/users", adminController.viewAllUsers.bind(adminController));
 router.get("/:id", adminController.getAdminById.bind(adminController));
 
 router.delete(
