@@ -198,7 +198,14 @@ export class AdminController {
       const result = await adminService.blockUser(userId);
 
       if (!result.success) {
-        return res.status(404).json({
+        const status =
+          result.message === "Invalid user ID"
+            ? 400
+            : result.message === "User not found"
+            ? 404
+            : 500;
+
+        return res.status(status).json({
           success: false,
           message: result.message,
         });
