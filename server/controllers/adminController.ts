@@ -1,10 +1,56 @@
 import type { Response } from "express";
-import type { AuthRequest } from "../middleware/authMiddleware";
-import { AdminRequired } from "../middleware/authDecorators";
-import { ValidateBody } from "../middleware/validationDecorators";
 import * as adminService from "../services/adminService";
+import { AdminRequired } from "../middleware/authDecorators";
+import type { AuthRequest } from "../middleware/authMiddleware";
+import { ValidateBody } from "../middleware/validationDecorators";
 
 export class AdminController {
+
+  @AdminRequired()
+  async approveUser(req: AuthRequest, res: Response) {
+    try {
+      const { userId } = req.params;
+
+      const result = await adminService.approveUser(userId);
+      
+      res.status(200).json({
+        success: true,
+        ...result
+      });
+    } catch (error: unknown) {
+      console.error('Approve user error:', error);
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to approve user'
+      });
+    }
+  }
+
+  @AdminRequired()
+  async rejectUser(req: AuthRequest, res: Response) {
+    try {
+      const { userId } = req.params;
+      const { reason } = req.body;
+
+      const result = await adminService.rejectUser(userId, reason);
+      
+      res.status(200).json({
+        success: true,
+        ...result
+      });
+    } catch (error: unknown) {
+      console.error('Reject user error:', error);
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to reject user'
+      });
+    }
+  }
+
+
+// Export an instance
+
+
   @AdminRequired()
   async getAllAdmins(req: AuthRequest, res: Response) {
     const admins = await adminService.findAll();
@@ -103,6 +149,84 @@ export class AdminController {
         email: req.user?.email,
       },
     });
+  }
+
+  @AdminRequired()
+  async deleteComment(req: AuthRequest, res: Response) {
+    try {
+      const { commentId } = req.params;
+      const result = await adminService.deleteComment(commentId);
+
+      if (!result.success) {
+        return res.status(404).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        deletedBy: {
+          id: req.user?.id,
+          email: req.user?.email,
+        },
+      });
+    } catch (error: unknown) {
+      console.error("Delete comment error:", error);
+      return res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to delete comment",
+      });
+    }
+  }
+
+  @AdminRequired()
+  async blockUser(req: AuthRequest, res: Response) {
+    try {
+      const { userId } = req.params;
+
+      // Prevent admin from blocking themselves
+    if (userId === req.user?.id) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot block yourself",
+      });
+    }
+
+      const result = await adminService.blockUser(userId);
+
+      if (!result.success) {
+        const status =
+          result.message === "Invalid user ID"
+            ? 400
+            : result.message === "User not found"
+            ? 404
+            : 500;
+
+        return res.status(status).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        blockedBy: {
+          id: req.user?.id,
+          email: req.user?.email,
+        },
+      });
+    } catch (error: unknown) {
+      console.error("Block user error:", error);
+      return res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to block user",
+      });
+    }
   }
 }
 

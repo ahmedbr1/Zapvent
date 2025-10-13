@@ -1,5 +1,77 @@
+import UserModel, { userRole } from "../models/User";
+import { emailService } from "./emailService";
 import AdminModel, { IAdmin } from "../models/Admin";
+import CommentModel from "../models/Comment";
 import { isValidObjectId } from "mongoose";
+
+
+export async function approveUser(userId: string) {
+   if (!isValidObjectId(userId)) {
+    throw new Error('Invalid user ID format');
+  }
+  const user = await UserModel.findById(userId);
+  
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.verified) {
+    throw new Error('User is already verified');
+  }
+
+  if (user.role === userRole.STUDENT) {
+    throw new Error('Students are auto-verified and do not need admin approval');
+  }
+
+  // Approve the user
+  user.verified = true;
+  await emailService.sendApprovalEmail(user);
+
+  await user.save();
+
+
+  return {
+    message: 'User approved successfully and notification email sent',
+    user: {
+      id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      verified: user.verified
+    }
+  };
+}
+
+export async function rejectUser(userId: string, reason?: string) {
+   if (!isValidObjectId(userId)) {
+    throw new Error('Invalid user ID format');
+  }
+  const user = await UserModel.findById(userId);
+  
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.verified) {
+    throw new Error('Cannot reject an already verified user');
+  }
+
+  // Send rejection email before deleting
+  await emailService.sendRejectionEmail(user, reason);
+
+
+  return {
+    message: 'User rejected and notified successfully',
+    user: {
+      id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role
+    }
+  };
+}
 
 export interface CreateAdminData {
   firstName: string;
@@ -182,5 +254,47 @@ export async function deleteAdmin(
       success: false,
       message: "Failed to delete admin",
     };
+  }
+}
+
+export async function deleteComment(
+  commentId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(commentId)) {
+      return { success: false, message: "Invalid comment ID" };
+    }
+
+    const deleted = await CommentModel.findByIdAndDelete(commentId);
+
+    if (!deleted) {
+      return { success: false, message: "Comment not found" };
+    }
+
+    return { success: true, message: "Comment deleted successfully" };
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    return { success: false, message: "Failed to delete comment" };
+  }
+}
+
+export async function blockUser(
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(userId)) {
+      return { success: false, message: "Invalid user ID" };
+    }
+
+    const blocked = await UserModel.findByIdAndUpdate(userId, { status: "Blocked" }, { new: true , runValidators: true });
+
+    if (!blocked) {
+      return { success: false, message: "User not found" };
+    }
+
+    return { success: true, message: "User blocked successfully" };
+  } catch (error) {
+    console.error("Error blocking user:", error);
+    return { success: false, message: "Failed to block user" };
   }
 }

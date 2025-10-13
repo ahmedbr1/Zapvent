@@ -76,6 +76,42 @@ export async function editGymSession(
     return {
       success: false,
       message: "An error occurred while editing the gym session.",
+export async function createGymSession(sessionData: Partial<IGymSession>) {
+  try {
+    const newSession = await GymSessionModel.create(sessionData);
+    return {
+      success: true,
+      message: "Gym session created successfully.",
+      data: newSession,
+    };
+  } catch (error) {
+    console.error("Error creating gym session:", error);
+    return {
+      success: false,
+      message: "An error occurred while creating the gym session.",
+    };
+  }
+}
+
+export async function getGymSessionsByMonth(year: number, month: number) {
+  try {
+    // month: 1-12
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+
+    const sessions = await GymSessionModel.find({
+      date: { $gte: startDate, $lt: endDate },
+    });
+
+    return {
+      success: true,
+      data: sessions,
+    };
+  } catch (error) {
+    console.error("Error fetching gym sessions by month:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching gym sessions.",
     };
   }
 }

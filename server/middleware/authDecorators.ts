@@ -38,7 +38,7 @@ export function LoginRequired() {
         .then(() => originalMethod.apply(this, [req, res, next]))
         .catch(() => {
           if (!res.headersSent) {
-            return res.status(500).json({
+            return res.status(401).json({
               success: false,
               message: "Authentication error",
             });
@@ -80,7 +80,7 @@ export function AdminRequired() {
         .then(() => originalMethod.apply(this, [req, res, next]))
         .catch(() => {
           if (!res.headersSent) {
-            return res.status(500).json({
+            return res.status(403).json({
               success: false,
               message: "Authorization error",
             });
@@ -123,7 +123,7 @@ export function AllowedRoles(roles: UserRole[]) {
         .then(() => originalMethod.apply(this, [req, res, next]))
         .catch(() => {
           if (!res.headersSent) {
-            return res.status(500).json({
+            return res.status(403).json({
               success: false,
               message: "Authorization error",
             });
@@ -150,24 +150,16 @@ export function OptionalAuth() {
     ) {
       const middleware = optionalAuth();
 
-      return new Promise<void>((resolve, reject) => {
-        middleware(req, res, (err?: string) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
+      try {
+        await new Promise<void>((resolve, reject) => {
+          middleware(req, res, (err?: string) =>
+            err ? reject(err) : resolve()
+          );
         });
-      })
-        .then(() => originalMethod.apply(this, [req, res, next]))
-        .catch(() => {
-          if (!res.headersSent) {
-            return res.status(500).json({
-              success: false,
-              message: "Authorization error",
-            });
-          }
-        });
+      } catch {
+        // optional auth: proceed without user context
+      }
+      return originalMethod.apply(this, [req, res, next]);
     };
 
     return descriptor;
