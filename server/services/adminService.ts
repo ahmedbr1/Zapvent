@@ -277,3 +277,24 @@ export async function deleteComment(
     return { success: false, message: "Failed to delete comment" };
   }
 }
+
+export async function blockUser(
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(userId)) {
+      return { success: false, message: "Invalid user ID" };
+    }
+
+    const blocked = await UserModel.findByIdAndUpdate(userId, { status: "Blocked" });
+
+    if (!blocked) {
+      return { success: false, message: "User not found" };
+    }
+
+    return { success: true, message: "User blocked successfully" };
+  } catch (error) {
+    console.error("Error blocking user:", error);
+    return { success: false, message: "Failed to block user" };
+  }
+}

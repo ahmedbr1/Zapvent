@@ -181,6 +181,37 @@ export class AdminController {
       });
     }
   }
+
+  
+  async blockUser(req: AuthRequest, res: Response) {
+    try {
+      const { userId } = req.params;
+      const result = await adminService.blockUser(userId);
+
+      if (!result.success) {
+        return res.status(404).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        blockedBy: {
+          id: req.user?.id,
+          email: req.user?.email,
+        },
+      });
+    } catch (error: unknown) {
+      console.error("Block user error:", error);
+      return res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to block user",
+      });
+    }
+  }
 }
 
 export const adminController = new AdminController();
