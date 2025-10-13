@@ -4,6 +4,10 @@ import eventController from "../controllers/eventController";
 
 const router = Router();
 
+router.get("/", eventController.getAllEventsController);
+router.post("/", eventController.createBazaarController);
+router.get("/upcoming-bazaars", eventController.getUpcomingBazaarsController);
+
 router.put("/conferences/:eventId", eventController.updateConferenceController);
 
 // quick check route
@@ -14,7 +18,8 @@ router.delete("/events/:eventId", (req, res) =>
   eventController.deleteAnyEvent(req, res)
 );
 // Admin-only routes
-router.put("/:id", adminRequired, eventController.updateBazaarDetails);
+// use distinct path for bazaar update to avoid clashing with gym-session edit route
+router.put("/bazaar/:id", adminRequired, eventController.updateBazaarDetails);
 router.post("/trip", adminRequired, eventController.createNewTrip);
 router.put("/trip/:id", adminRequired, eventController.updateTripDetails);
 

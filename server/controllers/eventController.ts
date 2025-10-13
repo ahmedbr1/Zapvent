@@ -1,7 +1,17 @@
 import type { Request, Response } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware";
-import { LoginRequired, AllowedRoles, AdminRequired } from "../middleware/authDecorators";
-import { deleteEventById, getAllEvents, getUpcomingBazaars, createBazaar, updateConferenceById, registerUserForWorkshop } from "../services/eventService";
+import {
+  LoginRequired,
+  AllowedRoles,
+  AdminRequired,
+} from "../middleware/authDecorators";
+import {
+  deleteEventById,
+  getAllEvents,
+  getUpcomingBazaars,
+  createBazaar,
+  updateConferenceById,
+} from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
   editBazaarDetails,
@@ -11,7 +21,7 @@ import {
 
 export class EventController {
   @LoginRequired()
-  @AllowedRoles(["EventOffice"])
+  @AllowedRoles(["EventsOffice"])
   async updateConferenceController(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params;
@@ -30,7 +40,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventOffice"])
+  @AllowedRoles(["Admin", "EventsOffice"])
   async deleteAnyEvent(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params as { eventId: string };
@@ -113,7 +123,8 @@ export class EventController {
     try {
       const sortQuery = Array.isArray(req.query.sortOrder)
         ? req.query.sortOrder[0]
-        : req.query.sortOrder ?? (Array.isArray(req.query.sort) ? req.query.sort[0] : req.query.sort);
+        : (req.query.sortOrder ??
+          (Array.isArray(req.query.sort) ? req.query.sort[0] : req.query.sort));
 
       let sortOrder = 0;
 
