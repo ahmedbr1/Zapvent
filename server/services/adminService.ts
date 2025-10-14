@@ -4,23 +4,24 @@ import AdminModel, { IAdmin } from "../models/Admin";
 import CommentModel from "../models/Comment";
 import { isValidObjectId } from "mongoose";
 
-
 export async function approveUser(userId: string) {
-   if (!isValidObjectId(userId)) {
-    throw new Error('Invalid user ID format');
+  if (!isValidObjectId(userId)) {
+    throw new Error("Invalid user ID format");
   }
   const user = await UserModel.findById(userId);
-  
+
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   if (user.verified) {
-    throw new Error('User is already verified');
+    throw new Error("User is already verified");
   }
 
   if (user.role === userRole.STUDENT) {
-    throw new Error('Students are auto-verified and do not need admin approval');
+    throw new Error(
+      "Students are auto-verified and do not need admin approval"
+    );
   }
 
   // Approve the user
@@ -29,47 +30,45 @@ export async function approveUser(userId: string) {
 
   await user.save();
 
-
   return {
-    message: 'User approved successfully and notification email sent',
+    message: "User approved successfully and notification email sent",
     user: {
       id: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       role: user.role,
-      verified: user.verified
-    }
+      verified: user.verified,
+    },
   };
 }
 
 export async function rejectUser(userId: string, reason?: string) {
-   if (!isValidObjectId(userId)) {
-    throw new Error('Invalid user ID format');
+  if (!isValidObjectId(userId)) {
+    throw new Error("Invalid user ID format");
   }
   const user = await UserModel.findById(userId);
-  
+
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   if (user.verified) {
-    throw new Error('Cannot reject an already verified user');
+    throw new Error("Cannot reject an already verified user");
   }
 
   // Send rejection email before deleting
   await emailService.sendRejectionEmail(user, reason);
 
-
   return {
-    message: 'User rejected and notified successfully',
+    message: "User rejected and notified successfully",
     user: {
       id: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
-      role: user.role
-    }
+      role: user.role,
+    },
   };
 }
 
@@ -286,7 +285,11 @@ export async function blockUser(
       return { success: false, message: "Invalid user ID" };
     }
 
-    const blocked = await UserModel.findByIdAndUpdate(userId, { status: "Blocked" }, { new: true , runValidators: true });
+    const blocked = await UserModel.findByIdAndUpdate(
+      userId,
+      { status: "Blocked" },
+      { new: true, runValidators: true }
+    );
 
     if (!blocked) {
       return { success: false, message: "User not found" };

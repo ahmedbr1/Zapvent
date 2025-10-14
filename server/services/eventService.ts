@@ -374,3 +374,44 @@ export async function getRequestedUpcomingBazaars(vendorId: string): Promise<{
     };
   }
 }
+
+export async function getVendorApplicationsForBazaar(eventId: string): Promise<{
+  success: boolean;
+  data?: Array<Partial<BazaarApplication> & { vendorInfo?: Partial<IVendor> }>;
+  message?: string;
+  statusCode?: number;
+}> {
+  try {
+    if (!eventId || !Types.ObjectId.isValid(eventId)) {
+      return { success: false, message: "Invalid event id", statusCode: 400 };
+    }
+
+    const objId = new Types.ObjectId(eventId);
+
+    const results = await vendorModel.aggregate([
+      { $match: { "applications.eventId": objId } },
+      { $unwind: "$applications" },
+      { $match: { "applications.eventId": objId } },
+      {
+        $project: {
+          vendorId: "$_id",
+          vendorName: "$name",
+          email: "$email",
+          vendorProfile: "$profile",
+          application: "$applications",
+        },
+      },
+      { $sort: { "application.applicationDate": -1 } },
+    ]);
+
+    return { success: true, data: results, statusCode: 200 };
+  } catch (error) {
+    console.error("Error fetching vendor applications for bazaar:", error);
+    return {
+      success: false,
+      message:
+        "An error occurred while fetching vendor applications for bazaar.",
+      statusCode: 500,
+    };
+  }
+}
