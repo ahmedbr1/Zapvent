@@ -231,12 +231,12 @@ export async function loginVendor(
       };
     }
 
-    if (vendor.status !== "approved") {
-      return {
-        success: false,
-        message: `Vendor account is ${vendor.status}. Please contact support.`,
-      };
-    }
+    // if (vendor.status !== "approved") {
+    //   return {
+    //     success: false,
+    //     message: `Vendor account is ${vendor.status}. Please contact support.`,
+    //   };
+    // }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, vendor.password);
