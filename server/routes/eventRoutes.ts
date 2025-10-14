@@ -17,6 +17,12 @@ router.get(
   allowedRoles(["Vendor"]),
   eventController.getAcceptedUpcomingBazaarsController
 );
+router.get(
+  "/requested-upcoming-bazaars",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  eventController.getRequestedUpcomingBazaarsController
+);
 
 router.put("/conferences/:eventId", eventController.updateConferenceController);
 
