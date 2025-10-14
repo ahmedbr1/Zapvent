@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import type { AuthRequest } from "../middleware/authMiddleware";
+import { loginRequired, type AuthRequest } from "../middleware/authMiddleware";
 import {
   LoginRequired,
   AllowedRoles,
@@ -11,6 +11,7 @@ import {
   getUpcomingBazaars,
   createBazaar,
   updateConferenceById,
+  getAcceptedUpcomingBazaars,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -19,6 +20,13 @@ import {
   editTripDetails,
 } from "../services/eventService";
 
+function extractUserId(user: unknown): string | undefined {
+  if (!user || typeof user !== "object") return undefined;
+  const u = user as Record<string, unknown>;
+  if (typeof u.id === "string") return u.id;
+  if (typeof u._id === "string") return u._id;
+  return undefined;
+}
 export class EventController {
   @LoginRequired()
   @AllowedRoles(["EventsOffice"])
@@ -204,6 +212,33 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Create bazaar controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async getAcceptedUpcomingBazaarsController(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = extractUserId(req.user);
+      if (!vendorId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const result = await getAcceptedUpcomingBazaars(vendorId);
+      if (!result.success) {
+        return res
+          .status(result.statusCode || 500)
+          .json({ success: false, message: result.message });
+      }
+      return res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+      console.error("Get accepted upcoming bazaars controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

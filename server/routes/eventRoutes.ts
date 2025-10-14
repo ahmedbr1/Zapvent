@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { adminRequired } from "../middleware/authMiddleware";
+import {
+  loginRequired,
+  adminRequired,
+  allowedRoles,
+} from "../middleware/authMiddleware";
 import eventController from "../controllers/eventController";
 
 const router = Router();
@@ -7,6 +11,12 @@ const router = Router();
 router.get("/", eventController.getAllEventsController);
 router.post("/", eventController.createBazaarController);
 router.get("/upcoming-bazaars", eventController.getUpcomingBazaarsController);
+router.get(
+  "/accepted-upcoming-bazaars",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  eventController.getAcceptedUpcomingBazaarsController
+);
 
 router.put("/conferences/:eventId", eventController.updateConferenceController);
 
