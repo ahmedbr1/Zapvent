@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { loginRequired, type AuthRequest } from "../middleware/authMiddleware";
+import { type AuthRequest } from "../middleware/authMiddleware";
 import {
   LoginRequired,
   AllowedRoles,
