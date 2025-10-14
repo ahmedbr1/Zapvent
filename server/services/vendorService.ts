@@ -1,21 +1,32 @@
-import vendorModel, { IVendor, VendorStatus } from "../models/Vendor";  
+import vendorModel, {
+  IVendor,
+  VendorStatus,
+  BoothInfo,
+  BazaarApplication,
+} from "../models/Vendor";
 import { z } from "zod";
 import EventModel, { EventType } from "../models/Event";
-
+import { Types } from "mongoose";
 
 // Zod schema for vendor signup validation
 export const vendorSignupSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email.' }).trim(),
-  password: z.string()
-    .min(8, { message: 'Password must be at least 8 characters long' })
-    .max(20, { message: 'Password must be at most 20 characters long' })
-    .regex(/[a-zA-Z]/, { message: 'Password must contain at least one letter.' })
-    .regex(/[0-9]/, { message: 'Password must contain at least one number.' })
-    .regex(/[^a-zA-Z0-9]/, { message: 'Password must contain at least one special character.' })
+  email: z.string().email({ message: "Please enter a valid email." }).trim(),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters long" })
+    .max(20, { message: "Password must be at most 20 characters long" })
+    .regex(/[a-zA-Z]/, {
+      message: "Password must contain at least one letter.",
+    })
+    .regex(/[0-9]/, { message: "Password must contain at least one number." })
+    .regex(/[^a-zA-Z0-9]/, {
+      message: "Password must contain at least one special character.",
+    })
     .trim(),
-  companyName: z.string()
-    .min(2, { message: 'Company name must be at least 2 characters long.' })
-    .max(50, { message: 'Company name must be at most 50 characters long.' })
+  companyName: z
+    .string()
+    .min(2, { message: "Company name must be at least 2 characters long." })
+    .max(50, { message: "Company name must be at most 50 characters long." })
     .trim(),
 });
 
@@ -34,16 +45,15 @@ export async function create(data: Partial<IVendor>) {
 export async function signup(vendorData: vendorSignupData) {
   // Validate with Zod
   const validatedData = vendorSignupSchema.parse(vendorData);
-  
+
   // Create vendor with default values for required fields
   const vendorDataWithDefaults = {
     ...validatedData,
     documents: "", // Fixed: use correct field name
     logo: "",
     taxCard: "",
-    loyaltyForum: ""
+    loyaltyForum: "",
   };
-  
 
   const vendor = new vendorModel(vendorDataWithDefaults);
   await vendor.save();
@@ -52,7 +62,6 @@ export async function signup(vendorData: vendorSignupData) {
   const vendorWithoutPassword = vendor.toObject();
   delete (vendorWithoutPassword as Partial<IVendor>).password;
   return vendorWithoutPassword;
-  
 }
 
 export async function applyToBazaar(
@@ -61,10 +70,18 @@ export async function applyToBazaar(
     eventId: string;
     attendees: { name: string; email: string }[];
     boothSize: number;
+    boothInfo?: {
+      boothLocation?: string;
+      boothStartTime?: Date;
+      boothEndTime?: Date;
+    };
   }
 ) {
   try {
     // Validate event exists and is a bazaar
+    if (!Types.ObjectId.isValid(applicationData.eventId)) {
+      return { success: false, message: "Invalid eventId" };
+    }
     const event = await EventModel.findById(applicationData.eventId);
     if (!event) {
       return { success: false, message: "Event not found" };
@@ -92,20 +109,71 @@ export async function applyToBazaar(
       return { success: false, message: "boothSize must be a number >= 1" };
     }
 
+    let boothInfoToSave: BoothInfo | undefined = undefined;
+    if (applicationData.boothInfo) {
+      const { boothStartTime, boothEndTime, boothLocation } =
+        applicationData.boothInfo;
+
+      if (
+        (boothStartTime && !boothEndTime) ||
+        (!boothStartTime && boothEndTime)
+      ) {
+        return {
+          success: false,
+          message:
+            "Both boothStartTime and boothEndTime are required when providing booth schedule",
+        };
+      }
+
+      if (boothStartTime && boothEndTime) {
+        const start = new Date(boothStartTime);
+        const end = new Date(boothEndTime);
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          return {
+            success: false,
+            message: "Invalid boothStartTime or boothEndTime",
+          };
+        }
+        if (end <= start) {
+          return {
+            success: false,
+            message: "boothEndTime must be after boothStartTime",
+          };
+        }
+        // Ensure booth times fall within the event duration (optional but recommended)
+        if (event.startDate && event.endDate) {
+          if (start < event.startDate || end > event.endDate) {
+            return {
+              success: false,
+              message: "Booth times must be within the event start/end dates",
+            };
+          }
+        }
+        boothInfoToSave = {
+          boothLocation: boothLocation || undefined,
+          boothStartTime: start,
+          boothEndTime: end,
+        };
+      }
+    }
+
     // Prepare application payload
-    const newApplication = {
-      eventId: applicationData.eventId,
+    const newApplication: BazaarApplication = {
+      eventId: new Types.ObjectId(applicationData.eventId),
       status: VendorStatus.PENDING,
       applicationDate: new Date(),
       attendees: applicationData.attendees,
       boothSize: applicationData.boothSize,
+      ...(boothInfoToSave ? { boothInfo: boothInfoToSave } : {}),
     };
 
     // Atomically insert only if no existing application for this event
     const updatedVendor = await vendorModel.findOneAndUpdate(
       {
         _id: vendorId,
-        "applications.eventId": { $ne: applicationData.eventId },
+        "applications.eventId": {
+          $ne: new Types.ObjectId(applicationData.eventId),
+        },
       },
       { $push: { applications: newApplication } },
       {
@@ -129,19 +197,7 @@ export async function applyToBazaar(
       message: "Application submitted successfully",
       data: savedApp,
     };
-  } catch (error: unknown) {
-    // Surface validation errors clearly
-    if (
-      error &&
-      typeof error === "object" &&
-      "name" in error &&
-      error.name === "ValidationError"
-    ) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Validation failed",
-      };
-    }
+  } catch (error) {
     console.error("Error applying to bazaar:", error);
     return {
       success: false,

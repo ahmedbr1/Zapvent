@@ -7,51 +7,60 @@ import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 import vendorModel, { VendorStatus } from "../models/Vendor";
 
 export class VendorController {
-  
   async vendorSignup(req: Request, res: Response) {
     try {
       const vendor = await vendorService.signup(req.body);
-      
+
       res.status(201).json({
         success: true,
-        message: 'Vendor registered successfully. Please complete your profile.',
-        data: vendor
+        message:
+          "Vendor registered successfully. Please complete your profile.",
+        data: vendor,
       });
-
     } catch (error) {
       // Handle Zod validation errors
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
-          message: 'Validation failed',
-          errors: error.issues
+          message: "Validation failed",
+          errors: error.issues,
         });
       }
-      
+
       // Handle MongoDB duplicate key errors
-      if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === 11000
+      ) {
         return res.status(400).json({
           success: false,
-          message: 'Email already exists'
+          message: "Email already exists",
         });
       }
-      
+
       // Handle other errors
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
-
-
 
   @LoginRequired()
   @AllowedRoles(["Vendor"])
   async applyToBazaar(req: AuthRequest, res: Response) {
     try {
       const vendorId = req.user?.id; // From authentication middleware
-      const { eventId, attendees, boothSize } = req.body;
+      const {
+        eventId,
+        attendees,
+        boothSize,
+        boothLocation,
+        boothStartTime,
+        boothEndTime,
+      } = req.body;
 
       // Validate input
       if (!eventId || !attendees || !boothSize) {
@@ -71,6 +80,11 @@ export class VendorController {
         eventId,
         attendees,
         boothSize,
+        boothInfo: {
+          boothLocation,
+          boothStartTime,
+          boothEndTime,
+        },
       });
 
       if (!result.success) {
@@ -131,9 +145,10 @@ export class VendorController {
 
       const vendorTyped = vendor as VendorDocument;
 
-      const application: VendorApplication | undefined = vendorTyped.applications?.find(
-        (app: VendorApplication) => app.eventId.toString() === eventId
-      );
+      const application: VendorApplication | undefined =
+        vendorTyped.applications?.find(
+          (app: VendorApplication) => app.eventId.toString() === eventId
+        );
       if (!application) {
         return res.status(404).json({
           success: false,
