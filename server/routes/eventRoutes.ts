@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { adminRequired } from "../middleware/authMiddleware";
+import {
+  loginRequired,
+  adminRequired,
+  allowedRoles,
+} from "../middleware/authMiddleware";
 import eventController from "../controllers/eventController";
 
 const router = Router();
@@ -7,14 +11,20 @@ const router = Router();
 router.get("/", eventController.getAllEventsController);
 router.post("/", eventController.createBazaarController);
 router.get("/upcoming-bazaars", eventController.getUpcomingBazaarsController);
+router.get(
+  "/accepted-upcoming-bazaars",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  eventController.getAcceptedUpcomingBazaarsController
+);
 
 router.put("/conferences/:eventId", eventController.updateConferenceController);
 
 // quick check route
-router.get("/events/health", (_req, res) => res.json({ ok: true }));
+router.get("/health", (_req, res) => res.json({ ok: true }));
 
 // EventOffice/Admin deletes any event
-router.delete("/events/:eventId", (req, res) =>
+router.delete("/:eventId", (req, res) =>
   eventController.deleteAnyEvent(req, res)
 );
 // Admin-only routes
