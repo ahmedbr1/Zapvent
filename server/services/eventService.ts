@@ -314,3 +314,63 @@ export async function getAcceptedUpcomingBazaars(vendorId: string): Promise<{
     };
   }
 }
+
+export async function getRequestedUpcomingBazaars(vendorId: string): Promise<{
+  success: boolean;
+  data?: Array<IEvent & { vendorApplication?: Partial<BazaarApplication> }>;
+  message?: string;
+  statusCode?: number;
+}> {
+  try {
+    if (!vendorId || !Types.ObjectId.isValid(vendorId)) {
+      return { success: false, message: "Invalid vendor id", statusCode: 400 };
+    }
+    const vendor = await vendorModel.findById(vendorId).lean<IVendor | null>();
+    if (!vendor) {
+      return { success: false, message: "Vendor not found", statusCode: 404 };
+    }
+    const requestedApps = (vendor.applications || []).filter((app) =>
+      [VendorStatus.PENDING, VendorStatus.REJECTED].includes(app.status)
+    );
+    if (requestedApps.length === 0) {
+      return { success: true, data: [], statusCode: 200 };
+    }
+
+    const eventIds = requestedApps
+      .map((app) => app.eventId)
+      .filter((id): id is Types.ObjectId => Types.ObjectId.isValid(String(id)));
+    if (eventIds.length === 0) {
+      return { success: true, data: [], statusCode: 200 };
+    }
+
+    const now = new Date();
+    const events = await EventModel.find({
+      _id: { $in: eventIds },
+      eventType: EventType.BAZAAR,
+      archived: false,
+      $or: [{ startDate: { $gte: now } }, { endDate: { $gte: now } }],
+    })
+      .sort({ startDate: 1 })
+      .lean<IEvent[]>();
+
+    const appByEventId = new Map<string, BazaarApplication>();
+    for (const app of requestedApps) appByEventId.set(String(app.eventId), app);
+    const mergedResults = events.map((event) => ({
+      ...event,
+      vendorApplication: appByEventId.get(String(event._id)) || undefined,
+    })) as (IEvent & { vendorApplication?: Partial<BazaarApplication> })[];
+
+    return { success: true, data: mergedResults, statusCode: 200 };
+  } catch (error) {
+    console.error(
+      "Error fetching vendor requested upcoming bazaars and booths:",
+      error
+    );
+    return {
+      success: false,
+      message:
+        "An error occurred while fetching vendor requested upcoming bazaars and booths.",
+      statusCode: 500,
+    };
+  }
+}
