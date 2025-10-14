@@ -18,6 +18,7 @@ import {
   editBazaarDetails,
   createTrip,
   editTripDetails,
+  getRequestedUpcomingBazaars,
 } from "../services/eventService";
 
 function extractUserId(user: unknown): string | undefined {
@@ -245,8 +246,33 @@ export class EventController {
       });
     }
   }
-}
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async getRequestedUpcomingBazaarsController(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = extractUserId(req.user);
+      if (!vendorId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
 
+      const result = await getRequestedUpcomingBazaars(vendorId);
+      if (!result.success) {
+        return res
+          .status(result.statusCode || 500)
+          .json({ success: false, message: result.message });
+      }
+      return res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+      console.error("Get requested upcoming bazaars controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+}
 // Create an instance and export the bound methods for use in routes
 const eventController = new EventController();
 
