@@ -21,10 +21,10 @@ router.get(
 router.put("/conferences/:eventId", eventController.updateConferenceController);
 
 // quick check route
-router.get("/events/health", (_req, res) => res.json({ ok: true }));
+router.get("/health", (_req, res) => res.json({ ok: true }));
 
 // EventOffice/Admin deletes any event
-router.delete("/events/:eventId", (req, res) =>
+router.delete("/:eventId", (req, res) =>
   eventController.deleteAnyEvent(req, res)
 );
 // Admin-only routes

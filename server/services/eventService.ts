@@ -13,7 +13,6 @@ import vendorModel, {
   VendorStatus,
   BazaarApplication,
 } from "../models/Vendor";
-import { AllowedRoles, LoginRequired } from "../middleware/authDecorators";
 
 export async function deleteEventById(eventId: string) {
   if (!Types.ObjectId.isValid(eventId)) {

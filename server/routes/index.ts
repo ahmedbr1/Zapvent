@@ -11,12 +11,10 @@ const api = Router();
 api.use("/users", userRoutes);
 api.use("/auth", loginRoutes);
 // Mount event routes (e.g., DELETE /api/events/:eventId)
-api.use("/", eventRoutes);
 api.use("/vendors", vendorRoutes);
 api.use("/courts", courtRoutes);
 api.use("/events", eventRoutes);
 api.use("/gym-sessions", gymSessionRoutes);
-api.use("/vendors", vendorRoutes);
 api.use("/admin", adminRoutes);
 
 export default api;
