@@ -79,6 +79,9 @@ export async function applyToBazaar(
 ) {
   try {
     // Validate event exists and is a bazaar
+    if (!Types.ObjectId.isValid(applicationData.eventId)) {
+      return { success: false, message: "Invalid eventId" };
+    }
     const event = await EventModel.findById(applicationData.eventId);
     if (!event) {
       return { success: false, message: "Event not found" };
@@ -151,10 +154,6 @@ export async function applyToBazaar(
           boothStartTime: start,
           boothEndTime: end,
         };
-      } else if (boothLocation) {
-        boothInfoToSave = {
-          boothLocation,
-        };
       }
     }
 
@@ -198,14 +197,7 @@ export async function applyToBazaar(
       message: "Application submitted successfully",
       data: savedApp,
     };
-  } catch (error: unknown) {
-    // Surface validation errors clearly
-    if (error instanceof Error && error.name === "ValidationError") {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Validation failed",
-      };
-    }
+  } catch (error) {
     console.error("Error applying to bazaar:", error);
     return {
       success: false,
