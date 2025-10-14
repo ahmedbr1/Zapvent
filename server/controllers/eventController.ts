@@ -12,6 +12,7 @@ import {
   createBazaar,
   updateConferenceById,
   getAcceptedUpcomingBazaars,
+  getVendorApplicationsForBazaar,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -266,6 +267,38 @@ export class EventController {
       return res.status(200).json({ success: true, data: result.data });
     } catch (error) {
       console.error("Get requested upcoming bazaars controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventsOffice"])
+  async getVendorApplicationsForBazaarController(
+    req: AuthRequest,
+    res: Response
+  ) {
+    try {
+      const { eventId } = req.params;
+      if (!eventId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Event ID is required" });
+      }
+      const result = await getVendorApplicationsForBazaar(eventId);
+
+      if (!result.success) {
+        return res
+          .status(result.statusCode || 500)
+          .json({ success: false, message: result.message });
+      }
+      return res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+      console.error(
+        "Get vendor applications for bazaar controller error:",
+        error
+      );
       return res.status(500).json({
         success: false,
         message: "Internal server error",
