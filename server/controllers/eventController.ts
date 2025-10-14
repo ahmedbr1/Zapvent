@@ -21,7 +21,6 @@ import {
   editTripDetails,
   getRequestedUpcomingBazaars,
 } from "../services/eventService";
-import { get } from "http";
 
 function extractUserId(user: unknown): string | undefined {
   if (!user || typeof user !== "object") return undefined;

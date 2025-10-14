@@ -377,7 +377,13 @@ export async function getRequestedUpcomingBazaars(vendorId: string): Promise<{
 
 export async function getVendorApplicationsForBazaar(eventId: string): Promise<{
   success: boolean;
-  data?: Array<Partial<BazaarApplication> & { vendorInfo?: Partial<IVendor> }>;
+  data?: Array<{
+    vendorId: Types.ObjectId;
+    companyName: string;
+    email: string;
+    logo: string;
+    application: BazaarApplication[];
+  }>;
   message?: string;
   statusCode?: number;
 }> {
@@ -395,9 +401,9 @@ export async function getVendorApplicationsForBazaar(eventId: string): Promise<{
       {
         $project: {
           vendorId: "$_id",
-          vendorName: "$name",
+          companyName: "$companyName",
           email: "$email",
-          vendorProfile: "$profile",
+          logo: "$logo",
           application: "$applications",
         },
       },
