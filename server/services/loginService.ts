@@ -85,6 +85,13 @@ export async function loginUser(
       };
     }
 
+    if (!user.verified) {
+      return {
+        success: false,
+        message: "Please verify your email before logging in.",
+      };
+    }
+
     // Check if user is blocked
     if (user.status === "Blocked") {
       return {
@@ -153,6 +160,13 @@ export async function loginAdmin(
       return {
         success: false,
         message: "Invalid email or password",
+      };
+    }
+
+    if (!admin.verified) {
+      return {
+        success: false,
+        message: "Please verify your email before logging in.",
       };
     }
 
@@ -230,13 +244,6 @@ export async function loginVendor(
         message: "Vendor account is not verified yet.",
       };
     }
-
-    // if (vendor.status !== "approved") {
-    //   return {
-    //     success: false,
-    //     message: `Vendor account is ${vendor.status}. Please contact support.`,
-    //   };
-    // }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, vendor.password);
