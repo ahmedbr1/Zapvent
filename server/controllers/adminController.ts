@@ -228,6 +228,34 @@ export class AdminController {
       });
     }
   }
+
+  @AdminRequired()
+  async viewAllUsers(req: AuthRequest, res: Response) {
+    try {
+      const result = await adminService.viewAllUsers();
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        count: result.count,
+        users: result.users,
+      });
+    } catch (error: unknown) {
+      console.error("View all users error:", error);
+      return res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to retrieve users",
+      });
+    }
+  }
 }
 
 export const adminController = new AdminController();

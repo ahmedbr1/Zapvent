@@ -1,4 +1,4 @@
-import UserModel, { userRole } from "../models/User";
+import UserModel, { userRole, userStatus } from "../models/User";
 import { emailService } from "./emailService";
 import AdminModel, { IAdmin } from "../models/Admin";
 import CommentModel from "../models/Comment";
@@ -296,5 +296,80 @@ export async function blockUser(
   } catch (error) {
     console.error("Error blocking user:", error);
     return { success: false, message: "Failed to block user" };
+  }
+}
+
+type UserDetails = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: userRole;
+  status: userStatus;
+  studentId?: string;
+  staffId?: string;
+  registeredEvents: string[];
+  balance: number;
+  verified: boolean;
+  favorites: string[];
+  notifications: string[];
+  workshops: string[];
+  registeredGymSessions: string[];
+  reservedCourts: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export async function viewAllUsers(): Promise<{
+  success: boolean;
+  message?: string;
+  count?: number;
+  users?: UserDetails[];
+}> {
+  try {
+    const users = await UserModel.find().lean();
+
+    if (!users.length) {
+      return {
+        success: true,
+        message: "No users found",
+        count: 0,
+        users: [],
+      };
+    }
+
+    const normalizedUsers: UserDetails[] = users.map((user) => ({
+      id: user._id as string,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      studentId: user.studentId,
+      staffId: user.staffId,
+      registeredEvents: user.registeredEvents ?? [],
+      balance: user.balance ?? 0,
+      verified: user.verified,
+      favorites: user.favorites ?? [],
+      notifications: user.notifications ?? [],
+      workshops: user.workshops ?? [],
+      registeredGymSessions: user.registeredGymSessions ?? [],
+      reservedCourts: user.reservedCourts ?? [],
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }));
+
+    return {
+      success: true,
+      message: "Users retrieved successfully",
+      count: normalizedUsers.length,
+      users: normalizedUsers,
+    };
+  } catch (error) {
+    console.error("Error retrieving users:", error);
+    return {
+      success: false,
+      message: "Failed to retrieve users",
+    };
   }
 }
