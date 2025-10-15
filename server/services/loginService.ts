@@ -163,13 +163,6 @@ export async function loginAdmin(
       };
     }
 
-    if (!admin.verified) {
-      return {
-        success: false,
-        message: "Please verify your email before logging in.",
-      };
-    }
-
     // Check if admin is blocked
     if (admin.status === "Blocked") {
       return {
