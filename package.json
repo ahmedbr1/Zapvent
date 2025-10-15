@@ -11,8 +11,14 @@
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.4",
+    "@mui/material": "^7.3.4",
+    "@mui/x-date-pickers": "^8.14.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.18",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
