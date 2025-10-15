@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
-import type { AuthRole, UserRole, UserStatus } from "@/lib/types";
+import type { AuthRole, UserRole, UserStatus, VendorStatus } from "@/lib/types";
 
 export interface AdminUser {
   id: string;
@@ -35,6 +35,41 @@ interface ApproveUserResponse extends AdminActionResponse {
   };
 }
 
+export interface AdminVendorApplication {
+  eventId: string;
+  status: VendorStatus;
+  applicationDate?: string;
+  attendees: number;
+  boothSize: number;
+  boothLocation?: string;
+  boothStartTime?: string;
+  boothEndTime?: string;
+}
+
+export interface AdminVendor {
+  id: string;
+  email: string;
+  companyName: string;
+  isVerified: boolean;
+  loyaltyForum?: string;
+  logo?: string;
+  taxCard?: string;
+  documents?: string;
+  applications: AdminVendorApplication[];
+  pendingApplications: number;
+  approvedApplications: number;
+  rejectedApplications: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AdminVendorsResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  vendors: AdminVendor[];
+}
+
 export async function fetchAdminUsers(token?: string): Promise<AdminUser[]> {
   const response = await apiFetch<AdminUsersResponse>("/admin/users", {
     token,
@@ -55,6 +90,34 @@ export async function approveUser(userId: string, token?: string) {
 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to approve user");
+  }
+
+  return response;
+}
+
+export async function fetchAdminVendors(token?: string): Promise<AdminVendor[]> {
+  const response = await apiFetch<AdminVendorsResponse>("/vendors/admin", {
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to load vendors");
+  }
+
+  return response.vendors ?? [];
+}
+
+export async function verifyVendor(vendorId: string, token?: string) {
+  const response = await apiFetch<AdminActionResponse>(
+    `/vendors/admin/${vendorId}/verify`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to verify vendor");
   }
 
   return response;

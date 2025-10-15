@@ -8,7 +8,6 @@ interface TokenPayload {
   firstName?: string;
   lastName?: string;
   companyName?: string;
-  isVerified?: boolean;
   status?: string;
   logo?: string;
   exp?: number;
@@ -59,7 +58,6 @@ export function decodeToken(token: string): SessionState | null {
           ? [payload.firstName, payload.lastName].filter(Boolean).join(" ")
           : undefined,
       companyName: payload.companyName,
-      isVerified: payload.isVerified,
       status: payload.status,
       logo: payload.logo,
     };

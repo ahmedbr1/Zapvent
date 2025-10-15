@@ -80,6 +80,10 @@ export interface CreateAdminData {
   adminType: "EventOffice" | "Admin";
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export interface AdminResponse {
   id: string;
   firstName: string;
@@ -89,6 +93,7 @@ export interface AdminResponse {
   createdAt: Date;
   updatedAt: Date;
 }
+
 
 export async function findAll(): Promise<AdminResponse[]> {
   const admins = await AdminModel.find().lean();
@@ -123,16 +128,22 @@ export async function findById(id: string): Promise<AdminResponse | null> {
 }
 
 export async function findByEmail(email: string): Promise<IAdmin | null> {
-  return AdminModel.findOne({ email }).lean() as Promise<IAdmin | null>;
+  return AdminModel.findOne({ email: normalizeEmail(email) }).lean() as Promise<
+    IAdmin | null
+  >;
 }
 
 export async function createAdmin(
   data: CreateAdminData
 ): Promise<{ success: boolean; admin?: AdminResponse; message?: string }> {
   try {
-    const existingAdmin = await findByEmail(data.email);
+    const sanitizedEmail = normalizeEmail(data.email);
+    const existingAdmin = await findByEmail(sanitizedEmail);
 
     if (existingAdmin) {
+      console.info(
+        `[adminService] createAdmin blocked duplicate for ${sanitizedEmail}`
+      );
       return {
         success: false,
         message: "An admin with this email already exists",
@@ -140,7 +151,7 @@ export async function createAdmin(
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email)) {
+    if (!emailRegex.test(sanitizedEmail)) {
       return {
         success: false,
         message: "Invalid email format",
@@ -157,7 +168,7 @@ export async function createAdmin(
     const admin = new AdminModel({
       firstName: data.firstName,
       lastName: data.lastName,
-      email: data.email,
+      email: sanitizedEmail,
       password: data.password, // Will be hashed by pre-save hook
       status: data.status || "Active",
       adminType: data.adminType || "Admin",

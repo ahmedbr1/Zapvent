@@ -171,6 +171,31 @@ export class VendorController {
       });
     }
   }
+
+  @LoginRequired()
+  @AllowedRoles(["Admin"])
+  async listVendorsForAdmin(req: AuthRequest, res: Response) {
+    try {
+      const result = await vendorService.findAllForAdmin();
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      return res.status(200).json(result);
+    } catch (error: unknown) {
+      console.error("List vendors for admin error:", error);
+      return res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to retrieve vendors",
+      });
+    }
+  }
+
 }
 
 export const vendorController = new VendorController();
