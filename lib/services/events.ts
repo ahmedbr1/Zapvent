@@ -25,6 +25,7 @@ interface EventApiItem {
   price?: number;
   participatingProfessors?: string[];
   vendors?: string[];
+  registeredUsers?: string[];
 }
 
 interface UpcomingBazaarsResponse {
@@ -39,6 +40,17 @@ interface CreateBazaarResponse {
   data?: EventApiItem;
 }
 
+interface RegisterEventResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    eventId: string;
+    userId: string;
+    registeredCount: number;
+    capacity?: number;
+  };
+}
+
 export interface BazaarPayload {
   name: string;
   description: string;
@@ -48,7 +60,31 @@ export interface BazaarPayload {
   location: Location;
 }
 
-export async function fetchUpcomingEvents(token?: string): Promise<EventSummary[]> {
+export async function registerForWorkshop(
+  workshopId: string,
+  token?: string,
+  userId?: string
+): Promise<RegisterEventResponse> {
+  const response = await apiFetch<RegisterEventResponse, { userId?: string }>(
+    `/events/workshop/${workshopId}/register`,
+    {
+      method: "POST",
+      body: userId ? { userId } : undefined,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to register for this event");
+  }
+
+  return response;
+}
+
+export async function fetchUpcomingEvents(
+  token?: string,
+  currentUserId?: string
+): Promise<EventSummary[]> {
   const response = await apiFetch<EventApiResponse>("/events", {
     method: "GET",
     token,
@@ -58,15 +94,22 @@ export async function fetchUpcomingEvents(token?: string): Promise<EventSummary[
     throw new Error(response.message ?? "Failed to fetch events");
   }
 
-  return (response.data ?? []).map(mapEvent);
+  return (response.data ?? []).map((item) => mapEvent(item, currentUserId));
 }
 
-export async function fetchEventById(id: string, token?: string): Promise<EventSummary | null> {
-  const events = await fetchUpcomingEvents(token);
+export async function fetchEventById(
+  id: string,
+  token?: string,
+  currentUserId?: string
+): Promise<EventSummary | null> {
+  const events = await fetchUpcomingEvents(token, currentUserId);
   return events.find((event) => event.id === id) ?? null;
 }
 
-export async function fetchUpcomingBazaars(token?: string): Promise<EventSummary[]> {
+export async function fetchUpcomingBazaars(
+  token?: string,
+  currentUserId?: string
+): Promise<EventSummary[]> {
   const response = await apiFetch<UpcomingBazaarsResponse>("/events/upcoming-bazaars", {
     method: "GET",
     token,
@@ -76,7 +119,7 @@ export async function fetchUpcomingBazaars(token?: string): Promise<EventSummary
     throw new Error(response.message ?? "Failed to load bazaars");
   }
 
-  return (response.bazaars ?? []).map(mapEvent);
+  return (response.bazaars ?? []).map((item) => mapEvent(item, currentUserId));
 }
 
 export async function createBazaar(payload: BazaarPayload, token?: string) {
@@ -110,7 +153,10 @@ export async function updateBazaar(id: string, payload: Partial<BazaarPayload>, 
   return response.data ? mapEvent(response.data) : null;
 }
 
-function mapEvent(event: EventApiItem): EventSummary {
+function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
+  const isRegistered = currentUserId
+    ? (event.registeredUsers ?? []).some((userId) => userId === currentUserId)
+    : undefined;
   const vendors: VendorSummary[] = (event.vendors ?? []).map((vendorId, index) => ({
     id: vendorId,
     companyName: `Vendor ${index + 1}`,
@@ -130,5 +176,6 @@ function mapEvent(event: EventApiItem): EventSummary {
     capacity: event.capacity,
     price: event.price,
     vendors,
+    isRegistered,
   };
 }

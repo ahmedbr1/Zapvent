@@ -24,6 +24,7 @@ import {
 import MenuIcon from "@mui/icons-material/MenuRounded";
 import NotificationsIcon from "@mui/icons-material/NotificationsRounded";
 import LogoutIcon from "@mui/icons-material/LogoutRounded";
+import PersonIcon from "@mui/icons-material/PersonRounded";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeftRounded";
 import { useTheme } from "@mui/material/styles";
 import { usePathname, useRouter } from "next/navigation";
@@ -237,7 +238,12 @@ export function AppShell({
             anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
             transformOrigin={{ horizontal: "right", vertical: "top" }}
           >
-            <MenuItem onClick={() => handleNavigate("/profile")}>Profile</MenuItem>
+            <MenuItem onClick={() => handleNavigate("/profile")}>
+              <ListItemIcon>
+                <PersonIcon fontSize="small" />
+              </ListItemIcon>
+              Profile
+            </MenuItem>
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
                 <LogoutIcon fontSize="small" />
@@ -274,15 +280,21 @@ export function AppShell({
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, md: 3 },
           width: {
             xs: "100%",
             lg: hideNavigation ? "100%" : `calc(100% - ${drawerWidth}px)`,
           },
-          mt: hideNavigation ? 0 : { xs: 8, lg: 0 },
+          px: { xs: 2, md: 4 },
+          py: { xs: 3, md: 4 },
         }}
       >
-        <Toolbar sx={{ display: hideNavigation ? "none" : { xs: "block", lg: "none" } }} />
+        {!hideNavigation && (
+          <Toolbar
+            sx={{
+              mb: { xs: 2, md: 3 },
+            }}
+          />
+        )}
         {children}
       </Box>
     </Box>

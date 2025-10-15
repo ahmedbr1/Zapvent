@@ -439,14 +439,14 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["EventOffice"])
+  @AllowedRoles(["User", "EventOffice"])
   async registerForWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
       if (!id) {
         return res.status(400).json({
           success: false,
-          message: "Workshop ID is required.",
+          message: "Event ID is required.",
         });
       }
 

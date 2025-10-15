@@ -551,14 +551,14 @@ export interface IRegisterWorkshopResponse {
 }
 
 export async function registerUserForWorkshop(
-  workshopId: string,
+  eventId: string,
   userId: string
 ): Promise<IRegisterWorkshopResponse> {
   try {
-    if (!Types.ObjectId.isValid(workshopId)) {
+    if (!Types.ObjectId.isValid(eventId)) {
       return {
         success: false,
-        message: "Invalid workshop ID.",
+        message: "Invalid event ID.",
         statusCode: 400,
       };
     }
@@ -571,24 +571,16 @@ export async function registerUserForWorkshop(
       };
     }
 
-    const [workshop, user] = await Promise.all([
-      EventModel.findById(workshopId),
+    const [event, user] = await Promise.all([
+      EventModel.findById(eventId),
       UserModel.findById(userId),
     ]);
 
-    if (!workshop) {
+    if (!event) {
       return {
         success: false,
-        message: "Workshop not found.",
+        message: "Event not found.",
         statusCode: 404,
-      };
-    }
-
-    if (workshop.eventType !== EventType.WORKSHOP) {
-      return {
-        success: false,
-        message: "Event is not a workshop.",
-        statusCode: 400,
       };
     }
 
@@ -600,16 +592,27 @@ export async function registerUserForWorkshop(
       };
     }
 
-    const now = new Date();
-    if (workshop.archived) {
+    if (
+      event.eventType !== EventType.WORKSHOP &&
+      event.eventType !== EventType.TRIP
+    ) {
       return {
         success: false,
-        message: "Workshop is archived.",
+        message: "Only workshops and trips support registrations.",
         statusCode: 400,
       };
     }
 
-    if (workshop.registrationDeadline < now) {
+    const now = new Date();
+    if (event.archived) {
+      return {
+        success: false,
+        message: "Event is archived.",
+        statusCode: 400,
+      };
+    }
+
+    if (event.registrationDeadline < now) {
       return {
         success: false,
         message: "Registration deadline has passed.",
@@ -618,66 +621,76 @@ export async function registerUserForWorkshop(
     }
 
     const alreadyRegistered =
-      workshop.registeredUsers?.some((registeredId: string) => registeredId === userId) ??
+      event.registeredUsers?.some((registeredId: string) => registeredId === userId) ??
       false;
 
     if (alreadyRegistered) {
       return {
         success: false,
-        message: "User already registered for this workshop.",
+        message: "User already registered for this event.",
         statusCode: 409,
       };
     }
 
-    const currentRegistrations = workshop.registeredUsers?.length ?? 0;
+    const currentRegistrations = event.registeredUsers?.length ?? 0;
     if (
-      typeof workshop.capacity === "number" &&
-      workshop.capacity > 0 &&
-      currentRegistrations >= workshop.capacity
+      typeof event.capacity === "number" &&
+      event.capacity > 0 &&
+      currentRegistrations >= event.capacity
     ) {
       return {
         success: false,
-        message: "Workshop has reached its capacity.",
+        message: "Event has reached its capacity.",
         statusCode: 400,
       };
     }
 
-    const updatedWorkshop = await EventModel.findByIdAndUpdate(
-      workshopId,
+    const updatedEvent = await EventModel.findByIdAndUpdate(
+      eventId,
       { $addToSet: { registeredUsers: userId } },
       { new: true }
     );
 
-    if (!updatedWorkshop) {
+    if (!updatedEvent) {
       return {
         success: false,
-        message: "Failed to update workshop registration.",
+        message: "Failed to update event registration.",
         statusCode: 500,
       };
     }
 
+    const addToSet: Record<string, unknown> = {
+      registeredEvents: eventId,
+    };
+
+    if (event.eventType === EventType.WORKSHOP) {
+      addToSet.workshops = eventId;
+    }
+
     await UserModel.findByIdAndUpdate(userId, {
-      $addToSet: {
-        workshops: workshopId,
-        registeredEvents: workshopId,
-      },
+      $addToSet: addToSet,
     });
+
+    const message =
+      event.eventType === EventType.WORKSHOP
+        ? "Registration successful."
+        : `Successfully registered for ${event.eventType.toLowerCase()} event.`;
 
     return {
       success: true,
-      message: "Registration successful.",
+      message,
       data: {
-        eventId: workshopId,
+        eventId,
         userId,
-        registeredCount: updatedWorkshop.registeredUsers.length,
-        capacity: updatedWorkshop.capacity,
+        registeredCount: updatedEvent.registeredUsers.length,
+        capacity: updatedEvent.capacity,
       },
     };
   } catch (error) {
-    console.error("Error registering user for workshop:", error);
+    console.error("Error registering user for event:", error);
     return {
       success: false,
-      message: "An error occurred while registering for the workshop.",
+      message: "An error occurred while registering for the event.",
       statusCode: 500,
     };
   }

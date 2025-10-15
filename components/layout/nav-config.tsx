@@ -42,7 +42,7 @@ export const navItems: NavItem[] = [
   },
   {
     label: "Courts & Gym",
-    href: "/user/fitness",
+    href: "/user/gym",
     icon: FitnessCenterIcon,
     roles: [AuthRole.User],
   },

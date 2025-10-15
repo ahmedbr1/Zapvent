@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Grid from "@mui/material/Grid";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -17,9 +17,10 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
-import { fetchUpcomingEvents } from "@/lib/services/events";
-import type { EventSummary } from "@/lib/types";
+import { fetchUpcomingEvents, registerForWorkshop } from "@/lib/services/events";
+import { EventType, type EventSummary } from "@/lib/types";
 import { useAuthToken } from "@/hooks/useAuthToken";
+import { useSessionUser } from "@/hooks/useSessionUser";
 
 const PAGE_SIZE = 6;
 
@@ -35,22 +36,39 @@ const INITIAL_FILTERS: EventFilters = {
 
 export default function UserEventsPage() {
   const token = useAuthToken();
+  const user = useSessionUser();
   const { enqueueSnackbar } = useSnackbar();
   const [filters, setFilters] = useState<EventFilters>({ ...INITIAL_FILTERS });
   const [page, setPage] = useState(1);
   const [registeredEventIds, setRegisteredEventIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [pendingEventId, setPendingEventId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const eventsQuery = useQuery({
-    queryKey: ["events", token],
-    queryFn: () => fetchUpcomingEvents(token ?? undefined),
+    queryKey: ["events", user?.id, token],
+    queryFn: () => fetchUpcomingEvents(token ?? undefined, user?.id),
     enabled: Boolean(token),
   });
 
   useEffect(() => {
     setPage(1);
   }, [filters.search, filters.eventType, filters.location, filters.professor, filters.startDate, filters.endDate]);
+
+  useEffect(() => {
+    if (eventsQuery.data) {
+      setRegisteredEventIds(
+        new Set(
+          eventsQuery.data
+            .filter((event) => event.isRegistered)
+            .map((event) => event.id)
+        )
+      );
+    } else {
+      setRegisteredEventIds(new Set());
+    }
+  }, [eventsQuery.data]);
 
   const professors = useMemo(() => {
     const names = new Set<string>();
@@ -110,7 +128,76 @@ export default function UserEventsPage() {
     page * PAGE_SIZE
   );
 
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+    if (
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof (error as { message?: unknown }).message === "string"
+    ) {
+      return (error as { message: string }).message;
+    }
+    return fallback;
+  };
+
+  const registerMutation = useMutation({
+    mutationFn: (event: EventSummary) =>
+      registerForWorkshop(event.id, token ?? undefined),
+    onMutate: (event) => {
+      setPendingEventId(event.id);
+    },
+    onSuccess: (response, event) => {
+      setRegisteredEventIds((prev) => {
+        const next = new Set(prev);
+        next.add(event.id);
+        return next;
+      });
+      const successMessage =
+        response.message ?? `Registration successful for ${event.name}.`;
+      enqueueSnackbar(successMessage, { variant: "success" });
+      queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
+      queryClient.invalidateQueries({
+        queryKey: ["event", event.id, user?.id, token],
+      });
+    },
+    onError: (error: unknown, event) => {
+      const message = getErrorMessage(
+        error,
+        `Failed to register for ${event.name}.`
+      );
+      enqueueSnackbar(message, { variant: "error" });
+    },
+    onSettled: () => {
+      setPendingEventId(null);
+    },
+  });
+
   const handleRegister = (event: EventSummary) => {
+    if (!token) {
+      enqueueSnackbar("You must be signed in to register for events.", {
+        variant: "warning",
+      });
+      return;
+    }
+
+    const supportsRegistration =
+      event.eventType === EventType.Workshop || event.eventType === EventType.Trip;
+
+    if (!supportsRegistration) {
+      enqueueSnackbar("Only workshops and trips support online registration.", {
+        variant: "info",
+      });
+      return;
+    }
+    if (new Date(event.registrationDeadline).getTime() < Date.now()) {
+      enqueueSnackbar("Registration for this event has already closed.", {
+        variant: "info",
+      });
+      return;
+    }
     if (registeredEventIds.has(event.id)) {
       enqueueSnackbar("You’ve already registered for this event.", {
         variant: "info",
@@ -118,10 +205,7 @@ export default function UserEventsPage() {
       return;
     }
 
-    setRegisteredEventIds((prev) => new Set(prev).add(event.id));
-    enqueueSnackbar(`Registration started for ${event.name}.`, {
-      variant: "success",
-    });
+    registerMutation.mutate(event);
   };
 
   return (
@@ -193,15 +277,28 @@ export default function UserEventsPage() {
       ) : (
         <>
           <Grid container spacing={3}>
-            {paginatedEvents.map((event) => (
-              <Grid key={event.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                <EventCard
-                  event={event}
-                  onRegister={handleRegister}
-                  disableRegister={registeredEventIds.has(event.id)}
-                />
-              </Grid>
-            ))}
+            {paginatedEvents.map((event) => {
+              const isRegistered =
+                Boolean(event.isRegistered) || registeredEventIds.has(event.id);
+              const eventWithStatus: EventSummary = {
+                ...event,
+                isRegistered,
+              };
+              const isRegisterable =
+                event.eventType === EventType.Workshop || event.eventType === EventType.Trip;
+              const isPendingRegistration =
+                pendingEventId === event.id && registerMutation.isPending;
+
+              return (
+                <Grid key={event.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                  <EventCard
+                    event={eventWithStatus}
+                    onRegister={isRegisterable ? handleRegister : undefined}
+                    disableRegister={isRegistered || isPendingRegistration}
+                  />
+                </Grid>
+              );
+            })}
           </Grid>
           {totalPages > 1 && (
             <Stack alignItems="center">

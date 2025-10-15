@@ -35,8 +35,8 @@ export default function UserDashboardPage() {
   const router = useRouter();
 
   const eventsQuery = useQuery({
-    queryKey: ["events", token],
-    queryFn: () => fetchUpcomingEvents(token ?? undefined),
+    queryKey: ["events", user?.id, token],
+    queryFn: () => fetchUpcomingEvents(token ?? undefined, user?.id),
     enabled: Boolean(token),
   });
 

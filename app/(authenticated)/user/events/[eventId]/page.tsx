@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -21,7 +21,8 @@ import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { fetchEventById } from "@/lib/services/events";
+import { useSessionUser } from "@/hooks/useSessionUser";
+import { fetchEventById, registerForWorkshop } from "@/lib/services/events";
 import { EventType } from "@/lib/types";
 import { formatDateTime, formatRelative } from "@/lib/date";
 
@@ -29,16 +30,40 @@ export default function EventDetailsPage() {
   const params = useParams<{ eventId: string }>();
   const eventId = params?.eventId;
   const token = useAuthToken();
+  const user = useSessionUser();
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
+  const [isRegistered, setIsRegistered] = useState(false);
 
   const query = useQuery({
-    queryKey: ["event", eventId, token],
-    queryFn: () => fetchEventById(eventId!, token ?? undefined),
+    queryKey: ["event", eventId, user?.id, token],
+    queryFn: () => fetchEventById(eventId!, token ?? undefined, user?.id),
     enabled: Boolean(eventId && token),
   });
 
   const event = query.data;
+  const supportsRegistration =
+    event?.eventType === EventType.Workshop || event?.eventType === EventType.Trip;
+
+  useEffect(() => {
+    setIsRegistered(Boolean(event?.isRegistered));
+  }, [event?.isRegistered]);
+
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+    if (
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof (error as { message?: unknown }).message === "string"
+    ) {
+      return (error as { message: string }).message;
+    }
+    return fallback;
+  };
 
   const vendorList = useMemo(() => {
     if (!event || !event.vendors || event.vendors.length === 0) return [];
@@ -48,11 +73,56 @@ export default function EventDetailsPage() {
     }));
   }, [event]);
 
+  const registerMutation = useMutation({
+    mutationFn: () => registerForWorkshop(eventId!, token ?? undefined),
+    onSuccess: (response) => {
+      setIsRegistered(true);
+      const message =
+        response.message ??
+        (event ? `Registration successful for ${event.name}.` : "Registration successful.");
+      enqueueSnackbar(message, { variant: "success" });
+      queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
+      queryClient.invalidateQueries({
+        queryKey: ["event", eventId, user?.id, token],
+      });
+    },
+    onError: (error: unknown) => {
+      const message = getErrorMessage(
+        error,
+        "Failed to register for this event."
+      );
+      enqueueSnackbar(message, { variant: "error" });
+    },
+  });
+
   const handleRegister = () => {
-    if (!event) return;
-    enqueueSnackbar(`Registration submitted for ${event.name}.`, {
-      variant: "success",
-    });
+    if (!event || !eventId) return;
+    if (!token) {
+      enqueueSnackbar("You must be signed in to register for events.", {
+        variant: "warning",
+      });
+      return;
+    }
+    if (!supportsRegistration) {
+      enqueueSnackbar("Only workshops and trips support online registration.", {
+        variant: "info",
+      });
+      return;
+    }
+    if (new Date(event.registrationDeadline).getTime() < Date.now()) {
+      enqueueSnackbar("Registration deadline has passed.", {
+        variant: "info",
+      });
+      return;
+    }
+    if (isRegistered) {
+      enqueueSnackbar("You have already registered for this event.", {
+        variant: "info",
+      });
+      return;
+    }
+
+    registerMutation.mutate();
   };
 
   if (query.isLoading) {
@@ -106,9 +176,20 @@ export default function EventDetailsPage() {
             Registration deadline
           </Typography>
           <Typography variant="h6">{formatDateTime(event.registrationDeadline)}</Typography>
-          <Button variant="contained" onClick={handleRegister} startIcon={<EventIcon />}>
-            Register
-          </Button>
+          {supportsRegistration ? (
+            <Button
+              variant="contained"
+              onClick={handleRegister}
+              startIcon={<EventIcon />}
+              disabled={isRegistered || registerMutation.isPending}
+            >
+              {isRegistered ? "Registered" : "Register"}
+            </Button>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Registration is managed offline for this event.
+            </Typography>
+          )}
         </Stack>
       </Stack>
 

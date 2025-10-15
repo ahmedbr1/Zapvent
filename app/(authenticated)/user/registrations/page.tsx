@@ -1,35 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
-import TablePagination from "@mui/material/TablePagination";
 import Chip from "@mui/material/Chip";
-import CancelIcon from "@mui/icons-material/CancelRounded";
-import { useSnackbar } from "notistack";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardActions from "@mui/material/CardActions";
+import Divider from "@mui/material/Divider";
+import EventIcon from "@mui/icons-material/EventAvailableRounded";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { fetchUserRegisteredEvents } from "@/lib/services/users";
-import type { UserRegisteredEvent } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
 
 export default function UserRegistrationsPage() {
   const token = useAuthToken();
   const user = useSessionUser();
-  const { enqueueSnackbar } = useSnackbar();
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const query = useQuery({
     queryKey: ["registered-events", user?.id, token],
@@ -39,17 +31,6 @@ export default function UserRegistrationsPage() {
 
   const registrations = useMemo(() => query.data ?? [], [query.data]);
 
-  const paginated = useMemo(() => {
-    const start = page * rowsPerPage;
-    return registrations.slice(start, start + rowsPerPage);
-  }, [registrations, page, rowsPerPage]);
-
-  const handleCancel = (item: UserRegisteredEvent) => {
-    enqueueSnackbar(`Cancellation request for ${item.name} queued.`, {
-      variant: "info",
-    });
-  };
-
   return (
     <Stack spacing={3}>
       <Stack spacing={1}>
@@ -57,7 +38,7 @@ export default function UserRegistrationsPage() {
           My registered events
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Review your upcoming attendance and request cancellations when needed.
+          Browse your confirmed spots and jump straight into the event details.
         </Typography>
       </Stack>
 
@@ -72,55 +53,82 @@ export default function UserRegistrationsPage() {
           You haven&apos;t registered for events yet. Explore the catalogue to get started.
         </Alert>
       ) : (
-        <Paper sx={{ borderRadius: 3 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Event</TableCell>
-                  <TableCell>Location</TableCell>
-                  <TableCell>Starts</TableCell>
-                  <TableCell>Deadline</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginated.map((item) => (
-                  <TableRow key={item.id} hover>
-                    <TableCell>{item.name}</TableCell>
-                    <TableCell>
-                      <Chip label={item.location} size="small" />
-                    </TableCell>
-                    <TableCell>{formatDateTime(item.startDate)}</TableCell>
-                    <TableCell>{formatDateTime(item.registrationDeadline)}</TableCell>
-                    <TableCell align="right">
-                      <Button
-                        variant="text"
-                        color="error"
-                        startIcon={<CancelIcon />}
-                        onClick={() => handleCancel(item)}
-                      >
-                        Cancel registration
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={registrations.length}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(event) => {
-              setRowsPerPage(parseInt(event.target.value, 10));
-              setPage(0);
-            }}
-          />
-        </Paper>
+        <Stack spacing={1.5}>
+          {registrations.map((item) => (
+            <Card
+              key={item.id}
+              sx={{
+                borderRadius: 3,
+                boxShadow: "0 14px 40px rgba(15,23,42,0.08)",
+                overflow: "hidden",
+              }}
+            >
+              <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
+                <Stack
+                  direction={{ xs: "column", md: "row" }}
+                  spacing={1.5}
+                  justifyContent="space-between"
+                  alignItems={{ md: "center" }}
+                >
+                  <Stack spacing={0.5}>
+                    <Typography variant="h6" fontWeight={700}>
+                      {item.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Registration closes {formatDateTime(item.registrationDeadline)}
+                    </Typography>
+                  </Stack>
+                  <Chip label={item.location} size="small" />
+                </Stack>
+                <Divider sx={{ my: 2 }} />
+                <GridDetails
+                  data={[
+                    { label: "Event starts", value: formatDateTime(item.startDate) },
+                    { label: "Event ends", value: formatDateTime(item.endDate) },
+                    { label: "Event ID", value: item.id },
+                  ]}
+                />
+              </CardContent>
+              <CardActions sx={{ px: { xs: 2.5, md: 3 }, pb: 3, pt: 0 }}>
+                <Button
+                  component={Link}
+                  href={`/user/events/${item.id}`}
+                  variant="contained"
+                  startIcon={<EventIcon />}
+                  sx={{ borderRadius: 2 }}
+                >
+                  View event details
+                </Button>
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
       )}
+    </Stack>
+  );
+}
+
+interface GridDetailsProps {
+  data: Array<{ label: string; value: string }>;
+}
+
+function GridDetails({ data }: GridDetailsProps) {
+  return (
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      spacing={2}
+      divider={<Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />}
+    >
+      {data.map((item) => (
+        <Stack key={item.label} spacing={0.5} flex={1} minWidth={0}>
+          <Typography variant="caption" color="text.secondary" textTransform="uppercase">
+            {item.label}
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {item.value}
+          </Typography>
+        </Stack>
+      ))}
     </Stack>
   );
 }

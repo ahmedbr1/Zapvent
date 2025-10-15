@@ -34,6 +34,21 @@ const typeColorMap: Record<EventType, "primary" | "secondary" | "default"> = {
 
 export function EventCard({ event, onRegister, disableRegister }: EventCardProps) {
   const isBazaar = event.eventType === EventType.Bazaar;
+  const chipLabel = event.eventType ?? "Event";
+  const chipColor =
+    (event.eventType && typeColorMap[event.eventType]) || "default";
+  const registrationClosed =
+    new Date(event.registrationDeadline).getTime() < Date.now();
+  const isRegistered = Boolean(event.isRegistered);
+  const buttonDisabled =
+    registrationClosed || disableRegister || isRegistered;
+  const buttonLabel = registrationClosed
+    ? "Closed"
+    : isRegistered
+    ? "Registered"
+    : disableRegister
+    ? "Registering..."
+    : "Register";
 
   return (
     <Card
@@ -47,8 +62,8 @@ export function EventCard({ event, onRegister, disableRegister }: EventCardProps
       <CardContent sx={{ flexGrow: 1 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
           <Chip
-            label={event.eventType}
-            color={typeColorMap[event.eventType]}
+            label={chipLabel}
+            color={chipColor}
             variant="outlined"
             size="small"
           />
@@ -110,11 +125,11 @@ export function EventCard({ event, onRegister, disableRegister }: EventCardProps
         {onRegister && (
           <Button
             onClick={() => onRegister(event)}
-            disabled={disableRegister}
+            disabled={buttonDisabled}
             variant="contained"
             size="small"
           >
-            Register
+            {buttonLabel}
           </Button>
         )}
         <Box flexGrow={1} />

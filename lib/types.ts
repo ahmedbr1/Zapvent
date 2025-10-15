@@ -102,6 +102,7 @@ export interface EventSummary {
   capacity?: number;
   price?: number;
   vendors?: VendorSummary[];
+  isRegistered?: boolean;
 }
 
 export interface VendorSummary {
