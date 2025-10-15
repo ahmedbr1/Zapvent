@@ -47,6 +47,8 @@ export interface IEvent extends IBaseModel {
   participatingProfessors?: string[]; // List of professor pr professor IDs
   fundingSource: FundingSource;
   websiteLink?: string; // Only for conferences
+  extraRequiredResources?: string; // For workshops - additional resources needed
+  createdBy?: string; // User ID of the creator (professor/admin)
   revenue: number;
   archived: boolean;
   registeredUsers: string[]; // List of users
@@ -85,6 +87,8 @@ const EventSchema = new Schema<IEvent>(
       required: true,
     },
     websiteLink: { type: String }, // URL
+    extraRequiredResources: { type: String },
+    createdBy: { type: String },
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
     registeredUsers: [{ type: String }],

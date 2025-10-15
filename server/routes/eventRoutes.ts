@@ -45,4 +45,12 @@ router.put("/bazaar/:id", adminRequired, eventController.updateBazaarDetails);
 router.post("/trip", adminRequired, eventController.createNewTrip);
 router.put("/trip/:id", adminRequired, eventController.updateTripDetails);
 
+// Professor (User) routes for workshops
+router.post("/workshop", eventController.createWorkshopController);
+router.put("/workshop/:id", eventController.editWorkshopController);
+router.get("/my-workshops", eventController.getMyWorkshopsController);
+
+// Events Office routes for conferences
+router.post("/conference", eventController.createConferenceController);
+
 export default router;

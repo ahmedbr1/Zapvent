@@ -20,6 +20,10 @@ import {
   createTrip,
   editTripDetails,
   getRequestedUpcomingBazaars,
+  createWorkshop,
+  editWorkshop,
+  getWorkshopsByCreator,
+  createConference,
 } from "../services/eventService";
 
 function extractUserId(user: unknown): string | undefined {
@@ -299,6 +303,189 @@ export class EventController {
         "Get vendor applications for bazaar controller error:",
         error
       );
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["User"]) // should be professor 
+  async createWorkshopController(req: AuthRequest, res: Response) {
+    try {
+      const {
+        name,
+        location,
+        startDate,
+        endDate,
+        description,
+        fullAgenda,
+        faculty,
+        participatingProfessors,
+        requiredBudget,
+        fundingSource,
+        extraRequiredResources,
+        capacity,
+        registrationDeadline,
+      } = req.body;
+
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      if (
+        !name ||
+        !location ||
+        !startDate ||
+        !endDate ||
+        !description ||
+        !fullAgenda ||
+        !faculty ||
+        !participatingProfessors ||
+        requiredBudget === undefined ||
+        !fundingSource ||
+        !capacity ||
+        !registrationDeadline
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "All required fields must be provided: name, location, startDate, endDate, description, fullAgenda, faculty, participatingProfessors, requiredBudget, fundingSource, capacity, and registrationDeadline.",
+        });
+      }
+
+      const result = await createWorkshop({
+        name,
+        location,
+        startDate,
+        endDate,
+        description,
+        fullAgenda,
+        faculty,
+        participatingProfessors,
+        requiredBudget,
+        fundingSource,
+        extraRequiredResources,
+        capacity,
+        registrationDeadline,
+        createdBy: userId,
+      });
+
+      const status = result.success ? 201 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Create workshop controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["User"]) // should be professor
+  async editWorkshopController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const result = await editWorkshop(id, userId, updateData);
+
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Edit workshop controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["User"]) // should be professor
+  async getMyWorkshopsController(req: AuthRequest, res: Response) {
+    try {
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const result = await getWorkshopsByCreator(userId);
+
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get my workshops controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventsOffice"])
+  async createConferenceController(req: AuthRequest, res: Response) {
+    try {
+      const {
+        name,
+        startDate,
+        endDate,
+        description,
+        fullAgenda,
+        websiteLink,
+        requiredBudget,
+        fundingSource,
+        extraRequiredResources,
+      } = req.body;
+
+      if (
+        !name ||
+        !startDate ||
+        !endDate ||
+        !description ||
+        !fullAgenda ||
+        !websiteLink ||
+        requiredBudget === undefined ||
+        !fundingSource
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "All required fields must be provided: name, startDate, endDate, description, fullAgenda, websiteLink, requiredBudget, and fundingSource.",
+        });
+      }
+
+      const result = await createConference({
+        name,
+        startDate,
+        endDate,
+        description,
+        fullAgenda,
+        websiteLink,
+        requiredBudget,
+        fundingSource,
+        extraRequiredResources,
+      });
+
+      const status = result.success ? 201 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Create conference controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

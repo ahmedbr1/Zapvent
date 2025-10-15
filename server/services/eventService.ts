@@ -98,6 +98,57 @@ export interface ICreateBazaarResponse {
   data?: unknown;
 }
 
+export interface ICreateWorkshopInput {
+  name: string;
+  location: Location;
+  startDate: string | Date;
+  endDate: string | Date;
+  description: string;
+  fullAgenda: string;
+  faculty: string;
+  participatingProfessors: string[];
+  requiredBudget: number;
+  fundingSource: FundingSource;
+  extraRequiredResources?: string;
+  capacity: number;
+  registrationDeadline: string | Date;
+  createdBy: string;
+}
+
+export interface ICreateWorkshopResponse {
+  success: boolean;
+  message: string;
+  data?: unknown;
+}
+
+export interface IEditWorkshopInput {
+  name?: string;
+  location?: Location;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  description?: string;
+  fullAgenda?: string;
+  faculty?: string;
+  participatingProfessors?: string[];
+  requiredBudget?: number;
+  fundingSource?: FundingSource;
+  extraRequiredResources?: string;
+  capacity?: number;
+  registrationDeadline?: string | Date;
+}
+
+export interface ICreateConferenceInput {
+  name: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  description: string;
+  fullAgenda: string;
+  websiteLink: string;
+  requiredBudget: number;
+  fundingSource: FundingSource;
+  extraRequiredResources?: string;
+}
+
 export async function getAllEvents(
   sortOrder: number = 0
 ): Promise<IGetAllEventsResponse> {
@@ -244,6 +295,373 @@ export async function createBazaar(
     return {
       success: false,
       message: "An error occurred while creating the bazaar.",
+    };
+  }
+}
+
+export async function createWorkshop(
+  payload: ICreateWorkshopInput
+): Promise<ICreateWorkshopResponse> {
+  try {
+    const {
+      name,
+      location,
+      startDate,
+      endDate,
+      description,
+      fullAgenda,
+      faculty,
+      participatingProfessors,
+      requiredBudget,
+      fundingSource,
+      extraRequiredResources,
+      capacity,
+      registrationDeadline,
+      createdBy,
+    } = payload;
+
+    // Parse and validate dates
+    const parsedStart = new Date(startDate);
+    const parsedEnd = new Date(endDate);
+    const parsedDeadline = new Date(registrationDeadline);
+
+    if (
+      Number.isNaN(parsedStart.getTime()) ||
+      Number.isNaN(parsedEnd.getTime()) ||
+      Number.isNaN(parsedDeadline.getTime())
+    ) {
+      return {
+        success: false,
+        message: "Invalid date format provided.",
+      };
+    }
+
+    // Validate date logic
+    if (parsedStart >= parsedEnd) {
+      return {
+        success: false,
+        message: "Start date must be before end date.",
+      };
+    }
+
+    if (parsedDeadline >= parsedStart) {
+      return {
+        success: false,
+        message: "Registration deadline must be before the start date.",
+      };
+    }
+
+    // Validate required fields
+    if (!name || !description || !fullAgenda || !faculty) {
+      return {
+        success: false,
+        message: "Name, description, full agenda, and faculty are required.",
+      };
+    }
+
+    if (!participatingProfessors || participatingProfessors.length === 0) {
+      return {
+        success: false,
+        message: "At least one participating professor is required.",
+      };
+    }
+
+    if (!capacity || capacity <= 0) {
+      return {
+        success: false,
+        message: "Capacity must be a positive number.",
+      };
+    }
+
+    if (requiredBudget === undefined || requiredBudget < 0) {
+      return {
+        success: false,
+        message: "Required budget must be a non-negative number.",
+      };
+    }
+
+    // Create the workshop
+    const workshop = await EventModel.create({
+      name,
+      eventType: EventType.WORKSHOP,
+      description,
+      date: parsedStart,
+      location,
+      capacity,
+      startDate: parsedStart,
+      endDate: parsedEnd,
+      registrationDeadline: parsedDeadline,
+      fullAgenda,
+      faculty,
+      participatingProfessors,
+      requiredBudget,
+      fundingSource,
+      extraRequiredResources: extraRequiredResources || "",
+      createdBy,
+    });
+
+    return {
+      success: true,
+      message: "Workshop created successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        location: workshop.location,
+        startDate: workshop.startDate,
+        endDate: workshop.endDate,
+        description: workshop.description,
+        fullAgenda: workshop.fullAgenda,
+        faculty: workshop.faculty,
+        participatingProfessors: workshop.participatingProfessors,
+        requiredBudget: workshop.requiredBudget,
+        fundingSource: workshop.fundingSource,
+        extraRequiredResources: workshop.extraRequiredResources,
+        capacity: workshop.capacity,
+        registrationDeadline: workshop.registrationDeadline,
+      },
+    };
+  } catch (error) {
+    console.error("Error creating workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while creating the workshop.",
+    };
+  }
+}
+
+export async function editWorkshop(
+  workshopId: string,
+  userId: string,
+  updateData: IEditWorkshopInput
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    // Check if the user is the creator
+    if (workshop.createdBy !== userId) {
+      return {
+        success: false,
+        message: "You are not authorized to edit this workshop.",
+      };
+    }
+
+    // Validate dates if provided
+    if (updateData.startDate || updateData.endDate || updateData.registrationDeadline) {
+      const parsedStart = updateData.startDate ? new Date(updateData.startDate) : workshop.startDate;
+      const parsedEnd = updateData.endDate ? new Date(updateData.endDate) : workshop.endDate;
+      const parsedDeadline = updateData.registrationDeadline ? new Date(updateData.registrationDeadline) : workshop.registrationDeadline;
+
+      if (
+        (updateData.startDate && Number.isNaN(parsedStart.getTime())) ||
+        (updateData.endDate && Number.isNaN(parsedEnd.getTime())) ||
+        (updateData.registrationDeadline && Number.isNaN(parsedDeadline.getTime()))
+      ) {
+        return {
+          success: false,
+          message: "Invalid date format provided.",
+        };
+      }
+
+      if (parsedStart >= parsedEnd) {
+        return {
+          success: false,
+          message: "Start date must be before end date.",
+        };
+      }
+
+      if (parsedDeadline >= parsedStart) {
+        return {
+          success: false,
+          message: "Registration deadline must be before the start date.",
+        };
+      }
+
+      // Update date field if startDate is changed
+      if (updateData.startDate) {
+        updateData = { ...updateData, date: parsedStart } as IEditWorkshopInput & { date: Date };
+      }
+    }
+
+    if (updateData.capacity !== undefined && updateData.capacity <= 0) {
+      return {
+        success: false,
+        message: "Capacity must be a positive number.",
+      };
+    }
+
+    if (updateData.requiredBudget !== undefined && updateData.requiredBudget < 0) {
+      return {
+        success: false,
+        message: "Required budget must be a non-negative number.",
+      };
+    }
+
+    const updatedWorkshop = await EventModel.findByIdAndUpdate(
+      workshopId,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    return {
+      success: true,
+      message: "Workshop updated successfully.",
+      data: updatedWorkshop,
+    };
+  } catch (error) {
+    console.error("Error editing workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while editing the workshop.",
+    };
+  }
+}
+
+export async function getWorkshopsByCreator(
+  userId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!userId) {
+      return {
+        success: false,
+        message: "User ID is required.",
+      };
+    }
+
+    const workshops = await EventModel.find({
+      eventType: EventType.WORKSHOP,
+      createdBy: userId,
+      archived: false,
+    }).sort({ startDate: -1 });
+
+    return {
+      success: true,
+      message: "Workshops retrieved successfully.",
+      data: workshops,
+    };
+  } catch (error) {
+    console.error("Error fetching workshops by creator:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching workshops.",
+    };
+  }
+}
+
+export async function createConference(
+  payload: ICreateConferenceInput
+): Promise<ICreateWorkshopResponse> {
+  try {
+    const {
+      name,
+      startDate,
+      endDate,
+      description,
+      fullAgenda,
+      websiteLink,
+      requiredBudget,
+      fundingSource,
+      extraRequiredResources,
+    } = payload;
+
+    // Parse and validate dates
+    const parsedStart = new Date(startDate);
+    const parsedEnd = new Date(endDate);
+
+    if (
+      Number.isNaN(parsedStart.getTime()) ||
+      Number.isNaN(parsedEnd.getTime())
+    ) {
+      return {
+        success: false,
+        message: "Invalid date format provided.",
+      };
+    }
+
+    // Validate date logic
+    if (parsedStart >= parsedEnd) {
+      return {
+        success: false,
+        message: "Start date must be before end date.",
+      };
+    }
+
+    // Validate required fields
+    if (!name || !description || !fullAgenda || !websiteLink) {
+      return {
+        success: false,
+        message: "Name, description, full agenda, and website link are required.",
+      };
+    }
+
+    if (requiredBudget === undefined || requiredBudget < 0) {
+      return {
+        success: false,
+        message: "Required budget must be a non-negative number.",
+      };
+    }
+
+    // Create the conference - set default location and registration deadline
+    const registrationDeadline = new Date(parsedStart);
+    registrationDeadline.setDate(registrationDeadline.getDate() - 7); // Default: 7 days before start
+
+    const conference = await EventModel.create({
+      name,
+      eventType: EventType.CONFERENCE,
+      description,
+      date: parsedStart,
+      location: Location.GUCCAIRO, // Default location, can be changed later
+      startDate: parsedStart,
+      endDate: parsedEnd,
+      registrationDeadline,
+      fullAgenda,
+      websiteLink,
+      requiredBudget,
+      fundingSource,
+      extraRequiredResources: extraRequiredResources || "",
+    });
+
+    return {
+      success: true,
+      message: "Conference created successfully.",
+      data: {
+        id: conference._id.toString(),
+        name: conference.name,
+        startDate: conference.startDate,
+        endDate: conference.endDate,
+        description: conference.description,
+        fullAgenda: conference.fullAgenda,
+        websiteLink: conference.websiteLink,
+        requiredBudget: conference.requiredBudget,
+        fundingSource: conference.fundingSource,
+        extraRequiredResources: conference.extraRequiredResources,
+      },
+    };
+  } catch (error) {
+    console.error("Error creating conference:", error);
+    return {
+      success: false,
+      message: "An error occurred while creating the conference.",
     };
   }
 }
