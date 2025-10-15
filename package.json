@@ -27,13 +27,14 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.0",
+    "multer": "^2.0.2",
     "next": "15.5.4",
+    "nodemailer": "^6.10.1",
     "notistack": "^3.0.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.65.0",
     "reflect-metadata": "^0.2.2",
-    "resend": "^6.1.2",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -44,6 +45,7 @@
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.19",
+    "@types/nodemailer": "^7.0.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
     "@typescript-eslint/eslint-plugin": "^8.45.0",

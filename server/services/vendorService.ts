@@ -28,12 +28,40 @@ export const vendorSignupSchema = z.object({
     .min(2, { message: "Company name must be at least 2 characters long." })
     .max(50, { message: "Company name must be at most 50 characters long." })
     .trim(),
+  loyaltyForum: z.string().url({ message: "Please enter a valid URL." }).optional(),
 });
 
 export type vendorSignupData = z.infer<typeof vendorSignupSchema>;
 
 export async function findAll() {
   return vendorModel.find().lean();
+}
+
+export interface AdminVendorApplication {
+  eventId: string;
+  status: VendorStatus;
+  applicationDate?: Date;
+  attendees: number;
+  boothSize: number;
+  boothLocation?: string;
+  boothStartTime?: Date;
+  boothEndTime?: Date;
+}
+
+export interface AdminVendorResponse {
+  id: string;
+  email: string;
+  companyName: string;
+  loyaltyForum?: string;
+  logo?: string;
+  taxCard?: string;
+  documents?: string;
+  applications: AdminVendorApplication[];
+  pendingApplications: number;
+  approvedApplications: number;
+  rejectedApplications: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export async function create(data: Partial<IVendor>) {
@@ -46,13 +74,16 @@ export async function signup(vendorData: vendorSignupData) {
   // Validate with Zod
   const validatedData = vendorSignupSchema.parse(vendorData);
 
+  const email = validatedData.email.toLowerCase();
+
   // Create vendor with default values for required fields
   const vendorDataWithDefaults = {
     ...validatedData,
+    email,
     documents: "", // Fixed: use correct field name
     logo: "",
     taxCard: "",
-    loyaltyForum: "",
+    loyaltyForum: validatedData.loyaltyForum ?? "",
   };
 
   const vendor = new vendorModel(vendorDataWithDefaults);
@@ -202,6 +233,73 @@ export async function applyToBazaar(
     return {
       success: false,
       message: "An error occurred while submitting application",
+    };
+  }
+}
+
+export async function findAllForAdmin(): Promise<{
+  success: boolean;
+  message: string;
+  count: number;
+  vendors: AdminVendorResponse[];
+}> {
+  try {
+    const vendors = await vendorModel.find().lean<IVendor[]>();
+
+    const normalized: AdminVendorResponse[] = vendors.map((vendor) => {
+      const applications = (vendor.applications ?? []).map((application) => ({
+        eventId: application.eventId.toString(),
+        status: application.status,
+        applicationDate: application.applicationDate,
+        attendees: application.attendees?.length ?? 0,
+        boothSize: application.boothSize,
+        boothLocation: application.boothInfo?.boothLocation,
+        boothStartTime: application.boothInfo?.boothStartTime,
+        boothEndTime: application.boothInfo?.boothEndTime,
+      }));
+
+      const pendingApplications = applications.filter(
+        (app) => app.status === VendorStatus.PENDING
+      ).length;
+      const approvedApplications = applications.filter(
+        (app) => app.status === VendorStatus.APPROVED
+      ).length;
+      const rejectedApplications = applications.filter(
+        (app) => app.status === VendorStatus.REJECTED
+      ).length;
+
+      return {
+        id: vendor._id.toString(),
+        email: vendor.email,
+        companyName: vendor.companyName,
+        loyaltyForum: vendor.loyaltyForum || undefined,
+        logo: vendor.logo || undefined,
+        taxCard: vendor.taxCard || undefined,
+        documents: vendor.documents || undefined,
+        applications,
+        pendingApplications,
+        approvedApplications,
+        rejectedApplications,
+        createdAt: vendor.createdAt,
+        updatedAt: vendor.updatedAt,
+      };
+    });
+
+    return {
+      success: true,
+      message: normalized.length
+        ? "Vendors retrieved successfully"
+        : "No vendors found",
+      count: normalized.length,
+      vendors: normalized,
+    };
+  } catch (error) {
+    console.error("Error retrieving vendors:", error);
+    return {
+      success: false,
+      message: "Failed to retrieve vendors",
+      count: 0,
+      vendors: [],
     };
   }
 }

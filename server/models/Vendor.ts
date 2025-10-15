@@ -29,7 +29,6 @@ export interface BazaarApplication {
 
 export interface IVendor extends IBaseModel {
   email: string;
-  isVerified?: boolean;
   password: string;
   companyName: string;
   documents?: string;
@@ -41,7 +40,6 @@ export interface IVendor extends IBaseModel {
 const vendorSchema = new Schema<IVendor>(
   {
     email: { type: String, required: true, unique: true },
-    isVerified: { type: Boolean, default: false },
     password: { type: String, select: false, required: true },
     companyName: { type: String, required: true },
     documents: { type: String },

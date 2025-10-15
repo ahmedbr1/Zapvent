@@ -74,7 +74,6 @@ export interface SessionUser {
   userRole?: UserRole;
   status?: string;
   companyName?: string;
-  isVerified?: boolean;
   logo?: string;
 }
 
