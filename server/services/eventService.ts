@@ -499,7 +499,7 @@ export async function editWorkshop(
 
       // Update date field if startDate is changed
       if (updateData.startDate) {
-        updateData = { ...updateData, date: parsedStart } as any;
+        updateData = { ...updateData, date: parsedStart } as IEditWorkshopInput & { date: Date };
       }
     }
 
