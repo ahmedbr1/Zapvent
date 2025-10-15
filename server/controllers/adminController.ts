@@ -153,37 +153,6 @@ export class AdminController {
   }
 
   @AdminRequired()
-  async deleteComment(req: AuthRequest, res: Response) {
-    try {
-      const { commentId } = req.params;
-      const result = await adminService.deleteComment(commentId);
-
-      if (!result.success) {
-        return res.status(404).json({
-          success: false,
-          message: result.message,
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: result.message,
-        deletedBy: {
-          id: req.user?.id,
-          email: req.user?.email,
-        },
-      });
-    } catch (error: unknown) {
-      console.error("Delete comment error:", error);
-      return res.status(500).json({
-        success: false,
-        message:
-          error instanceof Error ? error.message : "Failed to delete comment",
-      });
-    }
-  }
-
-  @AdminRequired()
   async blockUser(req: AuthRequest, res: Response) {
     try {
       const { userId } = req.params;

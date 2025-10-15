@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { DataGrid, GridActionsCellItem, GridColDef } from "@mui/x-data-grid";
+import {
+  DataGrid,
+  GridActionsCellItem,
+  GridColDef,
+  GridValueGetterParams,
+} from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -74,7 +79,17 @@ export default function AdminUserManagementPage() {
         field: "name",
         headerName: "Name",
         flex: 1.2,
-        valueGetter: ({ row }) => `${row.firstName} ${row.lastName}`.trim(),
+        valueGetter: (params: GridValueGetterParams<AdminUser>) => {
+          const row = params?.row;
+          if (!row) return "";
+          const firstName = row.firstName?.trim() ?? "";
+          const lastName = row.lastName?.trim() ?? "";
+          const fullName = `${firstName} ${lastName}`.trim();
+          if (fullName.length > 0) {
+            return fullName;
+          }
+          return row.email ?? "Unknown user";
+        },
       },
       {
         field: "email",

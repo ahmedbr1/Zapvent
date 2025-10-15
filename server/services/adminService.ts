@@ -1,7 +1,6 @@
 import UserModel, { userRole, userStatus } from "../models/User";
 import { emailService } from "./emailService";
 import AdminModel, { IAdmin } from "../models/Admin";
-import CommentModel from "../models/Comment";
 import { isValidObjectId } from "mongoose";
 
 export async function approveUser(userId: string) {
@@ -255,27 +254,6 @@ export async function deleteAdmin(
       success: false,
       message: "Failed to delete admin",
     };
-  }
-}
-
-export async function deleteComment(
-  commentId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    if (!isValidObjectId(commentId)) {
-      return { success: false, message: "Invalid comment ID" };
-    }
-
-    const deleted = await CommentModel.findByIdAndDelete(commentId);
-
-    if (!deleted) {
-      return { success: false, message: "Comment not found" };
-    }
-
-    return { success: true, message: "Comment deleted successfully" };
-  } catch (error) {
-    console.error("Error deleting comment:", error);
-    return { success: false, message: "Failed to delete comment" };
   }
 }
 

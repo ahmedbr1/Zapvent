@@ -6,7 +6,6 @@ import FitnessCenterIcon from "@mui/icons-material/FitnessCenterRounded";
 import GroupIcon from "@mui/icons-material/GroupsRounded";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import BusinessIcon from "@mui/icons-material/BusinessCenterRounded";
-import CommentIcon from "@mui/icons-material/ModeCommentRounded";
 import StorefrontIcon from "@mui/icons-material/StorefrontRounded";
 import WorkIcon from "@mui/icons-material/WorkRounded";
 import FlightIcon from "@mui/icons-material/FlightTakeoffRounded";
@@ -69,12 +68,6 @@ export const navItems: NavItem[] = [
     label: "Vendor Applications",
     href: "/admin/vendors",
     icon: StorefrontIcon,
-    roles: [AuthRole.Admin],
-  },
-  {
-    label: "Comment Moderation",
-    href: "/admin/comments",
-    icon: CommentIcon,
     roles: [AuthRole.Admin],
   },
   {
