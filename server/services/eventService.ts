@@ -13,6 +13,7 @@ import vendorModel, {
   VendorStatus,
   BazaarApplication,
 } from "../models/Vendor";
+import UserModel from "../models/User";
 
 export async function deleteEventById(eventId: string) {
   if (!Types.ObjectId.isValid(eventId)) {
@@ -533,6 +534,151 @@ export async function editWorkshop(
     return {
       success: false,
       message: "An error occurred while editing the workshop.",
+    };
+  }
+}
+
+export interface IRegisterWorkshopResponse {
+  success: boolean;
+  message: string;
+  statusCode?: number;
+  data?: {
+    eventId: string;
+    userId: string;
+    registeredCount: number;
+    capacity?: number;
+  };
+}
+
+export async function registerUserForWorkshop(
+  workshopId: string,
+  userId: string
+): Promise<IRegisterWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+        statusCode: 400,
+      };
+    }
+
+    if (!Types.ObjectId.isValid(userId)) {
+      return {
+        success: false,
+        message: "Invalid user ID.",
+        statusCode: 400,
+      };
+    }
+
+    const [workshop, user] = await Promise.all([
+      EventModel.findById(workshopId),
+      UserModel.findById(userId),
+    ]);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+        statusCode: 404,
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+        statusCode: 400,
+      };
+    }
+
+    if (!user) {
+      return {
+        success: false,
+        message: "User not found.",
+        statusCode: 404,
+      };
+    }
+
+    const now = new Date();
+    if (workshop.archived) {
+      return {
+        success: false,
+        message: "Workshop is archived.",
+        statusCode: 400,
+      };
+    }
+
+    if (workshop.registrationDeadline < now) {
+      return {
+        success: false,
+        message: "Registration deadline has passed.",
+        statusCode: 400,
+      };
+    }
+
+    const alreadyRegistered =
+      workshop.registeredUsers?.some((registeredId: string) => registeredId === userId) ??
+      false;
+
+    if (alreadyRegistered) {
+      return {
+        success: false,
+        message: "User already registered for this workshop.",
+        statusCode: 409,
+      };
+    }
+
+    const currentRegistrations = workshop.registeredUsers?.length ?? 0;
+    if (
+      typeof workshop.capacity === "number" &&
+      workshop.capacity > 0 &&
+      currentRegistrations >= workshop.capacity
+    ) {
+      return {
+        success: false,
+        message: "Workshop has reached its capacity.",
+        statusCode: 400,
+      };
+    }
+
+    const updatedWorkshop = await EventModel.findByIdAndUpdate(
+      workshopId,
+      { $addToSet: { registeredUsers: userId } },
+      { new: true }
+    );
+
+    if (!updatedWorkshop) {
+      return {
+        success: false,
+        message: "Failed to update workshop registration.",
+        statusCode: 500,
+      };
+    }
+
+    await UserModel.findByIdAndUpdate(userId, {
+      $addToSet: {
+        workshops: workshopId,
+        registeredEvents: workshopId,
+      },
+    });
+
+    return {
+      success: true,
+      message: "Registration successful.",
+      data: {
+        eventId: workshopId,
+        userId,
+        registeredCount: updatedWorkshop.registeredUsers.length,
+        capacity: updatedWorkshop.capacity,
+      },
+    };
+  } catch (error) {
+    console.error("Error registering user for workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while registering for the workshop.",
+      statusCode: 500,
     };
   }
 }

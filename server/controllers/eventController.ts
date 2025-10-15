@@ -24,6 +24,7 @@ import {
   editWorkshop,
   getWorkshopsByCreator,
   createConference,
+  registerUserForWorkshop,
 } from "../services/eventService";
 
 function extractUserId(user: unknown): string | undefined {
@@ -35,7 +36,7 @@ function extractUserId(user: unknown): string | undefined {
 }
 export class EventController {
   @LoginRequired()
-  @AllowedRoles(["EventsOffice"])
+  @AllowedRoles(["EventOffice"])
   async updateConferenceController(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params;
@@ -54,7 +55,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async deleteAnyEvent(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params as { eventId: string };
@@ -278,7 +279,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async getVendorApplicationsForBazaarController(
     req: AuthRequest,
     res: Response
@@ -438,7 +439,42 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["EventsOffice"])
+  @AllowedRoles(["EventOffice"])
+  async registerForWorkshopController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const userId =
+        typeof req.body?.userId === "string" && req.body.userId.trim().length > 0
+          ? req.body.userId.trim()
+          : extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "User ID is required." });
+      }
+
+      const result = await registerUserForWorkshop(id, userId);
+      const statusCode = result.statusCode ?? (result.success ? 200 : 400);
+
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Register for workshop controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
   async createConferenceController(req: AuthRequest, res: Response) {
     try {
       const {
@@ -502,5 +538,7 @@ export const createNewTrip =
   eventController.createNewTrip.bind(eventController);
 export const updateTripDetails =
   eventController.updateTripDetails.bind(eventController);
+export const registerForWorkshopController =
+  eventController.registerForWorkshopController.bind(eventController);
 
 export default eventController;
