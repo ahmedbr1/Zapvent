@@ -78,6 +78,7 @@ export interface CreateAdminData {
   email: string;
   password: string;
   status?: "Active" | "Blocked";
+  adminType: "EventOffice" | "Admin";
 }
 
 export interface AdminResponse {
@@ -160,6 +161,7 @@ export async function createAdmin(
       email: data.email,
       password: data.password, // Will be hashed by pre-save hook
       status: data.status || "Active",
+      adminType: data.adminType || "Admin",
     });
 
     const savedAdmin = await admin.save();

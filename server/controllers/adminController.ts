@@ -84,7 +84,7 @@ export class AdminController {
   @AdminRequired()
   @ValidateBody({ required: ["firstName", "lastName", "email", "password"] })
   async createAdmin(req: AuthRequest, res: Response) {
-    const { firstName, lastName, email, password, status } = req.body;
+    const { firstName, lastName, email, password, status, adminType } = req.body;
 
     // Validate input
     if (!firstName.trim() || !lastName.trim()) {
@@ -92,7 +92,7 @@ export class AdminController {
         success: false,
         message: "First name and last name cannot be empty",
       });
-    }
+    } 
 
     const result = await adminService.createAdmin({
       firstName: firstName.trim(),
@@ -100,6 +100,7 @@ export class AdminController {
       email: email.trim().toLowerCase(),
       password,
       status,
+      adminType
     });
 
     if (!result.success) {
