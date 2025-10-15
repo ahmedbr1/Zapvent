@@ -7,7 +7,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
-export type UserRole = "User" | "Admin" | "Vendor" | "EventsOffice";
+export type UserRole = "User" | "Admin" | "Vendor" | "EventOffice";
 
 export interface AuthRequest extends Request {
   user?: {
