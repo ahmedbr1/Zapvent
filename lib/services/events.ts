@@ -23,6 +23,7 @@ interface EventApiItem {
   registrationDeadline: string;
   capacity?: number;
   price?: number;
+  participatingProfessorIds?: string[];
   participatingProfessors?: string[];
   vendors?: string[];
   registeredUsers?: string[];
@@ -172,6 +173,7 @@ function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
     startDate: event.startDate,
     endDate: event.endDate,
     registrationDeadline: event.registrationDeadline,
+    participatingProfessorIds: event.participatingProfessorIds,
     participatingProfessors: event.participatingProfessors,
     capacity: event.capacity,
     price: event.price,

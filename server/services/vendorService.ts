@@ -244,7 +244,9 @@ export async function findAllForAdmin(): Promise<{
   vendors: AdminVendorResponse[];
 }> {
   try {
-    const vendors = await vendorModel.find().lean<IVendor[]>();
+    const vendors = await vendorModel
+      .find()
+      .lean<Array<IVendor & { _id: Types.ObjectId }>>();
 
     const normalized: AdminVendorResponse[] = vendors.map((vendor) => {
       const applications = (vendor.applications ?? []).map((application) => ({

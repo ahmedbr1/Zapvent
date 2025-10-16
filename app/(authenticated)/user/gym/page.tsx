@@ -30,12 +30,9 @@ import EventIcon from "@mui/icons-material/EventRounded";
 import FlagIcon from "@mui/icons-material/FlagRounded";
 import StadiumIcon from "@mui/icons-material/StadiumRounded";
 import { useAuthToken } from "@/hooks/useAuthToken";
+import { useSessionUser } from "@/hooks/useSessionUser";
 import { fetchGymSchedule } from "@/lib/services/gym";
-import {
-  type GymSession,
-  GymSessionType,
-  CourtType,
-} from "@/lib/types";
+import { type GymSession, GymSessionType, CourtType, UserRole } from "@/lib/types";
 import { fetchCourts } from "@/lib/services/courts";
 
 dayjs.extend(localeData);
@@ -99,6 +96,8 @@ function formatExceptionRange(start: string, end: string) {
 
 export default function UserGymPage() {
   const token = useAuthToken();
+  const user = useSessionUser();
+  const isStudent = user?.userRole === UserRole.Student;
   const [selectedMonth, setSelectedMonth] = useState(TODAY.month());
   const [selectedYear, setSelectedYear] = useState(TODAY.year());
   const [courtTypeFilter, setCourtTypeFilter] = useState<"all" | CourtType>("all");
@@ -112,7 +111,7 @@ export default function UserGymPage() {
   const courtsQuery = useQuery({
     queryKey: ["courts", token],
     queryFn: () => fetchCourts(token ?? undefined),
-    enabled: Boolean(token),
+    enabled: Boolean(token && isStudent),
   });
 
   const groupedSessions = useMemo(() => {
@@ -149,7 +148,7 @@ export default function UserGymPage() {
     };
   }, [scheduleQuery.data]);
 
-  const courts = courtsQuery.data ?? [];
+  const courts = useMemo(() => courtsQuery.data ?? [], [courtsQuery.data]);
   const courtCounts = useMemo(() => {
     const counts = new Map<CourtType, number>();
     courts.forEach((court) => {
@@ -334,154 +333,158 @@ export default function UserGymPage() {
         </Grid>
       )}
 
-      <Divider sx={{ my: 1 }} />
+      {isStudent ? (
+        <>
+          <Divider sx={{ my: 1 }} />
 
-      <Stack spacing={2}>
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", md: "center" }}
-        >
-          <Box>
-            <Typography variant="h4" fontWeight={700}>
-              Campus Courts
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              View basketball, tennis, and football courts along with weekly availability and blackout dates.
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {COURT_FILTERS.map((option) => {
-              const selected = courtTypeFilter === option.value;
-              return (
-                <Chip
-                  key={option.label}
-                  label={
-                    option.value === "all"
-                      ? option.label
-                      : `${option.label} (${courtCounts.get(option.value as CourtType) ?? 0})`
-                  }
-                  color={selected ? "primary" : "default"}
-                  variant={selected ? "filled" : "outlined"}
-                  onClick={() => setCourtTypeFilter(option.value)}
-                  sx={{ textTransform: "capitalize" }}
-                />
-              );
-            })}
-          </Stack>
-        </Stack>
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={2}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", md: "center" }}
+            >
+              <Box>
+                <Typography variant="h4" fontWeight={700}>
+                  Campus Courts
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  View basketball, tennis, and football courts along with weekly availability and blackout dates.
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {COURT_FILTERS.map((option) => {
+                  const selected = courtTypeFilter === option.value;
+                  return (
+                    <Chip
+                      key={option.label}
+                      label={
+                        option.value === "all"
+                          ? option.label
+                          : `${option.label} (${courtCounts.get(option.value as CourtType) ?? 0})`
+                      }
+                      color={selected ? "primary" : "default"}
+                      variant={selected ? "filled" : "outlined"}
+                      onClick={() => setCourtTypeFilter(option.value)}
+                      sx={{ textTransform: "capitalize" }}
+                    />
+                  );
+                })}
+              </Stack>
+            </Stack>
 
-        {courtsQuery.isLoading ? (
-          <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 3 }} />
-        ) : courtsQuery.isError ? (
-          <Alert severity="error" action={<Button onClick={() => courtsQuery.refetch()}>Retry</Button>}>
-            Unable to load court availability right now.
-          </Alert>
-        ) : filteredCourts.length === 0 ? (
-          <Alert severity="info">No courts match your current filter. Try selecting a different type.</Alert>
-        ) : (
-          <Grid container spacing={3}>
-            {filteredCourts.map((court) => {
-              const courtType = court.type;
-              const openingHours = [...court.openingHours].sort((a, b) => a.weekday - b.weekday);
-              const exceptions = court.exceptions;
+            {courtsQuery.isLoading ? (
+              <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 3 }} />
+            ) : courtsQuery.isError ? (
+              <Alert severity="error" action={<Button onClick={() => courtsQuery.refetch()}>Retry</Button>}>
+                Unable to load court availability right now.
+              </Alert>
+            ) : filteredCourts.length === 0 ? (
+              <Alert severity="info">No courts match your current filter. Try selecting a different type.</Alert>
+            ) : (
+              <Grid container spacing={3}>
+                {filteredCourts.map((court) => {
+                  const courtType = court.type;
+                  const openingHours = [...court.openingHours].sort((a, b) => a.weekday - b.weekday);
+                  const exceptions = court.exceptions;
 
-              return (
-                <Grid key={court.id} size={{ xs: 12, md: 6 }}>
-                  <Card
-                    sx={{
-                      borderRadius: 3,
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      boxShadow: "0 12px 32px rgba(15,23,42,0.05)",
-                    }}
-                  >
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1.5}
-                        justifyContent="space-between"
-                        alignItems={{ sm: "center" }}
-                        mb={2}
+                  return (
+                    <Grid key={court.id} size={{ xs: 12, md: 6 }}>
+                      <Card
+                        sx={{
+                          borderRadius: 3,
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          boxShadow: "0 12px 32px rgba(15,23,42,0.05)",
+                        }}
                       >
-                        <Stack spacing={0.5}>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Chip
-                              label={COURT_LABELS[courtType] ?? court.type}
-                              color={COURT_COLOR_MAP[courtType] ?? "primary"}
-                            />
-                            <Tooltip title="Venue">
-                              <StadiumIcon fontSize="small" color="action" />
-                            </Tooltip>
-                            <Typography variant="body2" color="text.secondary">
-                              {court.venue}
-                            </Typography>
-                          </Stack>
-                          {court.timezone && (
-                            <Typography variant="caption" color="text.secondary">
-                              Local time zone: {court.timezone}
-                            </Typography>
-                          )}
-                        </Stack>
-                        <Chip
-                          icon={<FlagIcon />}
-                          label={`Court ID: ${court.id.slice(-6).toUpperCase()}`}
-                          variant="outlined"
-                          color="default"
-                        />
-                      </Stack>
-
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-                        Weekly availability
-                      </Typography>
-                      {openingHours.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary">
-                          No recurring availability set for this court.
-                        </Typography>
-                      ) : (
-                        <Stack spacing={1}>
-                          {openingHours.map((slot, index) => (
-                            <Stack
-                              key={`${slot.weekday}-${index}`}
-                              direction="row"
-                              spacing={1.5}
-                              alignItems="center"
-                            >
-                              <Chip label={WEEKDAYS[slot.weekday] ?? `Day ${slot.weekday}`} size="small" />
-                              <Typography variant="body2" color="text.secondary">
-                                {formatCourtTime(slot.startTime)} – {formatCourtTime(slot.endTime)}
-                              </Typography>
+                        <CardContent sx={{ flexGrow: 1 }}>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1.5}
+                            justifyContent="space-between"
+                            alignItems={{ sm: "center" }}
+                            mb={2}
+                          >
+                            <Stack spacing={0.5}>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Chip
+                                  label={COURT_LABELS[courtType] ?? court.type}
+                                  color={COURT_COLOR_MAP[courtType] ?? "primary"}
+                                />
+                                <Tooltip title="Venue">
+                                  <StadiumIcon fontSize="small" color="action" />
+                                </Tooltip>
+                                <Typography variant="body2" color="text.secondary">
+                                  {court.venue}
+                                </Typography>
+                              </Stack>
+                              {court.timezone && (
+                                <Typography variant="caption" color="text.secondary">
+                                  Local time zone: {court.timezone}
+                                </Typography>
+                              )}
                             </Stack>
-                          ))}
-                        </Stack>
-                      )}
-
-                      {exceptions.length > 0 && (
-                        <Alert severity="warning" variant="outlined" sx={{ mt: 3 }}>
-                          <Typography variant="subtitle2" fontWeight={700}>
-                            Upcoming exceptions
-                          </Typography>
-                          <Stack spacing={0.5} mt={1}>
-                            {exceptions.map((exception, index) => (
-                              <Typography key={index} variant="body2">
-                                {formatExceptionRange(exception.startDate, exception.endDate)}
-                                {exception.reason ? ` — ${exception.reason}` : ""}
-                              </Typography>
-                            ))}
+                            <Chip
+                              icon={<FlagIcon />}
+                              label={`Court ID: ${court.id.slice(-6).toUpperCase()}`}
+                              variant="outlined"
+                              color="default"
+                            />
                           </Stack>
-                        </Alert>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-        )}
-      </Stack>
+
+                          <Divider sx={{ my: 2 }} />
+                          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                            Weekly availability
+                          </Typography>
+                          {openingHours.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">
+                              No recurring availability set for this court.
+                            </Typography>
+                          ) : (
+                            <Stack spacing={1}>
+                              {openingHours.map((slot, index) => (
+                                <Stack
+                                  key={`${slot.weekday}-${index}`}
+                                  direction="row"
+                                  spacing={1.5}
+                                  alignItems="center"
+                                >
+                                  <Chip label={WEEKDAYS[slot.weekday] ?? `Day ${slot.weekday}`} size="small" />
+                                  <Typography variant="body2" color="text.secondary">
+                                    {formatCourtTime(slot.startTime)} – {formatCourtTime(slot.endTime)}
+                                  </Typography>
+                                </Stack>
+                              ))}
+                            </Stack>
+                          )}
+
+                          {exceptions.length > 0 && (
+                            <Alert severity="warning" variant="outlined" sx={{ mt: 3 }}>
+                              <Typography variant="subtitle2" fontWeight={700}>
+                                Upcoming exceptions
+                              </Typography>
+                              <Stack spacing={0.5} mt={1}>
+                                {exceptions.map((exception, index) => (
+                                  <Typography key={index} variant="body2">
+                                    {formatExceptionRange(exception.startDate, exception.endDate)}
+                                    {exception.reason ? ` — ${exception.reason}` : ""}
+                                  </Typography>
+                                ))}
+                              </Stack>
+                            </Alert>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            )}
+          </Stack>
+        </>
+      ) : null}
     </Stack>
   );
 }

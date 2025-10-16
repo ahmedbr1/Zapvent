@@ -5,7 +5,6 @@ import {
   DataGrid,
   GridActionsCellItem,
   GridColDef,
-  GridValueGetterParams,
 } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -79,8 +78,7 @@ export default function AdminUserManagementPage() {
         field: "name",
         headerName: "Name",
         flex: 1.2,
-        valueGetter: (params: GridValueGetterParams<AdminUser>) => {
-          const row = params?.row;
+        valueGetter: (_value, row: AdminUser) => {
           if (!row) return "";
           const firstName = row.firstName?.trim() ?? "";
           const lastName = row.lastName?.trim() ?? "";
@@ -140,7 +138,7 @@ export default function AdminUserManagementPage() {
         headerName: "Actions",
         flex: 0.8,
         getActions: ({ row }) => {
-          const actions: JSX.Element[] = [];
+          const actions: React.ReactElement[] = [];
           const isSelf = sessionUser?.id === row.id;
 
           if (!row.verified) {

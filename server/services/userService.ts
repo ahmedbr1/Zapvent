@@ -122,6 +122,28 @@ export async function signup(userData: SignupData) {
 
   return { user: userWithoutPassword, message, needsApproval: !user.verified };
 }
+
+export interface ProfessorSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export async function findProfessors(): Promise<ProfessorSummary[]> {
+  const professors = await UserModel.find({
+    role: userRole.PROFESSOR,
+    verified: true,
+  })
+    .select(["firstName", "lastName", "email"])
+    .sort({ firstName: 1, lastName: 1 })
+    .lean<Array<IUser & { _id: Types.ObjectId }>>();
+
+  return professors.map((professor) => ({
+    id: professor._id.toString(),
+    name: `${professor.firstName} ${professor.lastName}`.trim(),
+    email: professor.email,
+  }));
+}
 export interface IUserRegisteredEventItem {
   id: string;
   name: string;

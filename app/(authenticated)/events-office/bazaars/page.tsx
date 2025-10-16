@@ -44,9 +44,9 @@ const bazaarSchema = z
     name: z.string().min(3, "Name must be at least 3 characters"),
     description: z.string().min(10, "Add a meaningful description"),
     location: z.nativeEnum(Location, { message: "Choose a location" }),
-    startDate: z.date({ required_error: "Start date is required" }),
-    endDate: z.date({ required_error: "End date is required" }),
-    registrationDeadline: z.date({ required_error: "Deadline is required" }),
+    startDate: z.date({ message: "Start date is required" }),
+    endDate: z.date({ message: "End date is required" }),
+    registrationDeadline: z.date({ message: "Deadline is required" }),
   })
   .refine((values) => values.startDate < values.endDate, {
     message: "Start date must be before end date",

@@ -59,8 +59,8 @@ export function AppShell({
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   const navItems = useMemo(
-    () => getNavItemsForRole(session?.user.role ?? null),
-    [session?.user.role]
+    () => getNavItemsForRole(session?.user.role ?? null, session?.user.userRole ?? null),
+    [session?.user.role, session?.user.userRole]
   );
 
   const currentItem = navItems.find((item) => pathname.startsWith(item.href));

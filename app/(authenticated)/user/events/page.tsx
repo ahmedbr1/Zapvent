@@ -91,7 +91,8 @@ export default function UserEventsPage() {
         if (filters.professor) {
           const professorsLower =
             event.participatingProfessors?.map((professor) => professor.toLowerCase()) ?? [];
-          if (!professorsLower.some((name) => name.includes(filters.professor.toLowerCase()))) {
+          const professorFilter = filters.professor.toLowerCase();
+          if (!professorsLower.some((name) => name.includes(professorFilter))) {
             return false;
           }
         }

@@ -98,10 +98,35 @@ export interface EventSummary {
   endDate: string;
   registrationDeadline: string;
   participatingProfessors?: string[];
+  participatingProfessorIds?: string[];
   capacity?: number;
   price?: number;
   vendors?: VendorSummary[];
   isRegistered?: boolean;
+}
+
+export interface Workshop {
+  id: string;
+  name: string;
+  location: Location;
+  startDate: string;
+  endDate: string;
+  description: string;
+  fullAgenda: string;
+  faculty: string;
+  participatingProfessorIds: string[];
+  participatingProfessors: string[];
+  requiredBudget: number;
+  fundingSource: FundingSource;
+  extraRequiredResources?: string;
+  capacity: number;
+  registrationDeadline: string;
+}
+
+export interface ProfessorSummary {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export interface VendorSummary {

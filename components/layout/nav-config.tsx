@@ -12,13 +12,15 @@ import FlightIcon from "@mui/icons-material/FlightTakeoffRounded";
 import SchoolIcon from "@mui/icons-material/SchoolRounded";
 import ConferenceIcon from "@mui/icons-material/CampaignRounded";
 import ChecklistIcon from "@mui/icons-material/ChecklistRtlRounded";
-import { AuthRole } from "@/lib/types";
+import { AuthRole, UserRole } from "@/lib/types";
 
 export interface NavItem {
   label: string;
   href: string;
   icon: SvgIconComponent;
   roles: AuthRole[];
+  userRoles?: UserRole[];
+  labelOverrides?: Partial<Record<UserRole, string>>;
 }
 
 export const navItems: NavItem[] = [
@@ -41,10 +43,22 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.User],
   },
   {
+    label: "My Workshops",
+    href: "/user/workshops",
+    icon: SchoolIcon,
+    roles: [AuthRole.User],
+    userRoles: [UserRole.Professor],
+  },
+  {
     label: "Courts & Gym",
     href: "/user/gym",
     icon: FitnessCenterIcon,
     roles: [AuthRole.User],
+    labelOverrides: {
+      [UserRole.Professor]: "Gym Sessions",
+      [UserRole.Staff]: "Gym Sessions",
+      [UserRole.TA]: "Gym Sessions",
+    },
   },
   {
     label: "User Management",
@@ -126,7 +140,21 @@ export const navItems: NavItem[] = [
   },
 ];
 
-export function getNavItemsForRole(role: AuthRole | null) {
+export function getNavItemsForRole(role: AuthRole | null, userRole: UserRole | null) {
   if (!role) return [];
-  return navItems.filter((item) => item.roles.includes(role));
+  return navItems.filter((item) => {
+    if (!item.roles.includes(role)) {
+      return false;
+    }
+    if (!item.userRoles) {
+      return true;
+    }
+    if (!userRole) {
+      return false;
+    }
+    return item.userRoles.includes(userRole);
+  }).map((item) => {
+    const override = userRole ? item.labelOverrides?.[userRole] : undefined;
+    return override ? { ...item, label: override } : item;
+  });
 }

@@ -28,11 +28,15 @@ import { useSessionUser } from "@/hooks/useSessionUser";
 import { fetchUpcomingEvents } from "@/lib/services/events";
 import { fetchUserRegisteredEvents } from "@/lib/services/users";
 import { formatDateTime } from "@/lib/date";
+import { UserRole } from "@/lib/types";
 
 export default function UserDashboardPage() {
   const token = useAuthToken();
   const user = useSessionUser();
   const router = useRouter();
+  const firstName = (user?.name ?? "").trim().split(" ")[0] ?? "";
+  const greetingName =
+    user?.userRole === UserRole.Professor && firstName ? `Prof. ${firstName}` : firstName;
 
   const eventsQuery = useQuery({
     queryKey: ["events", user?.id, token],
@@ -71,7 +75,7 @@ export default function UserDashboardPage() {
     <Stack spacing={4}>
       <Stack spacing={1}>
         <Typography variant="h4" fontWeight={700}>
-          Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}!
+          Welcome back{greetingName ? `, ${greetingName}` : ""}!
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Track your registrations, discover new events, and stay on top of campus life.

@@ -26,6 +26,7 @@ import {
   createConference,
   registerUserForWorkshop,
 } from "../services/eventService";
+import { userRole } from "../models/User";
 
 function extractUserId(user: unknown): string | undefined {
   if (!user || typeof user !== "object") return undefined;
@@ -312,7 +313,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User"]) // should be professor 
+  @AllowedRoles(["User"])
   async createWorkshopController(req: AuthRequest, res: Response) {
     try {
       const {
@@ -323,6 +324,7 @@ export class EventController {
         description,
         fullAgenda,
         faculty,
+        participatingProfessorIds,
         participatingProfessors,
         requiredBudget,
         fundingSource,
@@ -338,6 +340,21 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
+      const sessionUserRole =
+        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      if (sessionUserRole !== userRole.PROFESSOR) {
+        return res.status(403).json({
+          success: false,
+          message: "Only professors can manage workshops.",
+        });
+      }
+
+      const professorIds = Array.isArray(participatingProfessorIds)
+        ? participatingProfessorIds
+        : Array.isArray(participatingProfessors)
+          ? participatingProfessors
+          : [];
+
       if (
         !name ||
         !location ||
@@ -346,7 +363,7 @@ export class EventController {
         !description ||
         !fullAgenda ||
         !faculty ||
-        !participatingProfessors ||
+        professorIds.length === 0 ||
         requiredBudget === undefined ||
         !fundingSource ||
         !capacity ||
@@ -355,7 +372,7 @@ export class EventController {
         return res.status(400).json({
           success: false,
           message:
-            "All required fields must be provided: name, location, startDate, endDate, description, fullAgenda, faculty, participatingProfessors, requiredBudget, fundingSource, capacity, and registrationDeadline.",
+            "All required fields must be provided: name, location, startDate, endDate, description, fullAgenda, faculty, participatingProfessorIds, requiredBudget, fundingSource, capacity, and registrationDeadline.",
         });
       }
 
@@ -367,7 +384,7 @@ export class EventController {
         description,
         fullAgenda,
         faculty,
-        participatingProfessors,
+        participatingProfessorIds: professorIds,
         requiredBudget,
         fundingSource,
         extraRequiredResources,
@@ -388,11 +405,15 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User"]) // should be professor
+  @AllowedRoles(["User"])
   async editWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const {
+        participatingProfessorIds,
+        participatingProfessors,
+        ...rest
+      } = req.body ?? {};
 
       const userId = extractUserId(req.user);
       if (!userId) {
@@ -401,7 +422,27 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const result = await editWorkshop(id, userId, updateData);
+      const sessionUserRole =
+        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      if (sessionUserRole !== userRole.PROFESSOR) {
+        return res.status(403).json({
+          success: false,
+          message: "Only professors can manage workshops.",
+        });
+      }
+
+      const professorIds = Array.isArray(participatingProfessorIds)
+        ? participatingProfessorIds
+        : Array.isArray(participatingProfessors)
+          ? participatingProfessors
+          : undefined;
+
+      const updatePayload = {
+        ...rest,
+        ...(professorIds ? { participatingProfessorIds: professorIds } : {}),
+      };
+
+      const result = await editWorkshop(id, userId, updatePayload);
 
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
@@ -415,7 +456,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User"]) // should be professor
+  @AllowedRoles(["User"])
   async getMyWorkshopsController(req: AuthRequest, res: Response) {
     try {
       const userId = extractUserId(req.user);
@@ -423,6 +464,15 @@ export class EventController {
         return res
           .status(401)
           .json({ success: false, message: "Unauthorized" });
+      }
+
+      const sessionUserRole =
+        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      if (sessionUserRole !== userRole.PROFESSOR) {
+        return res.status(403).json({
+          success: false,
+          message: "Only professors can access their workshops.",
+        });
       }
 
       const result = await getWorkshopsByCreator(userId);

@@ -91,7 +91,6 @@ export function LoginForm({ variant }: LoginFormProps) {
             : undefined,
         status: result.user?.status,
         companyName: result.user?.companyName,
-        isVerified: result.user?.isVerified,
         logo: result.user?.logo,
         userRole: result.user?.userRole as SessionState["user"]["userRole"],
       };

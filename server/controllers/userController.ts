@@ -74,6 +74,22 @@ export class UserController {
 
     return res.json(result);
   }
+
+  async getProfessors(_req: Request, res: Response) {
+    try {
+      const professors = await userService.findProfessors();
+      return res.json({
+        success: true,
+        data: professors,
+      });
+    } catch (error) {
+      console.error("Failed to fetch professors:", error);
+      return res.status(500).json({
+        success: false,
+        message: "An error occurred while fetching professors.",
+      });
+    }
+  }
 }
 
 export const userController = new UserController();
