@@ -1,7 +1,6 @@
 import UserModel, { userRole, userStatus } from "../models/User";
 import { emailService } from "./emailService";
 import AdminModel, { IAdmin } from "../models/Admin";
-import CommentModel from "../models/Comment";
 import { isValidObjectId } from "mongoose";
 
 export async function approveUser(userId: string) {
@@ -78,6 +77,11 @@ export interface CreateAdminData {
   email: string;
   password: string;
   status?: "Active" | "Blocked";
+  adminType: "EventOffice" | "Admin";
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 export interface AdminResponse {
@@ -89,6 +93,7 @@ export interface AdminResponse {
   createdAt: Date;
   updatedAt: Date;
 }
+
 
 export async function findAll(): Promise<AdminResponse[]> {
   const admins = await AdminModel.find().lean();
@@ -123,16 +128,22 @@ export async function findById(id: string): Promise<AdminResponse | null> {
 }
 
 export async function findByEmail(email: string): Promise<IAdmin | null> {
-  return AdminModel.findOne({ email }).lean() as Promise<IAdmin | null>;
+  return AdminModel.findOne({ email: normalizeEmail(email) }).lean() as Promise<
+    IAdmin | null
+  >;
 }
 
 export async function createAdmin(
   data: CreateAdminData
 ): Promise<{ success: boolean; admin?: AdminResponse; message?: string }> {
   try {
-    const existingAdmin = await findByEmail(data.email);
+    const sanitizedEmail = normalizeEmail(data.email);
+    const existingAdmin = await findByEmail(sanitizedEmail);
 
     if (existingAdmin) {
+      console.info(
+        `[adminService] createAdmin blocked duplicate for ${sanitizedEmail}`
+      );
       return {
         success: false,
         message: "An admin with this email already exists",
@@ -140,7 +151,7 @@ export async function createAdmin(
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email)) {
+    if (!emailRegex.test(sanitizedEmail)) {
       return {
         success: false,
         message: "Invalid email format",
@@ -157,9 +168,10 @@ export async function createAdmin(
     const admin = new AdminModel({
       firstName: data.firstName,
       lastName: data.lastName,
-      email: data.email,
+      email: sanitizedEmail,
       password: data.password, // Will be hashed by pre-save hook
       status: data.status || "Active",
+      adminType: data.adminType || "Admin",
     });
 
     const savedAdmin = await admin.save();
@@ -253,27 +265,6 @@ export async function deleteAdmin(
       success: false,
       message: "Failed to delete admin",
     };
-  }
-}
-
-export async function deleteComment(
-  commentId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    if (!isValidObjectId(commentId)) {
-      return { success: false, message: "Invalid comment ID" };
-    }
-
-    const deleted = await CommentModel.findByIdAndDelete(commentId);
-
-    if (!deleted) {
-      return { success: false, message: "Comment not found" };
-    }
-
-    return { success: true, message: "Comment deleted successfully" };
-  } catch (error) {
-    console.error("Error deleting comment:", error);
-    return { success: false, message: "Failed to delete comment" };
   }
 }
 

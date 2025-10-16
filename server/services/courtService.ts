@@ -4,16 +4,9 @@ export async function viewAllCourts() {
   try {
     const courts = await CourtModel.find().lean();
 
-    if (!courts || courts.length === 0) {
-      return {
-        success: false,
-        message: "No courts found.",
-      };
-    }
-
     // Format the data to include availability details
-    const formattedCourts = courts.map((court) => ({
-      id: court._id,
+    const formattedCourts = (courts ?? []).map((court) => ({
+      id: court._id?.toString(),
       type: court.type, // e.g., "Basketball", "Tennis"
       venue: court.venue,
       timezone: court.timezone,
@@ -23,7 +16,10 @@ export async function viewAllCourts() {
 
     return {
       success: true,
-      message: "Courts successfully retrieved.",
+      message:
+        formattedCourts.length > 0
+          ? "Courts successfully retrieved."
+          : "No courts found.",
       data: formattedCourts,
     };
   } catch (error) {

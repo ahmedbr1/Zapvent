@@ -62,13 +62,53 @@ export const SignupSchema = z.object({
 
 export type SignupData = z.infer<typeof SignupSchema>;
 
+export class SignupConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SignupConflictError";
+  }
+}
 
 // New signup service function
 export async function signup(userData: SignupData) {
   // Validate with Zod
   const validatedData = SignupSchema.parse(userData);
-  
-  const user = new UserModel(validatedData);
+
+  const {
+    studentId: rawStudentId,
+    staffId: rawStaffId,
+    email: rawEmail,
+    ...rest
+  } = validatedData;
+
+  const email = rawEmail.trim().toLowerCase();
+  const studentId = rawStudentId?.trim() || undefined;
+  const staffId = rawStaffId?.trim() || undefined;
+
+  if (await UserModel.findOne({ email })) {
+    throw new SignupConflictError("An account with this email already exists.");
+  }
+
+  if (studentId) {
+    const existingStudent = await UserModel.findOne({ studentId });
+    if (existingStudent) {
+      throw new SignupConflictError("This student ID is already registered.");
+    }
+  }
+
+  if (staffId) {
+    const existingStaff = await UserModel.findOne({ staffId });
+    if (existingStaff) {
+      throw new SignupConflictError("This staff ID is already registered.");
+    }
+  }
+
+  const user = new UserModel({
+    ...rest,
+    email,
+    ...(studentId ? { studentId } : {}),
+    ...(staffId ? { staffId } : {}),
+  });
   await user.save();
   
   // Return user without password
@@ -81,6 +121,28 @@ export async function signup(userData: SignupData) {
   : 'Registration completed successfully. You can now log in.';
 
   return { user: userWithoutPassword, message, needsApproval: !user.verified };
+}
+
+export interface ProfessorSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export async function findProfessors(): Promise<ProfessorSummary[]> {
+  const professors = await UserModel.find({
+    role: userRole.PROFESSOR,
+    verified: true,
+  })
+    .select(["firstName", "lastName", "email"])
+    .sort({ firstName: 1, lastName: 1 })
+    .lean<Array<IUser & { _id: Types.ObjectId }>>();
+
+  return professors.map((professor) => ({
+    id: professor._id.toString(),
+    name: `${professor.firstName} ${professor.lastName}`.trim(),
+    email: professor.email,
+  }));
 }
 export interface IUserRegisteredEventItem {
   id: string;
@@ -145,4 +207,3 @@ export async function findRegisteredEvents(
     };
   }
 }
-

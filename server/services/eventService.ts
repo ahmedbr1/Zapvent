@@ -13,7 +13,130 @@ import vendorModel, {
   VendorStatus,
   BazaarApplication,
 } from "../models/Vendor";
-import UserModel from "../models/User";
+import UserModel, { IUser, userRole } from "../models/User";
+
+function buildProfessorName(user: Pick<IUser, "firstName" | "lastName">): string {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+}
+
+interface ProfessorSelectionResult {
+  success: true;
+  ids: string[];
+  names: string[];
+}
+
+interface ProfessorSelectionError {
+  success: false;
+  message: string;
+}
+
+type ProfessorSelection = ProfessorSelectionResult | ProfessorSelectionError;
+
+async function validateProfessorSelection(
+  input: unknown
+): Promise<ProfessorSelection> {
+  if (!Array.isArray(input) || input.length === 0) {
+    return {
+      success: false,
+      message: "At least one participating professor is required.",
+    };
+  }
+
+  const seen = new Set<string>();
+  const ids = input
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value) => {
+      if (!value) return false;
+      if (seen.has(value)) {
+        return false;
+      }
+      seen.add(value);
+      return true;
+    });
+
+  if (ids.length === 0) {
+    return {
+      success: false,
+      message: "At least one participating professor is required.",
+    };
+  }
+
+  if (ids.some((id) => !Types.ObjectId.isValid(id))) {
+    return {
+      success: false,
+      message: "Invalid professor identifier provided.",
+    };
+  }
+
+  const professors = await UserModel.find({
+    _id: { $in: ids },
+    role: userRole.PROFESSOR,
+  })
+    .select(["firstName", "lastName"])
+    .lean<Array<IUser & { _id: Types.ObjectId }>>();
+
+  if (professors.length !== ids.length) {
+    return {
+      success: false,
+      message: "All participating professors must be verified professor accounts.",
+    };
+  }
+
+  const nameMap = new Map<string, string>();
+  professors.forEach((professor) => {
+    nameMap.set(professor._id.toString(), buildProfessorName(professor));
+  });
+
+  const names = ids.map((id) => nameMap.get(id) ?? "Professor");
+
+  return {
+    success: true,
+    ids,
+    names,
+  };
+}
+
+async function enrichEventsWithProfessors<T extends { participatingProfessors?: string[] }>(
+  events: Array<T>
+): Promise<Array<T & { participatingProfessorIds: string[]; participatingProfessors: string[] }>> {
+  const uniqueIds = new Set<string>();
+  events.forEach((event) => {
+    (event.participatingProfessors ?? []).forEach((value) => {
+      if (Types.ObjectId.isValid(value)) {
+        uniqueIds.add(value);
+      }
+    });
+  });
+
+  const professorMap = uniqueIds.size
+    ? new Map(
+        (
+          await UserModel.find({
+            _id: { $in: Array.from(uniqueIds) },
+            role: userRole.PROFESSOR,
+          })
+            .select(["firstName", "lastName"])
+            .lean<Array<IUser & { _id: Types.ObjectId }>>()
+        ).map((professor) => [professor._id.toString(), buildProfessorName(professor)])
+      )
+    : new Map<string, string>();
+
+  return events.map((event) => {
+    const rawList = event.participatingProfessors ?? [];
+    const ids = rawList.filter((entry) => Types.ObjectId.isValid(entry));
+    const namesFromIds = ids
+      .map((id) => professorMap.get(id))
+      .filter((name): name is string => Boolean(name));
+    const embeddedNames = rawList.filter((entry) => !Types.ObjectId.isValid(entry));
+    const names = [...namesFromIds, ...embeddedNames];
+
+    return {
+      ...event,
+      participatingProfessorIds: ids,
+      participatingProfessors: names,
+    };
+  });
+}
 
 export async function deleteEventById(eventId: string) {
   if (!Types.ObjectId.isValid(eventId)) {
@@ -107,7 +230,7 @@ export interface ICreateWorkshopInput {
   description: string;
   fullAgenda: string;
   faculty: string;
-  participatingProfessors: string[];
+  participatingProfessorIds: string[];
   requiredBudget: number;
   fundingSource: FundingSource;
   extraRequiredResources?: string;
@@ -130,7 +253,7 @@ export interface IEditWorkshopInput {
   description?: string;
   fullAgenda?: string;
   faculty?: string;
-  participatingProfessors?: string[];
+  participatingProfessorIds?: string[];
   requiredBudget?: number;
   fundingSource?: FundingSource;
   extraRequiredResources?: string;
@@ -166,12 +289,12 @@ export async function getAllEvents(
       query = query.sort({ startDate: sortOrder });
     }
 
-    // Execute the query
-    const events = await query;
+    const events = await query.lean<Array<IEvent & { _id: Types.ObjectId }>>();
+    const enrichedEvents = await enrichEventsWithProfessors(events);
 
     return {
       success: true,
-      data: events,
+      data: enrichedEvents,
     };
   } catch (error) {
     console.error("Error fetching events:", error);
@@ -312,7 +435,7 @@ export async function createWorkshop(
       description,
       fullAgenda,
       faculty,
-      participatingProfessors,
+      participatingProfessorIds,
       requiredBudget,
       fundingSource,
       extraRequiredResources,
@@ -360,12 +483,12 @@ export async function createWorkshop(
       };
     }
 
-    if (!participatingProfessors || participatingProfessors.length === 0) {
-      return {
-        success: false,
-        message: "At least one participating professor is required.",
-      };
+    const professorValidation = await validateProfessorSelection(participatingProfessorIds);
+    if (!professorValidation.success) {
+      return professorValidation;
     }
+    const professorIds = professorValidation.ids;
+    const professorNames = professorValidation.names;
 
     if (!capacity || capacity <= 0) {
       return {
@@ -394,7 +517,7 @@ export async function createWorkshop(
       registrationDeadline: parsedDeadline,
       fullAgenda,
       faculty,
-      participatingProfessors,
+      participatingProfessors: professorIds,
       requiredBudget,
       fundingSource,
       extraRequiredResources: extraRequiredResources || "",
@@ -413,7 +536,8 @@ export async function createWorkshop(
         description: workshop.description,
         fullAgenda: workshop.fullAgenda,
         faculty: workshop.faculty,
-        participatingProfessors: workshop.participatingProfessors,
+        participatingProfessorIds: professorIds,
+        participatingProfessors: professorNames,
         requiredBudget: workshop.requiredBudget,
         fundingSource: workshop.fundingSource,
         extraRequiredResources: workshop.extraRequiredResources,
@@ -467,16 +591,18 @@ export async function editWorkshop(
       };
     }
 
+    let updates: IEditWorkshopInput = { ...updateData };
+
     // Validate dates if provided
-    if (updateData.startDate || updateData.endDate || updateData.registrationDeadline) {
-      const parsedStart = updateData.startDate ? new Date(updateData.startDate) : workshop.startDate;
-      const parsedEnd = updateData.endDate ? new Date(updateData.endDate) : workshop.endDate;
-      const parsedDeadline = updateData.registrationDeadline ? new Date(updateData.registrationDeadline) : workshop.registrationDeadline;
+    if (updates.startDate || updates.endDate || updates.registrationDeadline) {
+      const parsedStart = updates.startDate ? new Date(updates.startDate) : workshop.startDate;
+      const parsedEnd = updates.endDate ? new Date(updates.endDate) : workshop.endDate;
+      const parsedDeadline = updates.registrationDeadline ? new Date(updates.registrationDeadline) : workshop.registrationDeadline;
 
       if (
-        (updateData.startDate && Number.isNaN(parsedStart.getTime())) ||
-        (updateData.endDate && Number.isNaN(parsedEnd.getTime())) ||
-        (updateData.registrationDeadline && Number.isNaN(parsedDeadline.getTime()))
+        (updates.startDate && Number.isNaN(parsedStart.getTime())) ||
+        (updates.endDate && Number.isNaN(parsedEnd.getTime())) ||
+        (updates.registrationDeadline && Number.isNaN(parsedDeadline.getTime()))
       ) {
         return {
           success: false,
@@ -499,35 +625,79 @@ export async function editWorkshop(
       }
 
       // Update date field if startDate is changed
-      if (updateData.startDate) {
-        updateData = { ...updateData, date: parsedStart } as IEditWorkshopInput & { date: Date };
+      if (updates.startDate) {
+        updates = { ...updates, date: parsedStart } as IEditWorkshopInput & { date: Date };
       }
     }
 
-    if (updateData.capacity !== undefined && updateData.capacity <= 0) {
+    if (updates.capacity !== undefined && updates.capacity <= 0) {
       return {
         success: false,
         message: "Capacity must be a positive number.",
       };
     }
 
-    if (updateData.requiredBudget !== undefined && updateData.requiredBudget < 0) {
+    if (updates.requiredBudget !== undefined && updates.requiredBudget < 0) {
       return {
         success: false,
         message: "Required budget must be a non-negative number.",
       };
     }
 
+    let updatePayload: Partial<IEvent> & { participatingProfessors?: string[] } = {
+      ...updates,
+    } as Partial<IEvent> & { participatingProfessorIds?: string[] };
+
+    if (updates.participatingProfessorIds) {
+      const professorValidation = await validateProfessorSelection(updates.participatingProfessorIds);
+      if (!professorValidation.success) {
+        return professorValidation;
+      }
+      updatePayload = {
+        ...updatePayload,
+        participatingProfessors: professorValidation.ids,
+      };
+    }
+
+    if ("participatingProfessorIds" in updatePayload) {
+      delete (updatePayload as { participatingProfessorIds?: string[] }).participatingProfessorIds;
+    }
+
     const updatedWorkshop = await EventModel.findByIdAndUpdate(
       workshopId,
-      updateData,
+      updatePayload,
       { new: true, runValidators: true }
-    );
+    ).lean<(IEvent & { _id: Types.ObjectId }) | null>();
+
+    if (!updatedWorkshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    const [enrichedWorkshop] = await enrichEventsWithProfessors([updatedWorkshop]);
 
     return {
       success: true,
       message: "Workshop updated successfully.",
-      data: updatedWorkshop,
+      data: {
+        id: enrichedWorkshop._id.toString(),
+        name: enrichedWorkshop.name,
+        location: enrichedWorkshop.location,
+        startDate: enrichedWorkshop.startDate,
+        endDate: enrichedWorkshop.endDate,
+        description: enrichedWorkshop.description,
+        fullAgenda: enrichedWorkshop.fullAgenda ?? "",
+        faculty: enrichedWorkshop.faculty ?? "",
+        participatingProfessorIds: enrichedWorkshop.participatingProfessorIds,
+        participatingProfessors: enrichedWorkshop.participatingProfessors,
+        requiredBudget: enrichedWorkshop.requiredBudget ?? 0,
+        fundingSource: enrichedWorkshop.fundingSource,
+        extraRequiredResources: enrichedWorkshop.extraRequiredResources ?? "",
+        capacity: enrichedWorkshop.capacity ?? 0,
+        registrationDeadline: enrichedWorkshop.registrationDeadline,
+      },
     };
   } catch (error) {
     console.error("Error editing workshop:", error);
@@ -551,14 +721,14 @@ export interface IRegisterWorkshopResponse {
 }
 
 export async function registerUserForWorkshop(
-  workshopId: string,
+  eventId: string,
   userId: string
 ): Promise<IRegisterWorkshopResponse> {
   try {
-    if (!Types.ObjectId.isValid(workshopId)) {
+    if (!Types.ObjectId.isValid(eventId)) {
       return {
         success: false,
-        message: "Invalid workshop ID.",
+        message: "Invalid event ID.",
         statusCode: 400,
       };
     }
@@ -571,24 +741,16 @@ export async function registerUserForWorkshop(
       };
     }
 
-    const [workshop, user] = await Promise.all([
-      EventModel.findById(workshopId),
+    const [event, user] = await Promise.all([
+      EventModel.findById(eventId),
       UserModel.findById(userId),
     ]);
 
-    if (!workshop) {
+    if (!event) {
       return {
         success: false,
-        message: "Workshop not found.",
+        message: "Event not found.",
         statusCode: 404,
-      };
-    }
-
-    if (workshop.eventType !== EventType.WORKSHOP) {
-      return {
-        success: false,
-        message: "Event is not a workshop.",
-        statusCode: 400,
       };
     }
 
@@ -600,16 +762,27 @@ export async function registerUserForWorkshop(
       };
     }
 
-    const now = new Date();
-    if (workshop.archived) {
+    if (
+      event.eventType !== EventType.WORKSHOP &&
+      event.eventType !== EventType.TRIP
+    ) {
       return {
         success: false,
-        message: "Workshop is archived.",
+        message: "Only workshops and trips support registrations.",
         statusCode: 400,
       };
     }
 
-    if (workshop.registrationDeadline < now) {
+    const now = new Date();
+    if (event.archived) {
+      return {
+        success: false,
+        message: "Event is archived.",
+        statusCode: 400,
+      };
+    }
+
+    if (event.registrationDeadline < now) {
       return {
         success: false,
         message: "Registration deadline has passed.",
@@ -618,66 +791,76 @@ export async function registerUserForWorkshop(
     }
 
     const alreadyRegistered =
-      workshop.registeredUsers?.some((registeredId: string) => registeredId === userId) ??
+      event.registeredUsers?.some((registeredId: string) => registeredId === userId) ??
       false;
 
     if (alreadyRegistered) {
       return {
         success: false,
-        message: "User already registered for this workshop.",
+        message: "User already registered for this event.",
         statusCode: 409,
       };
     }
 
-    const currentRegistrations = workshop.registeredUsers?.length ?? 0;
+    const currentRegistrations = event.registeredUsers?.length ?? 0;
     if (
-      typeof workshop.capacity === "number" &&
-      workshop.capacity > 0 &&
-      currentRegistrations >= workshop.capacity
+      typeof event.capacity === "number" &&
+      event.capacity > 0 &&
+      currentRegistrations >= event.capacity
     ) {
       return {
         success: false,
-        message: "Workshop has reached its capacity.",
+        message: "Event has reached its capacity.",
         statusCode: 400,
       };
     }
 
-    const updatedWorkshop = await EventModel.findByIdAndUpdate(
-      workshopId,
+    const updatedEvent = await EventModel.findByIdAndUpdate(
+      eventId,
       { $addToSet: { registeredUsers: userId } },
       { new: true }
     );
 
-    if (!updatedWorkshop) {
+    if (!updatedEvent) {
       return {
         success: false,
-        message: "Failed to update workshop registration.",
+        message: "Failed to update event registration.",
         statusCode: 500,
       };
     }
 
+    const addToSet: Record<string, unknown> = {
+      registeredEvents: eventId,
+    };
+
+    if (event.eventType === EventType.WORKSHOP) {
+      addToSet.workshops = eventId;
+    }
+
     await UserModel.findByIdAndUpdate(userId, {
-      $addToSet: {
-        workshops: workshopId,
-        registeredEvents: workshopId,
-      },
+      $addToSet: addToSet,
     });
+
+    const message =
+      event.eventType === EventType.WORKSHOP
+        ? "Registration successful."
+        : `Successfully registered for ${event.eventType.toLowerCase()} event.`;
 
     return {
       success: true,
-      message: "Registration successful.",
+      message,
       data: {
-        eventId: workshopId,
+        eventId,
         userId,
-        registeredCount: updatedWorkshop.registeredUsers.length,
-        capacity: updatedWorkshop.capacity,
+        registeredCount: updatedEvent.registeredUsers.length,
+        capacity: updatedEvent.capacity,
       },
     };
   } catch (error) {
-    console.error("Error registering user for workshop:", error);
+    console.error("Error registering user for event:", error);
     return {
       success: false,
-      message: "An error occurred while registering for the workshop.",
+      message: "An error occurred while registering for the event.",
       statusCode: 500,
     };
   }
@@ -698,12 +881,32 @@ export async function getWorkshopsByCreator(
       eventType: EventType.WORKSHOP,
       createdBy: userId,
       archived: false,
-    }).sort({ startDate: -1 });
+    })
+      .sort({ startDate: -1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    const enriched = await enrichEventsWithProfessors(workshops);
 
     return {
       success: true,
       message: "Workshops retrieved successfully.",
-      data: workshops,
+      data: enriched.map((workshop) => ({
+        id: workshop._id.toString(),
+        name: workshop.name,
+        location: workshop.location,
+        startDate: workshop.startDate,
+        endDate: workshop.endDate,
+        description: workshop.description,
+        fullAgenda: workshop.fullAgenda ?? "",
+        faculty: workshop.faculty ?? "",
+        participatingProfessorIds: workshop.participatingProfessorIds,
+        participatingProfessors: workshop.participatingProfessors,
+        requiredBudget: workshop.requiredBudget ?? 0,
+        fundingSource: workshop.fundingSource,
+        extraRequiredResources: workshop.extraRequiredResources ?? "",
+        capacity: workshop.capacity ?? 0,
+        registrationDeadline: workshop.registrationDeadline,
+      })),
     };
   } catch (error) {
     console.error("Error fetching workshops by creator:", error);

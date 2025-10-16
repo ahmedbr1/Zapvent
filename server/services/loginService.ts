@@ -54,8 +54,6 @@ interface VendorLoginSuccess extends BaseLoginResponse {
     email: string;
     role: "Vendor";
     companyName: string;
-    isVerified: boolean;
-    status: string;
     logo: string;
   };
 }
@@ -163,13 +161,6 @@ export async function loginAdmin(
       };
     }
 
-    if (!admin.verified) {
-      return {
-        success: false,
-        message: "Please verify your email before logging in.",
-      };
-    }
-
     // Check if admin is blocked
     if (admin.status === "Blocked") {
       return {
@@ -237,14 +228,6 @@ export async function loginVendor(
       };
     }
 
-    // Check vendor verification status
-    if (!vendor.isVerified) {
-      return {
-        success: false,
-        message: "Vendor account is not verified yet.",
-      };
-    }
-
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, vendor.password);
 
@@ -275,8 +258,6 @@ export async function loginVendor(
         email: vendor.email,
         role: "Vendor",
         companyName: vendor.companyName,
-        isVerified: vendor.isVerified,
-        status: vendor.status,
         logo: vendor.logo,
       },
     };

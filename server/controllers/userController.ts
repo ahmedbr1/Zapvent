@@ -1,17 +1,19 @@
 import { Request, Response } from "express";
 import * as userService from "../services/userService";
+import { SignupConflictError } from "../services/userService";
 import { z } from "zod";
 
 export class UserController {
   async signup(req: Request, res: Response) {
     try {
       // Call service - all business logic is there
-      const user = await userService.signup(req.body);
+      const result = await userService.signup(req.body);
 
       res.status(201).json({
         success: true,
-        message: "User registered successfully",
-        data: user,
+        message: result.message,
+        data: result.user,
+        needsApproval: result.needsApproval,
       });
     } catch (error) {
       // Handle Zod validation errors
@@ -20,6 +22,13 @@ export class UserController {
           success: false,
           message: "Validation failed",
           errors: error.issues,
+        });
+      }
+
+      if (error instanceof SignupConflictError) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
         });
       }
 
@@ -64,6 +73,22 @@ export class UserController {
     }
 
     return res.json(result);
+  }
+
+  async getProfessors(_req: Request, res: Response) {
+    try {
+      const professors = await userService.findProfessors();
+      return res.json({
+        success: true,
+        data: professors,
+      });
+    } catch (error) {
+      console.error("Failed to fetch professors:", error);
+      return res.status(500).json({
+        success: false,
+        message: "An error occurred while fetching professors.",
+      });
+    }
   }
 }
 

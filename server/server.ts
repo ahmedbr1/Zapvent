@@ -5,8 +5,23 @@ import { connectDB } from "./db";
 import api from "./routes";
 
 const app = express();
-app.use(cors());
+const allowedOrigin =
+  process.env.CLIENT_ORIGIN ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  "http://localhost:3000";
+
+app.use(
+  cors({
+    origin: allowedOrigin,
+    credentials: true,
+  })
+);
 app.use(express.json());
+
+app.use((_req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api", api);
