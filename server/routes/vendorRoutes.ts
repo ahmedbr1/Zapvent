@@ -1,6 +1,7 @@
 import { Router } from "express";
 import vendorController from "../controllers/vendorController";
 import multer from "multer";
+import { loginRequired, allowedRoles } from "../middleware/authMiddleware";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -24,9 +25,19 @@ router.patch(
   "/bazaar-application/status",
   vendorController.updateBazaarApplicationStatus.bind(vendorController)
 );
+// Admin routes - properly protected with middleware
 router.get(
   "/admin",
+  loginRequired,
+  allowedRoles(["Admin"]),
   vendorController.listVendorsForAdmin.bind(vendorController)
+);
+
+router.patch(
+  "/admin/:vendorId/verify",
+  loginRequired,
+  allowedRoles(["Admin"]),
+  vendorController.verifyVendor.bind(vendorController)
 );
 
 export default router;

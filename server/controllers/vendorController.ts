@@ -196,6 +196,37 @@ export class VendorController {
     }
   }
 
+  @LoginRequired()
+  @AllowedRoles(["Admin"])
+  async verifyVendor(req: AuthRequest, res: Response) {
+    try {
+      const { vendorId } = req.params;
+
+      if (!vendorId) {
+        return res.status(400).json({
+          success: false,
+          message: "Vendor ID is required",
+        });
+      }
+
+      // Call the verify service (you'll need to implement this)
+      const result = await vendorService.verifyVendor(vendorId);
+
+      if (!result.success) {
+        const statusCode = result.message === "Vendor not found" ? 404 : 400;
+        return res.status(statusCode).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error: unknown) {
+      console.error("Verify vendor error:", error);
+      return res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to verify vendor",
+      });
+    }
+  }
 }
 
 export const vendorController = new VendorController();

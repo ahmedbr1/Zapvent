@@ -36,6 +36,7 @@ export interface IVendor extends IBaseModel {
   taxCard?: string;
   applications?: BazaarApplication[];
   loyaltyForum?: string; // URL containing the forum link
+  isVerified?: boolean;
 }
 const vendorSchema = new Schema<IVendor>(
   {

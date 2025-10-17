@@ -305,3 +305,56 @@ export async function findAllForAdmin(): Promise<{
     };
   }
 }
+
+export async function verifyVendor(vendorId: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: { id: string; companyName: string; isVerified: boolean };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(vendorId)) {
+      return {
+        success: false,
+        message: "Invalid vendor ID format",
+      };
+    }
+
+    const vendor = await vendorModel.findById(vendorId);
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    const updatedVendor = await vendorModel.findByIdAndUpdate(
+      vendorId,
+      { $set: { isVerified: true } },
+      { new: true }
+    );
+
+    if (!updatedVendor) {
+      return {
+        success: false,
+        message: "Failed to verify vendor",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Vendor verified successfully",
+      data: {
+        id: updatedVendor._id.toString(),
+        companyName: updatedVendor.companyName,
+        isVerified: true,
+      },
+    };
+  } catch (error) {
+    console.error("Error verifying vendor:", error);
+    return {
+      success: false,
+      message: "An error occurred while verifying the vendor",
+    };
+  }
+}
