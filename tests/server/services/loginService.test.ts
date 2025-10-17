@@ -160,9 +160,9 @@ describe("loginUser", () => {
     const user = new UserModel(validUserData);
     await user.save();
 
-    jest
-      .spyOn(bcrypt, "compare")
-      .mockRejectedValueOnce(new Error("Bcrypt error"));
+    jest.spyOn(bcrypt, "compare").mockRejectedValueOnce(async () => {
+      throw new Error("Bcrypt error");
+    });
 
     const result = await loginUser(validUserData.email, validUserData.password);
 
