@@ -360,7 +360,7 @@ describe("loginVendor", () => {
     email: "vendor@example.com",
     password: "vendorpass123",
     companyName: "ABC Company",
-    docuements: "https://example.com/docs.pdf",
+    documents: "https://example.com/docs.pdf",
     logo: "https://example.com/logo.png",
     taxCard: "https://example.com/tax.pdf",
     loyaltyForum: "https://example.com/forum",
