@@ -11,6 +11,7 @@ export type UserRole =
   | "Student"
   | "Professor"
   | "Staff"
+  | "TA"
   | "Admin"
   | "Vendor"
   | "EventOffice";
