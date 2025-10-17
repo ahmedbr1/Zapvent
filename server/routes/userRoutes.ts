@@ -8,7 +8,7 @@ router.post("/signUp", userController.signup.bind(userController));
 router.get(
   "/professors",
   loginRequired,
-  allowedRoles(["Professor", "Admin"]),
+  allowedRoles(["Student", "Professor", "Staff", "TA", "Admin"]),
   userController.getProfessors.bind(userController)
 );
 router.get(

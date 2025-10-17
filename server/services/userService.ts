@@ -56,7 +56,9 @@ export const SignupSchema = z
   )
   .refine(
     (data) => {
-      if ([userRole.STAFF, userRole.PROFESSOR].includes(data.role)) {
+      if (
+        [userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(data.role)
+      ) {
         return data.staffId && data.staffId.length > 0;
       }
       return true;
@@ -123,7 +125,9 @@ export async function signup(userData: SignupData) {
   delete (userWithoutPassword as Partial<IUser>).password;
 
   // status message based on role
-  const message = [userRole.STAFF, userRole.PROFESSOR].includes(user.role)
+  const message = [userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(
+    user.role
+  )
     ? "Registration submitted successfully. Your account is pending admin approval."
     : "Registration completed successfully. You can now log in.";
 

@@ -6,6 +6,7 @@ export enum userRole {
   STUDENT = "Student",
   STAFF = "Staff",
   PROFESSOR = "Professor",
+  TA = "TA",
 }
 
 export enum userStatus {
@@ -62,7 +63,9 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       sparse: true,
       required: function (this: IUser) {
-        return [userRole.STAFF, userRole.PROFESSOR].includes(this.role);
+        return [userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(
+          this.role
+        );
       },
     },
     registeredEvents: [{ type: String }],
