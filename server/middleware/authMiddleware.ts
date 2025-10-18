@@ -20,10 +20,11 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    role: UserRole;
+    role: UserRole | "User";
     iat?: number;
     exp?: number;
     adminType?: string; // For Admin sub-roles (EventOffice, etc.)
+    userRole?: string; // For User sub-roles (Student, Staff, Professor, TA)
   };
 }
 
@@ -36,7 +37,7 @@ function extractAndVerifyToken(req: AuthRequest): {
   user?: {
     id: string;
     email: string;
-    role: UserRole;
+    role: UserRole | "User";
     userRole?: string; // For User sub-roles (Student, Staff, Professor, TA)
   };
   message?: string;
@@ -58,12 +59,7 @@ function extractAndVerifyToken(req: AuthRequest): {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
       algorithms: ["HS256"], // Or ['RS256'] if using asymmetric keys
-    }) as {
-      id: string;
-      email: string;
-      role: UserRole;
-      userRole?: string;
-    };
+    }) as NonNullable<AuthRequest["user"]>;
     return {
       success: true,
       user: decoded,
@@ -156,7 +152,32 @@ export function allowedRoles(roles: UserRole[]) {
       req.user = result.user;
     }
 
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. Required roles: ${roles.join(", ")}`,
+      });
+    }
+
+    const candidateRoles = new Set<UserRole | string>();
+
+    if (req.user.role) {
+      candidateRoles.add(req.user.role);
+    }
+
+    if (req.user.role === "User" && req.user.userRole) {
+      candidateRoles.add(req.user.userRole);
+    }
+
+    if (req.user.role === "Admin" && req.user.adminType) {
+      candidateRoles.add(req.user.adminType);
+    }
+
+    const hasRequiredRole = roles.some((allowedRole) =>
+      candidateRoles.has(allowedRole)
+    );
+
+    if (!hasRequiredRole) {
       return res.status(403).json({
         success: false,
         message: `Access denied. Required roles: ${roles.join(", ")}`,
