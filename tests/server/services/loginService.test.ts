@@ -159,10 +159,12 @@ describe("loginUser", () => {
   it("should handle bcrypt comparison errors", async () => {
     const user = new UserModel(validUserData);
     await user.save();
-
-    jest.spyOn(bcrypt, "compare").mockRejectedValueOnce(async () => {
-      throw new Error("Bcrypt error");
-    });
+    
+    const compareSpy = jest
+      .spyOn(bcrypt, "compare")
+      .mockImplementationOnce((): Promise<boolean> =>
+        Promise.reject(new Error("Bcrypt error"))
+      );
 
     const result = await loginUser(validUserData.email, validUserData.password);
 
@@ -172,6 +174,8 @@ describe("loginUser", () => {
         "An error occurred during login. Please try again."
       );
     }
+
+    compareSpy.mockRestore();
   });
 
   it("should include user balance in response", async () => {
