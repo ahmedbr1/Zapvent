@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api-client";
 import {
   EventType,
+  FundingSource,
   Location,
   type EventSummary,
   type VendorSummary,
@@ -41,6 +42,12 @@ interface CreateBazaarResponse {
   data?: EventApiItem;
 }
 
+interface EventMutationResponse {
+  success: boolean;
+  message?: string;
+  data?: EventApiItem;
+}
+
 interface RegisterEventResponse {
   success: boolean;
   message: string;
@@ -59,6 +66,17 @@ export interface BazaarPayload {
   endDate: string;
   registrationDeadline: string;
   location: Location;
+}
+
+export interface TripPayload {
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  registrationDeadline: string;
+  location: Location;
+  capacity: number;
+  price: number;
 }
 
 export async function registerForWorkshop(
@@ -123,6 +141,11 @@ export async function fetchUpcomingBazaars(
   return (response.bazaars ?? []).map((item) => mapEvent(item, currentUserId));
 }
 
+export async function fetchTrips(token?: string, currentUserId?: string): Promise<EventSummary[]> {
+  const events = await fetchUpcomingEvents(token, currentUserId);
+  return events.filter((event) => event.eventType === EventType.Trip);
+}
+
 export async function createBazaar(payload: BazaarPayload, token?: string) {
   const response = await apiFetch<CreateBazaarResponse, BazaarPayload>("/events", {
     method: "POST",
@@ -149,6 +172,50 @@ export async function updateBazaar(id: string, payload: Partial<BazaarPayload>, 
 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to update bazaar");
+  }
+
+  return response.data ? mapEvent(response.data) : null;
+}
+
+export async function createTrip(payload: TripPayload, token?: string) {
+  const body = {
+    ...payload,
+    eventType: EventType.Trip,
+    fundingSource: FundingSource.GUC,
+    date: payload.startDate,
+  };
+
+  const response = await apiFetch<EventMutationResponse, typeof body>("/events/trip", {
+    method: "POST",
+    body,
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to create trip");
+  }
+
+  return response.data ? mapEvent(response.data) : null;
+}
+
+export async function updateTrip(
+  id: string,
+  payload: Partial<TripPayload>,
+  token?: string
+) {
+  const body: Partial<TripPayload> & { date?: string } = { ...payload };
+  if (payload.startDate) {
+    body.date = payload.startDate;
+  }
+
+  const response = await apiFetch<EventMutationResponse, typeof body>(`/events/trip/${id}`, {
+    method: "PUT",
+    body,
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to update trip");
   }
 
   return response.data ? mapEvent(response.data) : null;

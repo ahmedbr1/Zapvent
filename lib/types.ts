@@ -72,6 +72,7 @@ export interface SessionUser {
   role: AuthRole;
   name?: string;
   userRole?: UserRole;
+  adminType?: "Admin" | "EventOffice";
   status?: string;
   companyName?: string;
   logo?: string;
@@ -121,6 +122,9 @@ export interface Workshop {
   extraRequiredResources?: string;
   capacity: number;
   registrationDeadline: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdByRole?: string;
 }
 
 export interface ProfessorSummary {

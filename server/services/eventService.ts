@@ -8,6 +8,7 @@ import EventModel, {
   Location,
   IEvent,
 } from "../models/Event";
+import AdminModel, { IAdmin } from "../models/Admin";
 import vendorModel, {
   IVendor,
   VendorStatus,
@@ -543,6 +544,7 @@ export async function createWorkshop(
         extraRequiredResources: workshop.extraRequiredResources,
         capacity: workshop.capacity,
         registrationDeadline: workshop.registrationDeadline,
+        createdBy: workshop.createdBy,
       },
     };
   } catch (error) {
@@ -866,6 +868,97 @@ export async function registerUserForWorkshop(
   }
 }
 
+function buildAdminName(admin: Pick<IAdmin, "firstName" | "lastName">): string {
+  return [admin.firstName, admin.lastName].filter(Boolean).join(" ").trim();
+}
+
+interface WorkshopCreatorDetails {
+  name?: string;
+  role?: string;
+}
+
+function serializeWorkshopRecord(
+  workshop: IEvent & {
+    _id: Types.ObjectId;
+    participatingProfessorIds: string[];
+    participatingProfessors: string[];
+  },
+  creatorMap: Map<string, WorkshopCreatorDetails>
+) {
+  const creatorDetails = workshop.createdBy
+    ? creatorMap.get(workshop.createdBy)
+    : undefined;
+
+  return {
+    id: workshop._id.toString(),
+    name: workshop.name,
+    location: workshop.location,
+    startDate: workshop.startDate,
+    endDate: workshop.endDate,
+    description: workshop.description,
+    fullAgenda: workshop.fullAgenda ?? "",
+    faculty: workshop.faculty ?? "",
+    participatingProfessorIds: workshop.participatingProfessorIds,
+    participatingProfessors: workshop.participatingProfessors,
+    requiredBudget: workshop.requiredBudget ?? 0,
+    fundingSource: workshop.fundingSource,
+    extraRequiredResources: workshop.extraRequiredResources ?? "",
+    capacity: workshop.capacity ?? 0,
+    registrationDeadline: workshop.registrationDeadline,
+    createdBy: workshop.createdBy,
+    createdByName: creatorDetails?.name,
+    createdByRole: creatorDetails?.role,
+  };
+}
+
+async function resolveWorkshopCreators(
+  workshops: Array<IEvent & { createdBy?: string }>
+): Promise<Map<string, WorkshopCreatorDetails>> {
+  const creatorIds = Array.from(
+    new Set(
+      workshops
+        .map((workshop) => workshop.createdBy)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  const validObjectIds = creatorIds
+    .filter((id) => Types.ObjectId.isValid(id))
+    .map((id) => new Types.ObjectId(id));
+
+  if (!validObjectIds.length) {
+    return new Map<string, WorkshopCreatorDetails>();
+  }
+
+  const [creatorUsers, creatorAdmins] = await Promise.all([
+    UserModel.find({ _id: { $in: validObjectIds } })
+      .select(["firstName", "lastName"])
+      .lean<Array<IUser & { _id: Types.ObjectId }>>(),
+    AdminModel.find({ _id: { $in: validObjectIds } })
+      .select(["firstName", "lastName", "adminType"])
+      .lean<Array<IAdmin & { _id: Types.ObjectId }>>(),
+  ]);
+
+  const map = new Map<string, WorkshopCreatorDetails>();
+
+  creatorUsers.forEach((user) => {
+    map.set(user._id.toString(), {
+      name: buildProfessorName(user),
+      role: "User",
+    });
+  });
+
+  creatorAdmins.forEach((admin) => {
+    const name = buildAdminName(admin) || "Events Office Admin";
+    map.set(admin._id.toString(), {
+      name,
+      role: admin.adminType,
+    });
+  });
+
+  return map;
+}
+
 export async function getWorkshopsByCreator(
   userId: string
 ): Promise<ICreateWorkshopResponse> {
@@ -886,30 +979,45 @@ export async function getWorkshopsByCreator(
       .lean<Array<IEvent & { _id: Types.ObjectId }>>();
 
     const enriched = await enrichEventsWithProfessors(workshops);
+    const creatorDetails = await resolveWorkshopCreators(enriched);
 
     return {
       success: true,
       message: "Workshops retrieved successfully.",
-      data: enriched.map((workshop) => ({
-        id: workshop._id.toString(),
-        name: workshop.name,
-        location: workshop.location,
-        startDate: workshop.startDate,
-        endDate: workshop.endDate,
-        description: workshop.description,
-        fullAgenda: workshop.fullAgenda ?? "",
-        faculty: workshop.faculty ?? "",
-        participatingProfessorIds: workshop.participatingProfessorIds,
-        participatingProfessors: workshop.participatingProfessors,
-        requiredBudget: workshop.requiredBudget ?? 0,
-        fundingSource: workshop.fundingSource,
-        extraRequiredResources: workshop.extraRequiredResources ?? "",
-        capacity: workshop.capacity ?? 0,
-        registrationDeadline: workshop.registrationDeadline,
-      })),
+      data: enriched.map((workshop) =>
+        serializeWorkshopRecord(workshop, creatorDetails)
+      ),
     };
   } catch (error) {
     console.error("Error fetching workshops by creator:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching workshops.",
+    };
+  }
+}
+
+export async function getAllWorkshops(): Promise<ICreateWorkshopResponse> {
+  try {
+    const workshops = await EventModel.find({
+      eventType: EventType.WORKSHOP,
+      archived: false,
+    })
+      .sort({ startDate: -1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    const enriched = await enrichEventsWithProfessors(workshops);
+    const creatorDetails = await resolveWorkshopCreators(enriched);
+
+    return {
+      success: true,
+      message: "Workshops retrieved successfully.",
+      data: enriched.map((workshop) =>
+        serializeWorkshopRecord(workshop, creatorDetails)
+      ),
+    };
+  } catch (error) {
+    console.error("Error fetching workshops list:", error);
     return {
       success: false,
       message: "An error occurred while fetching workshops.",

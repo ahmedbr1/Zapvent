@@ -1,9 +1,5 @@
 import { Router } from "express";
-import {
-  loginRequired,
-  adminRequired,
-  allowedRoles,
-} from "../middleware/authMiddleware";
+import { loginRequired, allowedRoles } from "../middleware/authMiddleware";
 import eventController from "../controllers/eventController";
 
 const router = Router();
@@ -26,7 +22,7 @@ router.get(
 router.get(
   "/:eventId/applications",
   loginRequired,
-  allowedRoles(["Admin", "EventOffice"]),
+  allowedRoles(["Admin", "EventsOffice"]),
   eventController.getVendorApplicationsForBazaarController
 );
 
@@ -35,15 +31,15 @@ router.put("/conferences/:eventId", eventController.updateConferenceController);
 // quick check route
 router.get("/health", (_req, res) => res.json({ ok: true }));
 
-// EventOffice/Admin deletes any event
+// Events Office/Admin deletes any event
 router.delete("/:eventId", (req, res) =>
   eventController.deleteAnyEvent(req, res)
 );
-// Admin-only routes
+// Authenticated management routes
 // use distinct path for bazaar update to avoid clashing with gym-session edit route
-router.put("/bazaar/:id", adminRequired, eventController.updateBazaarDetails);
-router.post("/trip", adminRequired, eventController.createNewTrip);
-router.put("/trip/:id", adminRequired, eventController.updateTripDetails);
+router.put("/bazaar/:id", eventController.updateBazaarDetails);
+router.post("/trip", eventController.createNewTrip);
+router.put("/trip/:id", eventController.updateTripDetails);
 
 // Professor (User) routes for workshops
 router.post("/workshop", eventController.createWorkshopController);

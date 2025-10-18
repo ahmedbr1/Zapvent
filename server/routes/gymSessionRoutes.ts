@@ -18,5 +18,5 @@ router.delete("/:id", cancelGymSessionController);
 // GET /api/gym-sessions/schedule?year=2025&month=10
 router.get("/schedule", viewGymScheduleByMonthController);
 
-router.put("/:id", allowedRoles(["EventOffice"]), editGymSessionController);
+router.put("/:id", allowedRoles(["EventsOffice"]), editGymSessionController);
 export default router;
