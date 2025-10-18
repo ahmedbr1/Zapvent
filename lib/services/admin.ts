@@ -281,3 +281,143 @@ export async function deleteEventsOfficeAccount(
 
   return response;
 }
+
+// Admin Management (adminType: "Admin")
+export interface AdminAccount {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  status: "Active" | "Blocked";
+  adminType: "Admin" | "EventOffice";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface FetchAdminsResponse {
+  success: boolean;
+  count: number;
+  admins: AdminAccount[];
+  message?: string;
+}
+
+export async function fetchAllAdmins(token?: string): Promise<AdminAccount[]> {
+  const response = await apiFetch<FetchAdminsResponse>("/admin", {
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to load admins");
+  }
+
+  return response.admins ?? [];
+}
+
+export async function fetchAdmins(token?: string): Promise<AdminAccount[]> {
+  const response = await apiFetch<FetchAdminsResponse>("/admin/admins-only", {
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to load admins");
+  }
+
+  return response.admins ?? [];
+}
+
+export interface CreateAdminData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  adminType: "Admin" | "EventOffice";
+}
+
+export interface UpdateAdminData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}
+
+export async function createAdmin(data: CreateAdminData, token?: string) {
+  const response = await apiFetch<AdminActionResponse, CreateAdminData>(
+    "/admin",
+    {
+      method: "POST",
+      body: data,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to create admin");
+  }
+
+  return response;
+}
+
+export async function updateAdmin(
+  adminId: string,
+  data: UpdateAdminData,
+  token?: string
+) {
+  const response = await apiFetch<AdminActionResponse, UpdateAdminData>(
+    `/admin/${adminId}`,
+    {
+      method: "PATCH",
+      body: data,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to update admin");
+  }
+
+  return response;
+}
+
+export async function deleteAdmin(adminId: string, token?: string) {
+  const response = await apiFetch<AdminActionResponse>(`/admin/${adminId}`, {
+    method: "DELETE",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to delete admin");
+  }
+
+  return response;
+}
+
+export async function blockAdmin(adminId: string, token?: string) {
+  const response = await apiFetch<AdminActionResponse>(
+    `/admin/admins/${adminId}/block`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to block admin");
+  }
+
+  return response;
+}
+
+export async function unblockAdmin(adminId: string, token?: string) {
+  const response = await apiFetch<AdminActionResponse>(
+    `/admin/admins/${adminId}/unblock`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to unblock admin");
+  }
+
+  return response;
+}

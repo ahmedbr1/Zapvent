@@ -122,6 +122,102 @@ export class AdminController {
   }
 
   @AdminRequired()
+  @ValidateBody({ required: ["firstName", "lastName", "email"] })
+  async updateAdmin(req: AuthRequest, res: Response) {
+    const { id } = req.params;
+    const { firstName, lastName, email } = req.body;
+
+    // Validate input
+    if (!firstName?.trim() || !lastName?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "First name and last name cannot be empty",
+      });
+    }
+
+    const result = await adminService.updateAdmin(id, {
+      firstName: firstName?.trim(),
+      lastName: lastName?.trim(),
+      email: email?.trim().toLowerCase(),
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Admin updated successfully",
+      admin: result.admin,
+    });
+  }
+
+  @AdminRequired()
+  async blockAdminAccount(req: AuthRequest, res: Response) {
+    const { id } = req.params;
+
+    // Only aaadmin@gmail.com can block other admins
+    if (req.user?.email !== "aaadmin@gmail.com") {
+      return res.status(403).json({
+        success: false,
+        message: "Only the original admin can block other admins",
+      });
+    }
+
+    // Prevent admin from blocking themselves
+    if (id === req.user?.id) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot block yourself",
+      });
+    }
+
+    const result = await adminService.blockAdminAccount(id);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  }
+
+  @AdminRequired()
+  async unblockAdminAccount(req: AuthRequest, res: Response) {
+    const { id } = req.params;
+
+    // Only aaadmin@gmail.com can unblock other admins
+    if (req.user?.email !== "aaadmin@gmail.com") {
+      return res.status(403).json({
+        success: false,
+        message: "Only the original admin can unblock other admins",
+      });
+    }
+
+    const result = await adminService.unblockAdminAccount(id);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  }
+
+  @AdminRequired()
   async deleteAdmin(req: AuthRequest, res: Response) {
     const { id } = req.params;
 
@@ -246,6 +342,27 @@ export class AdminController {
           error instanceof Error
             ? error.message
             : "Failed to retrieve events office accounts",
+      });
+    }
+  }
+
+  // Admin Management (adminType: "Admin")
+  @AdminRequired()
+  async getAllAdminsOnly(req: AuthRequest, res: Response) {
+    try {
+      const admins = await adminService.findAllAdmins();
+
+      return res.status(200).json({
+        success: true,
+        count: admins.length,
+        admins,
+      });
+    } catch (error: unknown) {
+      console.error("Get admins error:", error);
+      return res.status(500).json({
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to retrieve admins",
       });
     }
   }

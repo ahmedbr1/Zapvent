@@ -390,6 +390,23 @@ export async function findAllEventsOffice(): Promise<AdminResponse[]> {
   }));
 }
 
+export async function findAllAdmins(): Promise<AdminResponse[]> {
+  const admins = await AdminModel.find({
+    adminType: "Admin",
+  }).lean();
+
+  return admins.map((admin) => ({
+    id: admin._id as string,
+    firstName: admin.firstName,
+    lastName: admin.lastName,
+    email: admin.email,
+    status: admin.status,
+    adminType: admin.adminType as "EventOffice" | "Admin",
+    createdAt: admin.createdAt,
+    updatedAt: admin.updatedAt,
+  }));
+}
+
 export async function updateAdmin(
   id: string,
   data: { firstName?: string; lastName?: string; email?: string }
@@ -463,5 +480,55 @@ export async function updateAdmin(
       success: false,
       message: "Failed to update admin",
     };
+  }
+}
+
+export async function blockAdminAccount(
+  adminId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(adminId)) {
+      return { success: false, message: "Invalid admin ID" };
+    }
+
+    const admin = await AdminModel.findByIdAndUpdate(
+      adminId,
+      { status: "Blocked" },
+      { new: true }
+    );
+
+    if (!admin) {
+      return { success: false, message: "Admin not found" };
+    }
+
+    return { success: true, message: "Admin blocked successfully" };
+  } catch (error) {
+    console.error("Error blocking admin:", error);
+    return { success: false, message: "Failed to block admin" };
+  }
+}
+
+export async function unblockAdminAccount(
+  adminId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(adminId)) {
+      return { success: false, message: "Invalid admin ID" };
+    }
+
+    const admin = await AdminModel.findByIdAndUpdate(
+      adminId,
+      { status: "Active" },
+      { new: true }
+    );
+
+    if (!admin) {
+      return { success: false, message: "Admin not found" };
+    }
+
+    return { success: true, message: "Admin unblocked successfully" };
+  } catch (error) {
+    console.error("Error unblocking admin:", error);
+    return { success: false, message: "Failed to unblock admin" };
   }
 }

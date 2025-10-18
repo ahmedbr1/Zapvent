@@ -24,6 +24,20 @@ router.delete(
   adminController.deleteEventsOffice.bind(adminController)
 );
 
+// Admins only routes (adminType: "Admin")
+router.get(
+  "/admins-only",
+  adminController.getAllAdminsOnly.bind(adminController)
+);
+router.patch(
+  "/admins/:id/block",
+  adminController.blockAdminAccount.bind(adminController)
+);
+router.patch(
+  "/admins/:id/unblock",
+  adminController.unblockAdminAccount.bind(adminController)
+);
+
 // Admin routes
 router.post(
   "/approve/:userId",
@@ -34,6 +48,7 @@ router.post(
   adminController.rejectUser.bind(adminController)
 );
 router.post("/", adminController.createAdmin.bind(adminController));
+router.patch("/:id", adminController.updateAdmin.bind(adminController));
 router.patch(
   "/users/:userId/block",
   adminController.blockUser.bind(adminController)
