@@ -27,14 +27,7 @@ export default function VendorApplicationsPage() {
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["admin", "vendors", token],
     queryFn: () => fetchAdminVendors(token ?? undefined),
     enabled: Boolean(token),
@@ -43,7 +36,8 @@ export default function VendorApplicationsPage() {
   const vendors = data ?? [];
 
   const verifyMutation = useMutation({
-    mutationFn: (vendorId: string) => verifyVendor(vendorId, token ?? undefined),
+    mutationFn: (vendorId: string) =>
+      verifyVendor(vendorId, token ?? undefined),
     onSuccess: () => {
       enqueueSnackbar("Vendor verified successfully", { variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
@@ -155,7 +149,33 @@ export default function VendorApplicationsPage() {
         field: "createdAt",
         headerName: "Joined",
         flex: 0.8,
-        valueGetter: ({ value }) => formatDateTime(value),
+        // Provide the raw ISO string for sorting
+        valueGetter: (_value, row: AdminVendor) => row?.createdAt ?? null,
+        // Display formatted date
+        renderCell: (params) => {
+          const createdAt = params.row?.createdAt as string | undefined;
+          if (!createdAt) return "—";
+          try {
+            return formatDateTime(createdAt);
+          } catch (error) {
+            console.error("Error formatting date:", error, createdAt);
+            return "—";
+          }
+        },
+        // Sort by timestamp
+        sortComparator: (v1, v2) => {
+          const toTime = (v: unknown) => {
+            if (!v) return -Infinity;
+            try {
+              const d = new Date(String(v));
+              const t = d.getTime();
+              return isNaN(t) ? -Infinity : t;
+            } catch {
+              return -Infinity;
+            }
+          };
+          return toTime(v1) - toTime(v2);
+        },
       },
     ],
     [triggerVerify, verifyPending]
@@ -208,6 +228,7 @@ export default function VendorApplicationsPage() {
             loading={isLoading}
             disableColumnMenu
             disableRowSelectionOnClick
+            sortingOrder={["desc", "asc"]}
             initialState={{
               pagination: { paginationModel: { pageSize: 10, page: 0 } },
               sorting: {
