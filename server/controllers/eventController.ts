@@ -313,7 +313,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User"])
+  @AllowedRoles(["Professor"])
   async createWorkshopController(req: AuthRequest, res: Response) {
     try {
       const {
@@ -340,8 +340,9 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const sessionUserRole =
-        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      const sessionUserRole = (
+        req.user as typeof req.user & { userRole?: string }
+      )?.userRole;
       if (sessionUserRole !== userRole.PROFESSOR) {
         return res.status(403).json({
           success: false,
@@ -405,15 +406,12 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User"])
+  @AllowedRoles(["Professor"])
   async editWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const {
-        participatingProfessorIds,
-        participatingProfessors,
-        ...rest
-      } = req.body ?? {};
+      const { participatingProfessorIds, participatingProfessors, ...rest } =
+        req.body ?? {};
 
       const userId = extractUserId(req.user);
       if (!userId) {
@@ -422,8 +420,9 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const sessionUserRole =
-        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      const sessionUserRole = (
+        req.user as typeof req.user & { userRole?: string }
+      )?.userRole;
       if (sessionUserRole !== userRole.PROFESSOR) {
         return res.status(403).json({
           success: false,
@@ -456,7 +455,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User"])
+  @AllowedRoles(["Professor"])
   async getMyWorkshopsController(req: AuthRequest, res: Response) {
     try {
       const userId = extractUserId(req.user);
@@ -466,8 +465,9 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const sessionUserRole =
-        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      const sessionUserRole = (
+        req.user as typeof req.user & { userRole?: string }
+      )?.userRole;
       if (sessionUserRole !== userRole.PROFESSOR) {
         return res.status(403).json({
           success: false,
@@ -489,7 +489,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User", "EventOffice"])
+  @AllowedRoles(["Student", "Staff", "Professor", "EventOffice"])
   async registerForWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -501,7 +501,8 @@ export class EventController {
       }
 
       const userId =
-        typeof req.body?.userId === "string" && req.body.userId.trim().length > 0
+        typeof req.body?.userId === "string" &&
+        req.body.userId.trim().length > 0
           ? req.body.userId.trim()
           : extractUserId(req.user);
       if (!userId) {

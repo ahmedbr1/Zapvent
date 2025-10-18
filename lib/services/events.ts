@@ -158,6 +158,7 @@ function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
   const isRegistered = currentUserId
     ? (event.registeredUsers ?? []).some((userId) => userId === currentUserId)
     : undefined;
+  const registeredCount = event.registeredUsers?.length ?? 0;
   const vendors: VendorSummary[] = (event.vendors ?? []).map((vendorId, index) => ({
     id: vendorId,
     companyName: `Vendor ${index + 1}`,
@@ -176,6 +177,7 @@ function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
     participatingProfessorIds: event.participatingProfessorIds,
     participatingProfessors: event.participatingProfessors,
     capacity: event.capacity,
+    registeredCount,
     price: event.price,
     vendors,
     isRegistered,

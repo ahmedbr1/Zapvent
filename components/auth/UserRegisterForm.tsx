@@ -84,9 +84,11 @@ export function UserRegisterForm() {
   const role = watch("role");
 
   const showStudentId = role === UserRole.Student;
-  const showStaffId = [UserRole.Staff, UserRole.Professor, UserRole.TA].includes(
-    role
-  );
+  const showStaffId = [
+    UserRole.Staff,
+    UserRole.Professor,
+    UserRole.TA,
+  ].includes(role);
 
   const roleOptions = useMemo(
     () => [
@@ -124,14 +126,19 @@ export function UserRegisterForm() {
           response.message ??
             "Registration received. You will receive an email when verified."
         );
-        enqueueSnackbar("Registration submitted. Check your email for updates.", {
-          variant: "success",
-        });
+        enqueueSnackbar(
+          "Registration submitted. Check your email for updates.",
+          {
+            variant: "success",
+          }
+        );
         reset({
           role: values.role,
         });
       } else {
-        setServerMessage(response.message ?? "Unable to complete registration.");
+        setServerMessage(
+          response.message ?? "Unable to complete registration."
+        );
       }
     } catch (error) {
       const message =
@@ -147,7 +154,9 @@ export function UserRegisterForm() {
       <Grid container spacing={2.5}>
         {serverMessage && (
           <Grid size={12}>
-            <Alert severity={serverMessage.includes("success") ? "success" : "info"}>
+            <Alert
+              severity={serverMessage.includes("success") ? "success" : "info"}
+            >
               {serverMessage}
             </Alert>
           </Grid>
@@ -223,7 +232,10 @@ export function UserRegisterForm() {
               fullWidth
               {...register("staffId")}
               error={Boolean(errors.staffId)}
-              helperText={errors.staffId?.message ?? "Required for staff, professors, and TAs"}
+              helperText={
+                errors.staffId?.message ??
+                "Required for staff, professors, and TAs"
+              }
             />
           </Grid>
         )}
