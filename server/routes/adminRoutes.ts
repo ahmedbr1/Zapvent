@@ -6,8 +6,33 @@ const router = Router();
 
 router.use(loginRequired);
 
-router.post("/approve/:userId", adminController.approveUser.bind(adminController));
-router.post("/reject/:userId", adminController.rejectUser.bind(adminController));
+// Events Office routes
+router.get(
+  "/events-office",
+  adminController.getAllEventsOffice.bind(adminController)
+);
+router.post(
+  "/events-office",
+  adminController.createEventsOffice.bind(adminController)
+);
+router.patch(
+  "/events-office/:id",
+  adminController.updateEventsOffice.bind(adminController)
+);
+router.delete(
+  "/events-office/:id",
+  adminController.deleteEventsOffice.bind(adminController)
+);
+
+// Admin routes
+router.post(
+  "/approve/:userId",
+  adminController.approveUser.bind(adminController)
+);
+router.post(
+  "/reject/:userId",
+  adminController.rejectUser.bind(adminController)
+);
 router.post("/", adminController.createAdmin.bind(adminController));
 router.patch(
   "/users/:userId/block",
