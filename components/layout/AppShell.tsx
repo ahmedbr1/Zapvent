@@ -32,7 +32,7 @@ import { useSnackbar } from "notistack";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getNavItemsForRole } from "./nav-config";
 import { BreadcrumbsTrail } from "./BreadcrumbsTrail";
-import { getLoginPathForRole } from "@/lib/routing";
+import { getLoginPathForRole, getProfileRoute } from "@/lib/routing";
 import { useBlockedUserCheck } from "@/hooks/useBlockedUserCheck";
 
 const drawerWidth = 264;
@@ -103,6 +103,13 @@ export function AppShell({
       } else {
         router.replace("/login/user");
       }
+    }
+  };
+
+  const handleProfileClick = () => {
+    const role = session?.user.role;
+    if (role) {
+      handleNavigate(getProfileRoute(role));
     }
   };
 
@@ -252,7 +259,7 @@ export function AppShell({
             anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
             transformOrigin={{ horizontal: "right", vertical: "top" }}
           >
-            <MenuItem onClick={() => handleNavigate("/profile")}>
+            <MenuItem onClick={handleProfileClick}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" />
               </ListItemIcon>
