@@ -33,6 +33,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { getNavItemsForRole } from "./nav-config";
 import { BreadcrumbsTrail } from "./BreadcrumbsTrail";
 import { getLoginPathForRole } from "@/lib/routing";
+import { useBlockedUserCheck } from "@/hooks/useBlockedUserCheck";
 
 const drawerWidth = 264;
 
@@ -58,8 +59,15 @@ export function AppShell({
   const pathname = usePathname();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
+  // Check if user has been blocked
+  useBlockedUserCheck();
+
   const navItems = useMemo(
-    () => getNavItemsForRole(session?.user.role ?? null, session?.user.userRole ?? null),
+    () =>
+      getNavItemsForRole(
+        session?.user.role ?? null,
+        session?.user.userRole ?? null
+      ),
     [session?.user.role, session?.user.userRole]
   );
 
@@ -123,9 +131,7 @@ export function AppShell({
           </IconButton>
         )}
       </Box>
-      <Divider
-        sx={{ borderColor: "rgba(148, 163, 184, 0.2)", mx: 2, mb: 1 }}
-      />
+      <Divider sx={{ borderColor: "rgba(148, 163, 184, 0.2)", mx: 2, mb: 1 }} />
       <Box px={3} pb={2}>
         <Typography variant="subtitle2" color="rgba(148,163,184,0.7)">
           {session?.user.name ?? session?.user.email}
@@ -208,14 +214,22 @@ export function AppShell({
               </Box>
               {actions}
               <Tooltip title="Notifications">
-                <IconButton size="large" sx={{ ml: 1 }} aria-label="Notifications">
+                <IconButton
+                  size="large"
+                  sx={{ ml: 1 }}
+                  aria-label="Notifications"
+                >
                   <Badge badgeContent={2} color="secondary">
                     <NotificationsIcon />
                   </Badge>
                 </IconButton>
               </Tooltip>
               <Tooltip title="Account settings">
-                <IconButton sx={{ ml: 1 }} onClick={handleMenuOpen} size="small">
+                <IconButton
+                  sx={{ ml: 1 }}
+                  onClick={handleMenuOpen}
+                  size="small"
+                >
                   <Avatar
                     sx={{
                       bgcolor: theme.palette.primary.main,

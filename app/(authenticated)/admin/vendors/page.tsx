@@ -228,7 +228,6 @@ export default function VendorApplicationsPage() {
             loading={isLoading}
             disableColumnMenu
             disableRowSelectionOnClick
-            sortingOrder={["desc", "asc"]}
             initialState={{
               pagination: { paginationModel: { pageSize: 10, page: 0 } },
               sorting: {

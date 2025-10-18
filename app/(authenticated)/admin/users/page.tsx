@@ -24,7 +24,7 @@ import {
   blockUser,
   type AdminUser,
 } from "@/lib/services/admin";
-import { UserStatus } from "@/lib/types";
+import { UserStatus, UserRole } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
 import { useSessionUser } from "@/hooks/useSessionUser";
 
@@ -110,16 +110,46 @@ export default function AdminUserManagementPage() {
         headerName: "Status",
         flex: 0.6,
         renderCell: ({ row }) => {
-          // Only show status if user is verified
-          if (!row.verified) {
+          // Students are automatically verified, show status
+          const isAutoVerified = row.role === UserRole.Student;
+
+          // Only show status if user is verified or is a student
+          if (!row.verified && !isAutoVerified) {
             return (
-              <Chip
-                label="Pending Verification"
-                size="small"
-                color="warning"
-                variant="outlined"
-                sx={{ opacity: 0.7 }}
-              />
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 1,
+                  bgcolor: "action.hover",
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    bgcolor: "warning.main",
+                    opacity: 0.6,
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    fontWeight: 500,
+                    fontSize: "0.7rem",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  PENDING
+                </Typography>
+              </Box>
             );
           }
           return (
@@ -136,14 +166,20 @@ export default function AdminUserManagementPage() {
         field: "verified",
         headerName: "Verified",
         flex: 0.5,
-        renderCell: ({ value }) => (
-          <Chip
-            label={value ? "Verified" : "Pending"}
-            size="small"
-            color={value ? "success" : "warning"}
-            variant={value ? "filled" : "outlined"}
-          />
-        ),
+        renderCell: ({ row }) => {
+          // Students are automatically verified
+          const isAutoVerified = row.role === UserRole.Student;
+          const isVerified = row.verified || isAutoVerified;
+
+          return (
+            <Chip
+              label={isVerified ? "Verified" : "Pending"}
+              size="small"
+              color={isVerified ? "success" : "warning"}
+              variant={isVerified ? "filled" : "outlined"}
+            />
+          );
+        },
       },
       {
         field: "createdAt",
