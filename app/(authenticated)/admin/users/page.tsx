@@ -109,14 +109,28 @@ export default function AdminUserManagementPage() {
         field: "status",
         headerName: "Status",
         flex: 0.6,
-        renderCell: ({ value }) => (
-          <Chip
-            label={value}
-            size="small"
-            color={value === UserStatus.Active ? "success" : "default"}
-            variant="outlined"
-          />
-        ),
+        renderCell: ({ row }) => {
+          // Only show status if user is verified
+          if (!row.verified) {
+            return (
+              <Chip
+                label="Pending Verification"
+                size="small"
+                color="warning"
+                variant="outlined"
+                sx={{ opacity: 0.7 }}
+              />
+            );
+          }
+          return (
+            <Chip
+              label={row.status}
+              size="small"
+              color={row.status === UserStatus.Active ? "success" : "default"}
+              variant="outlined"
+            />
+          );
+        },
       },
       {
         field: "verified",
@@ -250,7 +264,6 @@ export default function AdminUserManagementPage() {
             loading={isLoading}
             disableColumnMenu
             disableRowSelectionOnClick
-            sortingOrder={["desc", "asc"]}
             initialState={{
               pagination: { paginationModel: { pageSize: 10, page: 0 } },
               sorting: {
