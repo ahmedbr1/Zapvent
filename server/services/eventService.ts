@@ -525,16 +525,28 @@ export async function createWorkshop(
       createdBy,
     });
 
-    const creatorDetails = await resolveWorkshopCreators([
-      workshop.toObject({ virtuals: false }),
-    ]);
+    const plainWorkshop = workshop.toObject({ virtuals: false }) as Pick<
+      IEvent,
+      | "name"
+      | "location"
+      | "startDate"
+      | "endDate"
+      | "description"
+      | "fullAgenda"
+      | "faculty"
+      | "requiredBudget"
+      | "fundingSource"
+      | "extraRequiredResources"
+      | "capacity"
+      | "registrationDeadline"
+      | "createdBy"
+      | "participatingProfessors"
+    > & { _id: Types.ObjectId };
+
+    const creatorDetails = await resolveWorkshopCreators([plainWorkshop]);
     const serialized = serializeWorkshopRecord(
       {
-        ...(workshop.toObject({ virtuals: false }) as IEvent & {
-          _id: Types.ObjectId;
-          participatingProfessorIds: string[];
-          participatingProfessors: string[];
-        }),
+        ...plainWorkshop,
         participatingProfessorIds: professorIds,
         participatingProfessors: professorNames,
       },
@@ -869,12 +881,29 @@ interface WorkshopCreatorDetails {
   role?: string;
 }
 
-function serializeWorkshopRecord(
-  workshop: IEvent & {
-    _id: Types.ObjectId;
-    participatingProfessorIds: string[];
-    participatingProfessors: string[];
-  },
+type WorkshopRecordInput = Pick<
+  IEvent,
+  | "name"
+  | "location"
+  | "startDate"
+  | "endDate"
+  | "description"
+  | "fullAgenda"
+  | "faculty"
+  | "requiredBudget"
+  | "fundingSource"
+  | "extraRequiredResources"
+  | "capacity"
+  | "registrationDeadline"
+  | "createdBy"
+> & {
+  _id: Types.ObjectId;
+  participatingProfessorIds: string[];
+  participatingProfessors: string[];
+};
+
+function serializeWorkshopRecord<T extends WorkshopRecordInput>(
+  workshop: T,
   creatorMap: Map<string, WorkshopCreatorDetails>
 ) {
   const creatorDetails = workshop.createdBy
@@ -904,7 +933,7 @@ function serializeWorkshopRecord(
 }
 
 async function resolveWorkshopCreators(
-  workshops: Array<IEvent & { createdBy?: string }>
+  workshops: Array<Pick<WorkshopRecordInput, "createdBy">>
 ): Promise<Map<string, WorkshopCreatorDetails>> {
   const creatorIds = Array.from(
     new Set(
