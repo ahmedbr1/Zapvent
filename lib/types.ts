@@ -104,6 +104,11 @@ export interface EventSummary {
   price?: number;
   vendors?: VendorSummary[];
   isRegistered?: boolean;
+  fundingSource?: FundingSource;
+  fullAgenda?: string;
+  websiteLink?: string;
+  extraRequiredResources?: string;
+  requiredBudget?: number;
 }
 
 export interface Workshop {

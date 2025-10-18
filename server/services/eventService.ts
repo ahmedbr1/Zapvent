@@ -280,9 +280,9 @@ export async function getAllEvents(
   try {
     const currentDate = new Date();
 
-    // Create the base query for events that haven't started yet
+    // Create the base query for events that haven't ended yet
     let query = EventModel.find({
-      startDate: { $gt: currentDate },
+      endDate: { $gte: currentDate },
     });
 
     // Apply sorting if specified

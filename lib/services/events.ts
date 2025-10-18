@@ -28,6 +28,11 @@ interface EventApiItem {
   participatingProfessors?: string[];
   vendors?: string[];
   registeredUsers?: string[];
+  fundingSource?: FundingSource;
+  fullAgenda?: string;
+  websiteLink?: string;
+  extraRequiredResources?: string;
+  requiredBudget?: number;
 }
 
 interface UpcomingBazaarsResponse {
@@ -45,7 +50,7 @@ interface CreateBazaarResponse {
 interface EventMutationResponse {
   success: boolean;
   message?: string;
-  data?: EventApiItem;
+  data?: unknown;
 }
 
 interface RegisterEventResponse {
@@ -77,6 +82,18 @@ export interface TripPayload {
   location: Location;
   capacity: number;
   price: number;
+}
+
+export interface ConferencePayload {
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  fullAgenda: string;
+  websiteLink: string;
+  requiredBudget: number;
+  fundingSource: FundingSource;
+  extraRequiredResources?: string;
 }
 
 export async function registerForWorkshop(
@@ -146,6 +163,14 @@ export async function fetchTrips(token?: string, currentUserId?: string): Promis
   return events.filter((event) => event.eventType === EventType.Trip);
 }
 
+export async function fetchConferences(
+  token?: string,
+  currentUserId?: string
+): Promise<EventSummary[]> {
+  const events = await fetchUpcomingEvents(token, currentUserId);
+  return events.filter((event) => event.eventType === EventType.Conference);
+}
+
 export async function createBazaar(payload: BazaarPayload, token?: string) {
   const response = await apiFetch<CreateBazaarResponse, BazaarPayload>("/events", {
     method: "POST",
@@ -195,7 +220,8 @@ export async function createTrip(payload: TripPayload, token?: string) {
     throw new Error(response.message ?? "Failed to create trip");
   }
 
-  return response.data ? mapEvent(response.data) : null;
+  const data = response.data as EventApiItem | undefined;
+  return data ? mapEvent(data) : null;
 }
 
 export async function updateTrip(
@@ -218,7 +244,44 @@ export async function updateTrip(
     throw new Error(response.message ?? "Failed to update trip");
   }
 
-  return response.data ? mapEvent(response.data) : null;
+  const data = response.data as EventApiItem | undefined;
+  return data ? mapEvent(data) : null;
+}
+
+export async function createConference(payload: ConferencePayload, token?: string) {
+  const response = await apiFetch<EventMutationResponse, ConferencePayload>("/events/conference", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to create conference");
+  }
+
+  return response.data;
+}
+
+export async function updateConference(
+  id: string,
+  payload: Partial<ConferencePayload>,
+  token?: string
+) {
+  const response = await apiFetch<EventMutationResponse, Partial<ConferencePayload>>(
+    `/events/conferences/${id}`,
+    {
+      method: "PUT",
+      body: payload,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to update conference");
+  }
+
+  const data = response.data as EventApiItem | undefined;
+  return data ? mapEvent(data) : null;
 }
 
 function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
@@ -246,5 +309,10 @@ function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
     price: event.price,
     vendors,
     isRegistered,
+    fundingSource: event.fundingSource,
+    fullAgenda: event.fullAgenda,
+    websiteLink: event.websiteLink,
+    extraRequiredResources: event.extraRequiredResources,
+    requiredBudget: event.requiredBudget,
   };
 }
