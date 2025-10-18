@@ -284,8 +284,8 @@ export default function AdminManagementPage() {
                 fontSize: "1.1rem",
               }}
             >
-              {row.firstName.charAt(0)}
-              {row.lastName.charAt(0)}
+              {row.firstName?.charAt(0) ?? ""}
+              {row.lastName?.charAt(0) ?? ""}
             </Avatar>
             <Stack spacing={0.25}>
               <Typography
@@ -398,8 +398,8 @@ export default function AdminManagementPage() {
                 </Typography>
               </Stack>
             );
-          } catch (error) {
-            console.error("Error formatting date:", error, createdAt);
+          } catch (dateError) {
+            console.error("Error formatting date:", dateError, createdAt);
             return "—";
           }
         },
