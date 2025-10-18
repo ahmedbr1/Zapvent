@@ -125,7 +125,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const canCreate = !isEventsOfficeVariant;
+  const canCreate = isEventsOfficeVariant ? Boolean(isEventsOffice || isAdmin) : Boolean(isProfessor);
   const queryKey = ["workshops", variant, token];
 
   const { data, isLoading, isError, error, refetch } = useQuery({

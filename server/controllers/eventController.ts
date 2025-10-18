@@ -344,14 +344,16 @@ export class EventController {
       const sessionUserRole = (
         req.user as typeof req.user & { userRole?: string }
       )?.userRole;
-      const isProfessor = sessionUserRole === userRole.PROFESSOR;
-      const isEventsOffice = actorRole === "EventsOffice";
-      const isAdmin = actorRole === "Admin";
-      if (!isProfessor && !isEventsOffice && !isAdmin) {
+      const canManageWorkshops =
+        sessionUserRole === userRole.PROFESSOR ||
+        actorRole === "EventsOffice" ||
+        actorRole === "Admin";
+
+      if (!canManageWorkshops) {
         return res.status(403).json({
           success: false,
           message:
-            "Only professors or Events Office admins can manage workshops.",
+            "Only professors or Events Office or Admins can manage workshops.",
         });
       }
 

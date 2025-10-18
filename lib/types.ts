@@ -72,7 +72,7 @@ export interface SessionUser {
   role: AuthRole;
   name?: string;
   userRole?: UserRole;
-  adminType?: "Admin" | "EventOffice";
+  adminType?: "Admin" | "EventsOffice";
   status?: string;
   companyName?: string;
   logo?: string;
