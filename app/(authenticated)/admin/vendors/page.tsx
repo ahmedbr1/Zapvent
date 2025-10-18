@@ -3,7 +3,6 @@
 import { useEffect, useMemo } from "react";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
@@ -11,21 +10,15 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
+import { useQuery } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import {
-  fetchAdminVendors,
-  type AdminVendor,
-  verifyVendor,
-} from "@/lib/services/admin";
+import { fetchAdminVendors, type AdminVendor } from "@/lib/services/admin";
 import { formatDateTime } from "@/lib/date";
 
 export default function VendorApplicationsPage() {
   const token = useAuthToken();
   const { enqueueSnackbar } = useSnackbar();
-  const queryClient = useQueryClient();
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["admin", "vendors", token],
@@ -34,26 +27,6 @@ export default function VendorApplicationsPage() {
   });
 
   const vendors = data ?? [];
-
-  const verifyMutation = useMutation({
-    mutationFn: (vendorId: string) =>
-      verifyVendor(vendorId, token ?? undefined),
-    onSuccess: () => {
-      enqueueSnackbar("Vendor verified successfully", { variant: "success" });
-      queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
-    },
-    onError: (mutationError: unknown) => {
-      const message =
-        mutationError instanceof Error
-          ? mutationError.message
-          : (mutationError as { message?: string }).message;
-      enqueueSnackbar(message ?? "Failed to verify vendor", {
-        variant: "error",
-      });
-    },
-  });
-
-  const { mutate: triggerVerify, isPending: verifyPending } = verifyMutation;
 
   const columns = useMemo<GridColDef<AdminVendor>[]>(
     () => [
@@ -72,41 +45,6 @@ export default function VendorApplicationsPage() {
           </Stack>
         ),
         sortable: false,
-      },
-      {
-        field: "isVerified",
-        headerName: "Verified",
-        flex: 0.6,
-        renderCell: ({ value }) => (
-          <Chip
-            label={value ? "Verified" : "Pending"}
-            color={value ? "success" : "warning"}
-            size="small"
-            variant={value ? "filled" : "outlined"}
-          />
-        ),
-      },
-      {
-        field: "actions",
-        headerName: "Actions",
-        flex: 0.8,
-        sortable: false,
-        renderCell: ({ row }) =>
-          row.isVerified ? (
-            <Typography variant="body2" color="text.secondary">
-              Verified
-            </Typography>
-          ) : (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<CheckCircleIcon />}
-              onClick={() => triggerVerify(row.id)}
-              disabled={verifyPending}
-            >
-              Verify
-            </Button>
-          ),
       },
       {
         field: "pendingApplications",
@@ -178,7 +116,7 @@ export default function VendorApplicationsPage() {
         },
       },
     ],
-    [triggerVerify, verifyPending]
+    []
   );
 
   useEffect(() => {
