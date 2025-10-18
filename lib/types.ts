@@ -101,6 +101,7 @@ export interface EventSummary {
   participatingProfessors?: string[];
   participatingProfessorIds?: string[];
   capacity?: number;
+  registeredCount?: number;
   price?: number;
   vendors?: VendorSummary[];
   isRegistered?: boolean;

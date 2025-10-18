@@ -313,7 +313,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User"])
+  @AllowedRoles(["Professor"])
   async createWorkshopController(req: AuthRequest, res: Response) {
     try {
       const {
@@ -413,7 +413,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User", "EventsOffice", "Admin"])
+  @AllowedRoles(["Professor"])
   async editWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -427,14 +427,10 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const actorRole = req.user?.role;
       const sessionUserRole = (
         req.user as typeof req.user & { userRole?: string }
       )?.userRole;
-      const isProfessor = sessionUserRole === userRole.PROFESSOR;
-      const isEventsOffice = actorRole === "EventsOffice";
-      const isAdmin = actorRole === "Admin";
-      if (!isProfessor && !isEventsOffice && !isAdmin) {
+      if (sessionUserRole !== userRole.PROFESSOR) {
         return res.status(403).json({
           success: false,
           message:
@@ -467,7 +463,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User", "EventsOffice", "Admin"])
+  @AllowedRoles(["Professor"])
   async getMyWorkshopsController(req: AuthRequest, res: Response) {
     try {
       const userId = extractUserId(req.user);
@@ -478,9 +474,8 @@ export class EventController {
       }
 
       const actorRole = req.user?.role;
-      const sessionUserRole = (
-        req.user as typeof req.user & { userRole?: string }
-      )?.userRole;
+      const sessionUserRole =
+        (req.user as typeof req.user & { userRole?: string })?.userRole;
       const isProfessor = sessionUserRole === userRole.PROFESSOR;
       const isEventsOffice = actorRole === "EventsOffice";
       const isAdmin = actorRole === "Admin";
@@ -499,6 +494,12 @@ export class EventController {
       }
 
       const result = await getWorkshopsByCreator(userId);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    
+      }
+
+      const result = await getWorkshopsByCreator(userId);
 
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
@@ -512,7 +513,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["User", "EventsOffice"])
+  @AllowedRoles(["Student", "Staff", "Professor", "EventOffice", "TA"])
   async registerForWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;

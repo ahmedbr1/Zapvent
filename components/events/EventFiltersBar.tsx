@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import {
   Box,
   Chip,
+  Button,
   Divider,
   IconButton,
   InputAdornment,
@@ -14,7 +15,6 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/SearchRounded";
 import ClearIcon from "@mui/icons-material/ClearRounded";
-import FilterListIcon from "@mui/icons-material/FilterAltRounded";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs, { type Dayjs } from "dayjs";
 import { EventType, Location } from "@/lib/types";
@@ -189,9 +189,14 @@ export function EventFiltersBar({ value, onChange, professors = [] }: EventFilte
             </MenuItem>
           ))}
         </TextField>
-        <IconButton onClick={handleResetAll} aria-label="Reset filters" color="primary">
-          <FilterListIcon />
-        </IconButton>
+        <Button
+          onClick={handleResetAll}
+          color="primary"
+          variant="text"
+          sx={{ alignSelf: { xs: "stretch", md: "center" }, whiteSpace: "nowrap" }}
+        >
+          Reset filters
+        </Button>
       </Stack>
       {activeFilters.length > 0 && (
         <>
