@@ -32,7 +32,11 @@ import { useSnackbar } from "notistack";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getNavItemsForRole } from "./nav-config";
 import { BreadcrumbsTrail } from "./BreadcrumbsTrail";
-import { getLoginPathForRole, getProfileRoute } from "@/lib/routing";
+import {
+  getLoginPathForRole,
+  getProfileRoute,
+  getDefaultDashboardRoute,
+} from "@/lib/routing";
 import { useBlockedUserCheck } from "@/hooks/useBlockedUserCheck";
 
 const drawerWidth = 264;
@@ -113,6 +117,13 @@ export function AppShell({
     }
   };
 
+  const handleLogoClick = () => {
+    const role = session?.user.role;
+    if (role) {
+      handleNavigate(getDefaultDashboardRoute(role));
+    }
+  };
+
   const drawerContent = (
     <Box
       sx={{
@@ -129,7 +140,18 @@ export function AppShell({
         px={3}
         py={2}
       >
-        <Typography variant="h6" fontWeight={700}>
+        <Typography
+          variant="h6"
+          fontWeight={700}
+          onClick={handleLogoClick}
+          sx={{
+            cursor: "pointer",
+            "&:hover": {
+              color: theme.palette.secondary.main,
+            },
+            transition: "color 0.2s",
+          }}
+        >
           Zapvent
         </Typography>
         {!isLarge && (
