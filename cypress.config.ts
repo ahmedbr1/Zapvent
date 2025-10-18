@@ -7,7 +7,7 @@ export default defineConfig({
     supportFile: "cypress/support/e2e.ts", // 👈 global setup (auto-created)
     video: false, // disable video recordings (optional)
     screenshotOnRunFailure: true,
-    setupNodeEvents(on, config) {
+    setupNodeEvents(_on, _config) {
       // implement node event listeners here
       // e.g. on('task', { log: (message) => console.log(message) });
     },
