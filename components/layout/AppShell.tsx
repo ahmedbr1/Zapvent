@@ -30,6 +30,7 @@ import { useTheme } from "@mui/material/styles";
 import { usePathname, useRouter } from "next/navigation";
 import { useSnackbar } from "notistack";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { AuthRole } from "@/lib/types";
 import { getNavItemsForRole } from "./nav-config";
 import { BreadcrumbsTrail } from "./BreadcrumbsTrail";
 import { getLoginPathForRole } from "@/lib/routing";
@@ -62,6 +63,18 @@ export function AppShell({
     () => getNavItemsForRole(session?.user.role ?? null, session?.user.userRole ?? null),
     [session?.user.role, session?.user.userRole]
   );
+
+  const roleLabel = useMemo(() => {
+    if (!session?.user) {
+      return "Guest";
+    }
+
+    if (session.user.role === AuthRole.User && session.user.userRole) {
+      return session.user.userRole;
+    }
+
+    return session.user.role ?? "Guest";
+  }, [session?.user?.role, session?.user?.userRole]);
 
   const currentItem = navItems.find((item) => pathname.startsWith(item.href));
   const title = pageTitle ?? currentItem?.label ?? "Overview";
@@ -131,7 +144,7 @@ export function AppShell({
           {session?.user.name ?? session?.user.email}
         </Typography>
         <Typography variant="body2" color="rgba(148,163,184,0.5)">
-          {session?.user.role ?? "Guest"}
+          {roleLabel}
         </Typography>
       </Box>
       <List sx={{ px: 1 }}>

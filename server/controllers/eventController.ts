@@ -489,7 +489,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Student", "Staff", "Professor", "EventOffice"])
+  @AllowedRoles(["Student", "Staff", "Professor", "TA", "EventOffice"])
   async registerForWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
