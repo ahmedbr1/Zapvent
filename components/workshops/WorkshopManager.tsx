@@ -34,6 +34,7 @@ import {
   createWorkshop,
   fetchMyWorkshops,
   updateWorkshop,
+  deleteWorkshop,
   type WorkshopPayload,
 } from "@/lib/services/workshops";
 import {
@@ -113,7 +114,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
           restriction:
             "Workshop management tools are only available to professors. Contact the events office if you need access.",
           empty:
-            "You haven’t published any workshops yet. Start by outlining the first session.",
+            "You haven't published any workshops yet. Start by outlining the first session.",
           createCta: "New workshop",
         };
   const rosterErrorMessage = isEventsOfficeVariant
@@ -124,6 +125,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const canCreate = !isEventsOfficeVariant;
   const queryKey = ["workshops", variant, token];
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -152,9 +154,11 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const createMutation = useMutation({
     mutationFn: (payload: WorkshopPayload) => createWorkshop(payload, token ?? undefined),
     onSuccess: () => {
-      enqueueSnackbar("Workshop created successfully.", { variant: "success" });
-      queryClient.invalidateQueries({ queryKey });
-      closeDialog();
+      if (variant === "professor") {
+        enqueueSnackbar("Workshop created successfully.", { variant: "success" });
+        queryClient.invalidateQueries({ queryKey });
+        closeDialog();
+      }
     },
     onError: (mutationError: unknown) => {
       enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
@@ -168,6 +172,17 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
       enqueueSnackbar("Workshop updated successfully.", { variant: "success" });
       queryClient.invalidateQueries({ queryKey });
       closeDialog();
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (workshopId: string) => deleteWorkshop(workshopId, token ?? undefined),
+    onSuccess: () => {
+      enqueueSnackbar("Workshop deleted.", { variant: "success" });
+      queryClient.invalidateQueries({ queryKey });
     },
     onError: (mutationError: unknown) => {
       enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
@@ -191,19 +206,6 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const handleEditClick = (workshopId: string) => {
     const workshop = workshops.find((item) => item.id === workshopId);
     if (!workshop) return;
-
-    if (
-      isEventsOfficeVariant &&
-      !isProfessor &&
-      workshop.createdBy &&
-      userId &&
-      workshop.createdBy !== userId
-    ) {
-      enqueueSnackbar("Only workshops you published can be edited from this workspace.", {
-        variant: "info",
-      });
-      return;
-    }
 
     setEditingId(workshopId);
     reset({
@@ -246,6 +248,12 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     if (editingId) {
       updateMutation.mutate({ id: editingId, payload });
     } else {
+      if (!canCreate) {
+        enqueueSnackbar("Workshop creation is limited to professor accounts.", {
+          variant: "info",
+        });
+        return;
+      }
       createMutation.mutate(payload);
     }
   });
@@ -254,6 +262,15 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     setDialogOpen(false);
     setEditingId(null);
     reset(defaultWorkshopValues());
+  };
+
+  const handleDeleteClick = (workshopId: string, workshopName: string) => {
+    const confirmed =
+      typeof window !== "undefined"
+        ? window.confirm(`Delete "${workshopName}"? This action cannot be undone.`)
+        : false;
+    if (!confirmed) return;
+    deleteMutation.mutate(workshopId);
   };
 
   return (
@@ -297,9 +314,11 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         <Alert
           severity="info"
           action={
-            <Button variant="outlined" onClick={handleCreateClick}>
-              {copy.createCta}
-            </Button>
+            canCreate ? (
+              <Button variant="outlined" onClick={handleCreateClick}>
+                {copy.createCta}
+              </Button>
+            ) : undefined
           }
         >
           {copy.empty}
@@ -314,7 +333,8 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
               : workshop.createdByName
               ? `Created by ${workshop.createdByName}`
               : "Created by faculty";
-            const canEditWorkshopCard = isProfessor || createdByYou;
+            const canEditWorkshopCard = isProfessor || isEventsOfficeVariant;
+            const canDeleteWorkshopCard = isProfessor || isEventsOfficeVariant;
 
             return (
               <Grid key={workshop.id} size={{ xs: 12, md: 6, lg: 4 }}>
@@ -329,16 +349,33 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                 >
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Stack spacing={1.5}>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        flexWrap="wrap"
+                        rowGap={1}
+                        sx={{ "& .MuiChip-root": { fontSize: "0.75rem" } }}
+                      >
                         <Chip label={workshop.location} size="small" color="primary" />
-                        <Chip label={workshop.fundingSource} size="small" variant="outlined" />
-                        <Chip label={`Capacity ${workshop.capacity}`} size="small" />
+                        <Chip
+                          label={workshop.fundingSource}
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                        />
+                        <Chip
+                          label={`Capacity ${workshop.capacity}`}
+                          size="small"
+                          variant="outlined"
+                          sx={{ borderColor: "rgba(148,163,184,0.4)" }}
+                        />
                         {isEventsOfficeVariant ? (
                           <Chip
                             label={creatorChipLabel}
                             size="small"
+                            variant="outlined"
                             color={createdByYou ? "success" : "default"}
-                            variant={createdByYou ? "filled" : "outlined"}
+                            sx={{ borderStyle: createdByYou ? "solid" : "dashed" }}
                           />
                         ) : null}
                       </Stack>
@@ -391,18 +428,33 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     </Stack>
                   </CardContent>
                   <CardActions sx={{ justifyContent: "flex-end", px: 3, pb: 3 }}>
-                    <Button
-                      startIcon={<EditIcon />}
-                      onClick={() => handleEditClick(workshop.id)}
-                      disabled={!canEditWorkshopCard}
-                      title={
-                        !canEditWorkshopCard
-                          ? "Only workshops you published can be edited here."
-                          : undefined
-                      }
-                    >
-                      Edit
-                    </Button>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        startIcon={<EditIcon />}
+                        onClick={() => handleEditClick(workshop.id)}
+                        disabled={!canEditWorkshopCard}
+                        title={
+                          !canEditWorkshopCard
+                            ? "Editing is restricted to authorized roles."
+                            : undefined
+                        }
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        onClick={() => handleDeleteClick(workshop.id, workshop.name)}
+                        disabled={!canDeleteWorkshopCard || deleteMutation.isPending}
+                        title={
+                          !canDeleteWorkshopCard
+                            ? "Deleting is restricted to authorized roles."
+                            : undefined
+                        }
+                      >
+                        Delete
+                      </Button>
+                    </Stack>
                   </CardActions>
                 </Card>
               </Grid>
@@ -411,7 +463,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         </Grid>
       )}
 
-      {canManage ? (
+      {canCreate && canManage ? (
         <Fab
           color="primary"
           aria-label="Create workshop"

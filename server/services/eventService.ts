@@ -525,27 +525,26 @@ export async function createWorkshop(
       createdBy,
     });
 
+    const creatorDetails = await resolveWorkshopCreators([
+      workshop.toObject({ virtuals: false }),
+    ]);
+    const serialized = serializeWorkshopRecord(
+      {
+        ...(workshop.toObject({ virtuals: false }) as IEvent & {
+          _id: Types.ObjectId;
+          participatingProfessorIds: string[];
+          participatingProfessors: string[];
+        }),
+        participatingProfessorIds: professorIds,
+        participatingProfessors: professorNames,
+      },
+      creatorDetails
+    );
+
     return {
       success: true,
       message: "Workshop created successfully.",
-      data: {
-        id: workshop._id.toString(),
-        name: workshop.name,
-        location: workshop.location,
-        startDate: workshop.startDate,
-        endDate: workshop.endDate,
-        description: workshop.description,
-        fullAgenda: workshop.fullAgenda,
-        faculty: workshop.faculty,
-        participatingProfessorIds: professorIds,
-        participatingProfessors: professorNames,
-        requiredBudget: workshop.requiredBudget,
-        fundingSource: workshop.fundingSource,
-        extraRequiredResources: workshop.extraRequiredResources,
-        capacity: workshop.capacity,
-        registrationDeadline: workshop.registrationDeadline,
-        createdBy: workshop.createdBy,
-      },
+      data: serialized,
     };
   } catch (error) {
     console.error("Error creating workshop:", error);
@@ -559,7 +558,8 @@ export async function createWorkshop(
 export async function editWorkshop(
   workshopId: string,
   userId: string,
-  updateData: IEditWorkshopInput
+  updateData: IEditWorkshopInput,
+  actorRole?: string
 ): Promise<ICreateWorkshopResponse> {
   try {
     if (!Types.ObjectId.isValid(workshopId)) {
@@ -586,7 +586,11 @@ export async function editWorkshop(
     }
 
     // Check if the user is the creator
-    if (workshop.createdBy !== userId) {
+    if (
+      workshop.createdBy !== userId &&
+      actorRole !== "EventsOffice" &&
+      actorRole !== "Admin"
+    ) {
       return {
         success: false,
         message: "You are not authorized to edit this workshop.",
@@ -678,28 +682,16 @@ export async function editWorkshop(
       };
     }
 
-    const [enrichedWorkshop] = await enrichEventsWithProfessors([updatedWorkshop]);
+    const enriched = await enrichEventsWithProfessors([updatedWorkshop]);
+    const creatorDetails = await resolveWorkshopCreators(enriched);
+    const serialized = enriched.length
+      ? serializeWorkshopRecord(enriched[0], creatorDetails)
+      : null;
 
     return {
       success: true,
       message: "Workshop updated successfully.",
-      data: {
-        id: enrichedWorkshop._id.toString(),
-        name: enrichedWorkshop.name,
-        location: enrichedWorkshop.location,
-        startDate: enrichedWorkshop.startDate,
-        endDate: enrichedWorkshop.endDate,
-        description: enrichedWorkshop.description,
-        fullAgenda: enrichedWorkshop.fullAgenda ?? "",
-        faculty: enrichedWorkshop.faculty ?? "",
-        participatingProfessorIds: enrichedWorkshop.participatingProfessorIds,
-        participatingProfessors: enrichedWorkshop.participatingProfessors,
-        requiredBudget: enrichedWorkshop.requiredBudget ?? 0,
-        fundingSource: enrichedWorkshop.fundingSource,
-        extraRequiredResources: enrichedWorkshop.extraRequiredResources ?? "",
-        capacity: enrichedWorkshop.capacity ?? 0,
-        registrationDeadline: enrichedWorkshop.registrationDeadline,
-      },
+      data: serialized,
     };
   } catch (error) {
     console.error("Error editing workshop:", error);

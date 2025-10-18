@@ -451,7 +451,7 @@ export class EventController {
         ...(professorIds ? { participatingProfessorIds: professorIds } : {}),
       };
 
-      const result = await editWorkshop(id, userId, updatePayload);
+      const result = await editWorkshop(id, userId, updatePayload, actorRole);
 
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
