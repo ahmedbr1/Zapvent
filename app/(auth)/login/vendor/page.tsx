@@ -12,12 +12,21 @@ export default function VendorLoginPage() {
       title="Vendor Portal Access"
       subtitle="Track your bazaar applications, booth assignments, and event schedules."
       accent="vendor"
+      backLink={{
+        href: "/",
+        label: "Back to Home",
+      }}
       footer={
         <>
           <Typography variant="body2" color="text.secondary">
             New partner?
           </Typography>
-          <Button component={Link} href="/register/vendor" variant="text" color="secondary">
+          <Button
+            component={Link}
+            href="/register/vendor"
+            variant="text"
+            color="secondary"
+          >
             Apply as a vendor
           </Button>
           <Button component={Link} href="/forgot-password" variant="text">

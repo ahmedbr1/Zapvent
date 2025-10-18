@@ -13,6 +13,7 @@ import {
   useTheme,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
+import { ServerStatusCheck } from "./ServerStatusCheck";
 
 interface AuthScaffoldProps {
   title: string;
@@ -28,9 +29,12 @@ interface AuthScaffoldProps {
 
 const accentGradients = {
   user: "linear-gradient(120deg, rgba(37,99,235,0.95) 0%, rgba(14,116,144,0.85) 100%)",
-  admin: "linear-gradient(120deg, rgba(15,23,42,0.95) 0%, rgba(67,56,202,0.85) 100%)",
-  vendor: "linear-gradient(120deg, rgba(249,115,22,0.95) 0%, rgba(251,191,36,0.85) 100%)",
-  events: "linear-gradient(120deg, rgba(147,51,234,0.95) 0%, rgba(236,72,153,0.85) 100%)",
+  admin:
+    "linear-gradient(120deg, rgba(15,23,42,0.95) 0%, rgba(67,56,202,0.85) 100%)",
+  vendor:
+    "linear-gradient(120deg, rgba(249,115,22,0.95) 0%, rgba(251,191,36,0.85) 100%)",
+  events:
+    "linear-gradient(120deg, rgba(147,51,234,0.95) 0%, rgba(236,72,153,0.85) 100%)",
 } as const;
 
 export function AuthScaffold({
@@ -77,15 +81,21 @@ export function AuthScaffold({
             }}
           >
             <Box>
-              <Typography variant="overline" sx={{ letterSpacing: 3, color: "#FBBF24" }}>
+              <Typography
+                variant="overline"
+                sx={{ letterSpacing: 3, color: "#FBBF24" }}
+              >
                 Zapvent
               </Typography>
               <Typography variant="h4" fontWeight={800} sx={{ mt: 2 }}>
                 Welcome back to campus operations.
               </Typography>
-              <Typography variant="body1" sx={{ mt: 2, color: "rgba(226,232,240,0.72)" }}>
-                Streamline approvals, registrations, and vendor workflows in one modern interface.
-                Built for the tempo of university life.
+              <Typography
+                variant="body1"
+                sx={{ mt: 2, color: "rgba(226,232,240,0.72)" }}
+              >
+                Streamline approvals, registrations, and vendor workflows in one
+                modern interface. Built for the tempo of university life.
               </Typography>
             </Box>
             {!isMobile && (
@@ -101,9 +111,13 @@ export function AuthScaffold({
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Quick tips
                 </Typography>
-                <Typography variant="body2" sx={{ color: "rgba(226,232,240,0.65)" }}>
-                  Your browser will remember your last role. Keep your tasks pinned to stay in flow,
-                  and switch portals from the avatar menu at any time.
+                <Typography
+                  variant="body2"
+                  sx={{ color: "rgba(226,232,240,0.65)" }}
+                >
+                  Your browser will remember your last role. Keep your tasks
+                  pinned to stay in flow, and switch portals from the avatar
+                  menu at any time.
                 </Typography>
               </Box>
             )}
@@ -143,13 +157,15 @@ export function AuthScaffold({
                 {title}
               </Typography>
               {subtitle && (
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 1, mb: 3 }}>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ mt: 1, mb: 3 }}
+                >
                   {subtitle}
                 </Typography>
               )}
-              <Stack spacing={2.5}>
-                {children}
-              </Stack>
+              <Stack spacing={2.5}>{children}</Stack>
               {footer && (
                 <Box
                   sx={{
@@ -168,6 +184,7 @@ export function AuthScaffold({
           </Paper>
         </Stack>
       </Container>
+      <ServerStatusCheck />
     </Box>
   );
 }

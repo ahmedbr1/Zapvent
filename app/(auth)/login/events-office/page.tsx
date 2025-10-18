@@ -12,12 +12,21 @@ export default function EventsOfficeLoginPage() {
       title="Events Office Login"
       subtitle="Coordinate bazaars, workshops, conferences, and gym sessions across campuses."
       accent="events"
+      backLink={{
+        href: "/",
+        label: "Back to Home",
+      }}
       footer={
         <>
           <Typography variant="body2" color="text.secondary">
             Need admin support?
           </Typography>
-          <Button component={Link} href="/login/admin" variant="text" color="secondary">
+          <Button
+            component={Link}
+            href="/login/admin"
+            variant="text"
+            color="secondary"
+          >
             Contact platform admins
           </Button>
         </>

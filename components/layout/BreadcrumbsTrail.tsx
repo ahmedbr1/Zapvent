@@ -23,7 +23,9 @@ export function BreadcrumbsTrail() {
   const router = useRouter();
 
   const crumbs = useMemo(() => {
-    const segments = pathname.split("/").filter((segment) => !HIDDEN_SEGMENTS.has(segment));
+    const segments = pathname
+      .split("/")
+      .filter((segment) => !HIDDEN_SEGMENTS.has(segment));
     const built: Array<{ href: string; label: string }> = [];
 
     segments.reduce((acc, segment) => {
@@ -55,16 +57,35 @@ export function BreadcrumbsTrail() {
       >
         <ArrowBackIcon fontSize="small" />
       </IconButton>
-      <Breadcrumbs aria-label="breadcrumb" sx={{ color: "text.secondary", fontSize: 13 }}>
+      <Breadcrumbs
+        aria-label="breadcrumb"
+        sx={{ color: "text.secondary", fontSize: 13 }}
+      >
         {crumbs.map((crumb, index) => {
           const isLast = index === crumbs.length - 1;
+          const isFirst = index === 0;
+
           if (isLast) {
             return (
-              <Typography key={crumb.href} color="text.primary" fontWeight={500}>
+              <Typography
+                key={crumb.href}
+                color="text.primary"
+                fontWeight={500}
+              >
                 {crumb.label}
               </Typography>
             );
           }
+
+          // Make the first segment (Admin, User, Vendor, etc.) non-clickable
+          if (isFirst) {
+            return (
+              <Typography key={crumb.href} color="text.secondary">
+                {crumb.label}
+              </Typography>
+            );
+          }
+
           return (
             <Link key={crumb.href} href={crumb.href}>
               {crumb.label}
