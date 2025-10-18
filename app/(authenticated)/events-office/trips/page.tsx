@@ -7,7 +7,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
 import Stack from "@mui/material/Stack";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/GridLegacy";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -49,11 +49,17 @@ const tripSchema = z
     endDate: z.date({ message: "End date is required" }),
     registrationDeadline: z.date({ message: "Deadline is required" }),
     capacity: z
-      .number({ invalid_type_error: "Enter the maximum number of participants" })
+      .number()
+      .refine((value) => Number.isFinite(value), {
+        message: "Enter the maximum number of participants",
+      })
       .int("Capacity must be a whole number")
       .min(1, "Capacity must be at least 1"),
     price: z
-      .number({ invalid_type_error: "Enter a ticket price" })
+      .number()
+      .refine((value) => Number.isFinite(value), {
+        message: "Enter a ticket price",
+      })
       .min(0, "Price cannot be negative"),
   })
   .refine((values) => values.startDate < values.endDate, {
@@ -82,9 +88,8 @@ export default function TripManagementPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["events", "trips", token],
+    queryKey: ["events", "trips", token ?? "public"],
     queryFn: () => fetchTrips(token ?? undefined),
-    enabled: Boolean(token),
   });
 
   const {
@@ -467,4 +472,3 @@ function formatPrice(value: number) {
   });
   return formatter.format(value);
 }
-
