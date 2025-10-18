@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api-client";
 import {
   EventType,
+  FundingSource,
   Location,
   type EventSummary,
   type VendorSummary,
@@ -27,6 +28,11 @@ interface EventApiItem {
   participatingProfessors?: string[];
   vendors?: string[];
   registeredUsers?: string[];
+  fundingSource?: FundingSource;
+  fullAgenda?: string;
+  websiteLink?: string;
+  extraRequiredResources?: string;
+  requiredBudget?: number;
 }
 
 interface UpcomingBazaarsResponse {
@@ -39,6 +45,12 @@ interface CreateBazaarResponse {
   success: boolean;
   message: string;
   data?: EventApiItem;
+}
+
+interface EventMutationResponse {
+  success: boolean;
+  message?: string;
+  data?: unknown;
 }
 
 interface RegisterEventResponse {
@@ -59,6 +71,29 @@ export interface BazaarPayload {
   endDate: string;
   registrationDeadline: string;
   location: Location;
+}
+
+export interface TripPayload {
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  registrationDeadline: string;
+  location: Location;
+  capacity: number;
+  price: number;
+}
+
+export interface ConferencePayload {
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  fullAgenda: string;
+  websiteLink: string;
+  requiredBudget: number;
+  fundingSource: FundingSource;
+  extraRequiredResources?: string;
 }
 
 export async function registerForWorkshop(
@@ -123,6 +158,19 @@ export async function fetchUpcomingBazaars(
   return (response.bazaars ?? []).map((item) => mapEvent(item, currentUserId));
 }
 
+export async function fetchTrips(token?: string, currentUserId?: string): Promise<EventSummary[]> {
+  const events = await fetchUpcomingEvents(token, currentUserId);
+  return events.filter((event) => event.eventType === EventType.Trip);
+}
+
+export async function fetchConferences(
+  token?: string,
+  currentUserId?: string
+): Promise<EventSummary[]> {
+  const events = await fetchUpcomingEvents(token, currentUserId);
+  return events.filter((event) => event.eventType === EventType.Conference);
+}
+
 export async function createBazaar(payload: BazaarPayload, token?: string) {
   const response = await apiFetch<CreateBazaarResponse, BazaarPayload>("/events", {
     method: "POST",
@@ -154,6 +202,88 @@ export async function updateBazaar(id: string, payload: Partial<BazaarPayload>, 
   return response.data ? mapEvent(response.data) : null;
 }
 
+export async function createTrip(payload: TripPayload, token?: string) {
+  const body = {
+    ...payload,
+    eventType: EventType.Trip,
+    fundingSource: FundingSource.GUC,
+    date: payload.startDate,
+  };
+
+  const response = await apiFetch<EventMutationResponse, typeof body>("/events/trip", {
+    method: "POST",
+    body,
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to create trip");
+  }
+
+  const data = response.data as EventApiItem | undefined;
+  return data ? mapEvent(data) : null;
+}
+
+export async function updateTrip(
+  id: string,
+  payload: Partial<TripPayload>,
+  token?: string
+) {
+  const body: Partial<TripPayload> & { date?: string } = { ...payload };
+  if (payload.startDate) {
+    body.date = payload.startDate;
+  }
+
+  const response = await apiFetch<EventMutationResponse, typeof body>(`/events/trip/${id}`, {
+    method: "PUT",
+    body,
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to update trip");
+  }
+
+  const data = response.data as EventApiItem | undefined;
+  return data ? mapEvent(data) : null;
+}
+
+export async function createConference(payload: ConferencePayload, token?: string) {
+  const response = await apiFetch<EventMutationResponse, ConferencePayload>("/events/conference", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to create conference");
+  }
+
+  return response.data;
+}
+
+export async function updateConference(
+  id: string,
+  payload: Partial<ConferencePayload>,
+  token?: string
+) {
+  const response = await apiFetch<EventMutationResponse, Partial<ConferencePayload>>(
+    `/events/conferences/${id}`,
+    {
+      method: "PUT",
+      body: payload,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to update conference");
+  }
+
+  const data = response.data as EventApiItem | undefined;
+  return data ? mapEvent(data) : null;
+}
+
 function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
   const isRegistered = currentUserId
     ? (event.registeredUsers ?? []).some((userId) => userId === currentUserId)
@@ -179,5 +309,10 @@ function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
     price: event.price,
     vendors,
     isRegistered,
+    fundingSource: event.fundingSource,
+    fullAgenda: event.fullAgenda,
+    websiteLink: event.websiteLink,
+    extraRequiredResources: event.extraRequiredResources,
+    requiredBudget: event.requiredBudget,
   };
 }

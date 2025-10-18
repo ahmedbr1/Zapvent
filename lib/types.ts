@@ -72,6 +72,7 @@ export interface SessionUser {
   role: AuthRole;
   name?: string;
   userRole?: UserRole;
+  adminType?: "Admin" | "EventOffice";
   status?: string;
   companyName?: string;
   logo?: string;
@@ -103,6 +104,11 @@ export interface EventSummary {
   price?: number;
   vendors?: VendorSummary[];
   isRegistered?: boolean;
+  fundingSource?: FundingSource;
+  fullAgenda?: string;
+  websiteLink?: string;
+  extraRequiredResources?: string;
+  requiredBudget?: number;
 }
 
 export interface Workshop {
@@ -121,6 +127,9 @@ export interface Workshop {
   extraRequiredResources?: string;
   capacity: number;
   registrationDeadline: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdByRole?: string;
 }
 
 export interface ProfessorSummary {

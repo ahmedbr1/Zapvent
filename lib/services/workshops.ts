@@ -22,6 +22,9 @@ interface WorkshopApiItem {
   extraRequiredResources?: string;
   capacity?: number;
   registrationDeadline?: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdByRole?: string;
 }
 
 interface WorkshopListResponse {
@@ -131,6 +134,9 @@ function mapWorkshop(item: WorkshopApiItem): Workshop {
     extraRequiredResources: item.extraRequiredResources ?? "",
     capacity: typeof item.capacity === "number" ? item.capacity : 0,
     registrationDeadline: item.registrationDeadline ?? new Date().toISOString(),
+    createdBy: item.createdBy,
+    createdByName: item.createdByName,
+    createdByRole: item.createdByRole,
   };
 }
 

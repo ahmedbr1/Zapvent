@@ -7,7 +7,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
-export type UserRole = "User" | "Admin" | "Vendor" | "EventOffice";
+export type UserRole = "User" | "Admin" | "Vendor" | "EventsOffice";
 
 export interface AuthRequest extends Request {
   user?: {
@@ -31,6 +31,7 @@ function extractAndVerifyToken(req: AuthRequest): {
     email: string;
     role: UserRole;
     userRole?: string; // For User sub-roles (Student, Staff, Professor, TA)
+    adminType?: string; // For Admin sub-roles (EventOffice, etc.)
   };
   message?: string;
 } {
@@ -56,6 +57,7 @@ function extractAndVerifyToken(req: AuthRequest): {
       email: string;
       role: UserRole;
       userRole?: string;
+      adminType?: string;
     };
     return {
       success: true,

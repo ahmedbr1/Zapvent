@@ -10,7 +10,7 @@ router.post("/signUp", userController.signup.bind(userController));
 router.get(
   "/professors",
   loginRequired,
-  allowedRoles(["User", "Admin"]),
+  allowedRoles(["User", "Admin", "EventsOffice"]),
   userController.getProfessors.bind(userController)
 );
 router.get("/:userId/registered-events", userController.getUserRegisteredEvents.bind(userController));
