@@ -1,5 +1,5 @@
 // Script to create sample bazaar events for testing
-const mongoose = require("mongoose");
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 const eventSchema = new mongoose.Schema({
   name: String,

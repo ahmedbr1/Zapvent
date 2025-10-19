@@ -1,6 +1,8 @@
 import { apiFetch } from "@/lib/api-client";
 import type { AuthRole, UserRole, UserStatus, VendorStatus } from "@/lib/types";
 
+// ---------------- Types ----------------
+
 export interface AdminUser {
   id: string;
   firstName: string;
@@ -35,6 +37,15 @@ interface ApproveUserResponse extends AdminActionResponse {
   };
 }
 
+// Define a proper VendorApplication type instead of using any
+export interface VendorApplication {
+  id: string;
+  status: "Pending" | "Approved" | "Rejected";
+  submittedAt: string;
+  eventId?: string;
+  notes?: string;
+}
+
 export interface AdminVendor {
   id: string;
   email: string;
@@ -44,12 +55,19 @@ export interface AdminVendor {
   logo?: string;
   taxCard?: string;
   documents?: string;
-  applications: any[];
+  applications: VendorApplication[];
   pendingApplications: number;
   approvedApplications: number;
   rejectedApplications: number;
   createdAt: string;
   updatedAt: string;
+}
+
+interface AdminVendorsResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  vendors: AdminVendor[];
 }
 
 // ---------------- Backend API Calls ----------------
@@ -81,7 +99,7 @@ export async function fetchAdminVendors(
     throw new Error(response.message ?? "Failed to verify vendor");
   }
 
-  return response;
+  return response.vendors ?? [];
 }
 
 export async function rejectUser(
@@ -121,7 +139,8 @@ export async function blockUser(userId: string, token?: string) {
   return response;
 }
 
-// Events Office Management
+// ---------------- Events Office Management ----------------
+
 export interface EventsOfficeAccount {
   id: string;
   firstName: string;
@@ -238,7 +257,8 @@ export async function deleteEventsOfficeAccount(
   return response;
 }
 
-// Admin Management (adminType: "Admin")
+// ---------------- Admin Management ----------------
+
 export interface AdminAccount {
   id: string;
   firstName: string;
@@ -377,5 +397,3 @@ export async function unblockAdmin(adminId: string, token?: string) {
 
   return response;
 }
-
-// ----------------------------------------------------
