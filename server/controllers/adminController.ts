@@ -48,8 +48,6 @@ export class AdminController {
     }
   }
 
-  // Export an instance
-
   @AdminRequired()
   async getAllAdmins(req: AuthRequest, res: Response) {
     const admins = await adminService.findAll();
@@ -86,14 +84,8 @@ export class AdminController {
     const { firstName, lastName, email, password, status, adminType } =
       req.body;
 
-    // Validate input
-    if (!firstName.trim() || !lastName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "First name and last name cannot be empty",
-      });
-    }
-
+    // ValidateBody already ensures these fields are required and non-empty
+    // Duplicate email check is handled in the service layer
     const result = await adminService.createAdmin({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -127,18 +119,24 @@ export class AdminController {
     const { id } = req.params;
     const { firstName, lastName, email } = req.body;
 
-    // Validate input
-    if (!firstName?.trim() || !lastName?.trim()) {
-      return res.status(400).json({
+    // Authorization: Only aaadmin@gmail.com can update other admins
+    // All admins can update their own profile
+    const isOriginalAdmin = req.user?.email === "aaadmin@gmail.com";
+    const isUpdatingSelf = id === req.user?.id;
+
+    if (!isOriginalAdmin && !isUpdatingSelf) {
+      return res.status(403).json({
         success: false,
-        message: "First name and last name cannot be empty",
+        message: "You can only update your own profile",
       });
     }
 
+    // ValidateBody already ensures these fields are required and non-empty
+    // No need for redundant checks
     const result = await adminService.updateAdmin(id, {
-      firstName: firstName?.trim(),
-      lastName: lastName?.trim(),
-      email: email?.trim().toLowerCase(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim().toLowerCase(),
     });
 
     if (!result.success) {
@@ -372,14 +370,8 @@ export class AdminController {
   async createEventsOffice(req: AuthRequest, res: Response) {
     const { firstName, lastName, email, password } = req.body;
 
-    // Validate input
-    if (!firstName.trim() || !lastName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "First name and last name cannot be empty",
-      });
-    }
-
+    // ValidateBody already ensures these fields are required and non-empty
+    // Duplicate email check is handled in the service layer
     const result = await adminService.createAdmin({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -404,29 +396,17 @@ export class AdminController {
   }
 
   @AdminRequired()
+  @ValidateBody({ required: ["firstName", "lastName", "email"] })
   async updateEventsOffice(req: AuthRequest, res: Response) {
     const { id } = req.params;
     const { firstName, lastName, email } = req.body;
 
-    // Validate input
-    if (firstName && !firstName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "First name cannot be empty",
-      });
-    }
-
-    if (lastName && !lastName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Last name cannot be empty",
-      });
-    }
-
+    // ValidateBody already ensures these fields are required and non-empty
+    // Duplicate email check is handled in the service layer
     const result = await adminService.updateAdmin(id, {
-      firstName: firstName?.trim(),
-      lastName: lastName?.trim(),
-      email: email?.trim().toLowerCase(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim().toLowerCase(),
     });
 
     if (!result.success) {
