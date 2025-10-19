@@ -28,7 +28,11 @@ export const vendorSignupSchema = z.object({
     .min(2, { message: "Company name must be at least 2 characters long." })
     .max(50, { message: "Company name must be at most 50 characters long." })
     .trim(),
-  loyaltyForum: z.string().url({ message: "Please enter a valid URL." }).optional(),
+  loyaltyForum: z
+    .string()
+    .url({ message: "Please enter a valid URL." })
+    .or(z.literal(""))
+    .optional(),
 });
 
 export type vendorSignupData = z.infer<typeof vendorSignupSchema>;

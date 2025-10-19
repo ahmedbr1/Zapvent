@@ -9,8 +9,11 @@ import TextField from "@mui/material/TextField";
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import InputAdornment from "@mui/material/InputAdornment";
+import IconButton from "@mui/material/IconButton";
 import EmailIcon from "@mui/icons-material/AlternateEmailRounded";
 import LockIcon from "@mui/icons-material/LockRounded";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import LoadingButton from "@mui/lab/LoadingButton";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -58,13 +61,16 @@ const endpointMap: Record<LoginVariant, string> = {
 };
 
 export function LoginForm({ variant }: LoginFormProps) {
-  const { handleSubmit, register, formState, setError } = useForm<LoginFields>({
-    resolver: zodResolver(schema),
-  });
+  const { handleSubmit, register, formState, setError, watch } =
+    useForm<LoginFields>({
+      resolver: zodResolver(schema),
+    });
   const { enqueueSnackbar } = useSnackbar();
   const router = useRouter();
   const { setSessionFromToken } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const password = watch("password");
 
   const onSubmit = handleSubmit(async (data) => {
     setFormError(null);
@@ -107,9 +113,7 @@ export function LoginForm({ variant }: LoginFormProps) {
         (result.user?.role ? (result.user.role as AuthRole) : undefined);
 
       const effectiveRole =
-        variant === "events-office"
-          ? AuthRole.EventsOffice
-          : roleFromToken;
+        variant === "events-office" ? AuthRole.EventsOffice : roleFromToken;
 
       if (variant === "events-office") {
         enqueueSnackbar(
@@ -166,19 +170,35 @@ export function LoginForm({ variant }: LoginFormProps) {
         />
         <TextField
           label="Password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           fullWidth
           autoComplete={
             variant === "user" || variant === "vendor"
               ? "current-password"
               : "new-password"
           }
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <LockIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockIcon fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: password ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    onClick={() => setShowPassword((s) => !s)}
+                    edge="end"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            },
           }}
           {...register("password")}
           error={Boolean(formState.errors.password)}

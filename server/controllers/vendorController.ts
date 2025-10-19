@@ -9,6 +9,18 @@ import vendorModel, { VendorStatus } from "../models/Vendor";
 export class VendorController {
   async vendorSignup(req: Request, res: Response) {
     try {
+      // Validate required file uploads
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const files = (req as any).files as Record<string, any[]> | undefined;
+
+      if (!files || !files.logo || !files.taxCard || !files.documents) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "All required documents must be uploaded (logo, tax card, and documents)",
+        });
+      }
+
       const vendor = await vendorService.signup(req.body);
 
       res.status(201).json({

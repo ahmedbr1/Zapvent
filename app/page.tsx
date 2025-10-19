@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Box, Button, Card, CardActions, CardContent, Container, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Card,
+  CardActions,
+  CardContent,
+  Container,
+  Stack,
+  Typography,
+} from "@mui/material";
 import Grid from "@mui/material/Grid";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForwardRounded";
 import SchoolIcon from "@mui/icons-material/SchoolRounded";
@@ -12,7 +21,8 @@ import EventIcon from "@mui/icons-material/EventAvailableRounded";
 const roles = [
   {
     title: "Students & Faculty",
-    description: "Browse and register for workshops, trips, conferences, and gym sessions curated for the GUC community.",
+    description:
+      "Browse and register for workshops, trips, conferences, and gym sessions curated for the GUC community.",
     loginHref: "/login/user",
     registerHref: "/register/user",
     icon: SchoolIcon,
@@ -20,7 +30,8 @@ const roles = [
   },
   {
     title: "Vendors",
-    description: "Apply for university bazaars, manage booth assignments, and keep your team in sync with upcoming opportunities.",
+    description:
+      "Apply for university bazaars, manage booth assignments, and keep your team in sync with upcoming opportunities.",
     loginHref: "/login/vendor",
     registerHref: "/register/vendor",
     icon: StorefrontIcon,
@@ -28,14 +39,16 @@ const roles = [
   },
   {
     title: "Administrators",
-    description: "Verify users, orchestrate events, and keep operations compliant with moderation and auditing tools.",
+    description:
+      "Verify users, orchestrate events, and keep operations compliant with moderation and auditing tools.",
     loginHref: "/login/admin",
     icon: AdminPanelSettingsIcon,
     accent: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
   },
   {
     title: "Events Office",
-    description: "Design signature university experiences from bazaars to conferences with collaborative workflows.",
+    description:
+      "Design signature university experiences from bazaars to conferences with collaborative workflows.",
     loginHref: "/login/events-office",
     icon: EventIcon,
     accent: "linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)",
@@ -84,11 +97,19 @@ export default function LandingPage() {
               >
                 University events without the chaos.
               </Typography>
-              <Typography variant="body1" sx={{ mt: 3, color: "text.secondary" }}>
-                The modern operating system for campus experiences. Coordinate events, empower the
-                Events Office, and guide students & vendors with a single, accessible hub.
+              <Typography
+                variant="body1"
+                sx={{ mt: 3, color: "text.secondary" }}
+              >
+                The modern operating system for campus experiences. Coordinate
+                events, empower the Events Office, and guide students & vendors
+                with a single, accessible hub.
               </Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 4 }}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                sx={{ mt: 4 }}
+              >
                 <Button
                   component={Link}
                   href="/login/user"
@@ -135,14 +156,18 @@ export default function LandingPage() {
                 </Box>
                 <DividerLight />
                 <Box>
-                  <Typography fontWeight={600}>Faculty Wellness Retreat</Typography>
+                  <Typography fontWeight={600}>
+                    Faculty Wellness Retreat
+                  </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.7 }}>
                     April 21 · Soma Bay · Limited seats
                   </Typography>
                 </Box>
                 <DividerLight />
                 <Box>
-                  <Typography fontWeight={600}>AI in Dentistry Workshop</Typography>
+                  <Typography fontWeight={600}>
+                    AI in Dentistry Workshop
+                  </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.7 }}>
                     April 24 · Lab 3B · Prof. Hamed
                   </Typography>
@@ -155,7 +180,11 @@ export default function LandingPage() {
             <Typography
               variant="h5"
               fontWeight={700}
-              sx={{ mb: 3, color: "text.primary", textAlign: { xs: "center", md: "left" } }}
+              sx={{
+                mb: 3,
+                color: "text.primary",
+                textAlign: { xs: "center", md: "left" },
+              }}
             >
               Choose your portal
             </Typography>
@@ -256,7 +285,10 @@ export default function LandingPage() {
           </Stack>
         </Stack>
       </Container>
-      <Box component="footer" sx={{ py: 3, borderTop: "1px solid rgba(15,23,42,0.08)" }}>
+      <Box
+        component="footer"
+        sx={{ py: 3, borderTop: "1px solid rgba(15,23,42,0.08)" }}
+      >
         <Container maxWidth="lg">
           <Stack
             direction={{ xs: "column", sm: "row" }}
@@ -265,7 +297,8 @@ export default function LandingPage() {
             justifyContent="space-between"
           >
             <Typography variant="body2" color="text.secondary">
-              © {new Date().getFullYear()} Zapvent · Built for the German University in Cairo.
+              © {new Date().getFullYear()} Zapvent · Built for the German
+              University in Cairo.
             </Typography>
             <Stack direction="row" spacing={2}>
               <Button component={Link} href="/login/admin" variant="text">
