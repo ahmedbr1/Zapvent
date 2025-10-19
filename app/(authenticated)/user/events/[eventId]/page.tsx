@@ -16,8 +16,8 @@ import LocationIcon from "@mui/icons-material/FmdGoodRounded";
 import PeopleIcon from "@mui/icons-material/PeopleAltRounded";
 import MonetizationIcon from "@mui/icons-material/MonetizationOnRounded";
 import EventIcon from "@mui/icons-material/EventAvailableRounded";
-import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
-import { useRouter } from "next/navigation";
+import EventBusyIcon from "@mui/icons-material/EventBusyRounded";
+import BlockIcon from "@mui/icons-material/BlockRounded";
 import dayjs from "dayjs";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -31,7 +31,6 @@ export default function EventDetailsPage() {
   const eventId = params?.eventId;
   const token = useAuthToken();
   const user = useSessionUser();
-  const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [isRegistered, setIsRegistered] = useState(false);
@@ -45,6 +44,14 @@ export default function EventDetailsPage() {
   const event = query.data;
   const supportsRegistration =
     event?.eventType === EventType.Workshop || event?.eventType === EventType.Trip;
+  const registeredCount = event?.registeredCount ?? 0;
+  const totalCapacity = typeof event?.capacity === "number" ? event.capacity : undefined;
+  const hasCapacity = typeof totalCapacity === "number";
+  const remainingCapacity = hasCapacity ? Math.max((totalCapacity ?? 0) - registeredCount, 0) : undefined;
+  const capacityReached = hasCapacity ? remainingCapacity === 0 : false;
+  const registrationDeadlinePassed = event?.registrationDeadline
+    ? dayjs(event.registrationDeadline).isBefore(dayjs())
+    : false;
 
   useEffect(() => {
     setIsRegistered(Boolean(event?.isRegistered));
@@ -109,8 +116,14 @@ export default function EventDetailsPage() {
       });
       return;
     }
-    if (new Date(event.registrationDeadline).getTime() < Date.now()) {
+    if (registrationDeadlinePassed) {
       enqueueSnackbar("Registration deadline has passed.", {
+        variant: "info",
+      });
+      return;
+    }
+    if (capacityReached) {
+      enqueueSnackbar("This event is fully booked.", {
         variant: "info",
       });
       return;
@@ -151,13 +164,34 @@ export default function EventDetailsPage() {
     );
   }
 
+  const registerDisabledReason = registrationDeadlinePassed
+    ? "deadline"
+    : capacityReached
+      ? "capacity"
+      : isRegistered
+        ? "registered"
+        : null;
+  const registerButtonLabel =
+    registerDisabledReason === "deadline"
+      ? "Deadline passed"
+      : registerDisabledReason === "capacity"
+        ? "Fully booked"
+        : registerDisabledReason === "registered"
+          ? "Registered"
+          : registerMutation.isPending
+            ? "Registering..."
+            : "Register";
+  const registerButtonIcon =
+    registerDisabledReason === "deadline"
+      ? <EventBusyIcon />
+      : registerDisabledReason === "capacity"
+        ? <BlockIcon />
+        : <EventIcon />;
+
   return (
     <Stack spacing={3}>
       <Stack direction="row" alignItems={{ xs: "flex-start", md: "center" }} justifyContent="space-between" spacing={2}>
         <Box>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ mb: 1 }}>
-            Back to events
-          </Button>
           <Stack direction="row" spacing={1.5} alignItems="center">
             <Chip label={event.eventType} color="primary" variant="outlined" />
             <Typography variant="caption" color="text.secondary">
@@ -180,10 +214,10 @@ export default function EventDetailsPage() {
             <Button
               variant="contained"
               onClick={handleRegister}
-              startIcon={<EventIcon />}
-              disabled={isRegistered || registerMutation.isPending}
+              startIcon={registerButtonIcon}
+              disabled={Boolean(registerDisabledReason) || registerMutation.isPending}
             >
-              {isRegistered ? "Registered" : "Register"}
+              {registerButtonLabel}
             </Button>
           ) : (
             <Typography variant="body2" color="text.secondary">
@@ -203,11 +237,11 @@ export default function EventDetailsPage() {
               <DetailRow icon={<CalendarIcon />} label="Start" value={formatDateTime(event.startDate)} />
               <DetailRow icon={<CalendarIcon />} label="End" value={formatDateTime(event.endDate)} />
               <DetailRow icon={<LocationIcon />} label="Location" value={event.location} />
-              {event.capacity ? (
+              {hasCapacity && remainingCapacity !== undefined && totalCapacity !== undefined ? (
                 <DetailRow
                   icon={<PeopleIcon />}
-                  label="Capacity"
-                  value={`${event.capacity.toLocaleString()} attendees`}
+                  label="Remaining capacity"
+                  value={`${remainingCapacity.toLocaleString()}/${totalCapacity.toLocaleString()} attendees`}
                 />
               ) : null}
               {event.price ? (

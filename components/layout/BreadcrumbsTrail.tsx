@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
+import IconButton from "@mui/material/IconButton";
+import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
 import { useMemo } from "react";
 
 const HIDDEN_SEGMENTS = new Set(["", "dashboard"]);
@@ -17,9 +20,12 @@ function formatSegment(segment: string) {
 
 export function BreadcrumbsTrail() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const crumbs = useMemo(() => {
-    const segments = pathname.split("/").filter((segment) => !HIDDEN_SEGMENTS.has(segment));
+    const segments = pathname
+      .split("/")
+      .filter((segment) => !HIDDEN_SEGMENTS.has(segment));
     const built: Array<{ href: string; label: string }> = [];
 
     segments.reduce((acc, segment) => {
@@ -36,25 +42,57 @@ export function BreadcrumbsTrail() {
   }
 
   return (
-    <Breadcrumbs
-      aria-label="breadcrumb"
-      sx={{ color: "text.secondary", mt: 0.25, fontSize: 13 }}
-    >
-      {crumbs.map((crumb, index) => {
-        const isLast = index === crumbs.length - 1;
-        if (isLast) {
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.25 }}>
+      <IconButton
+        size="small"
+        aria-label="Go back"
+        onClick={() => router.back()}
+        sx={{
+          width: 28,
+          height: 28,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <ArrowBackIcon fontSize="small" />
+      </IconButton>
+      <Breadcrumbs
+        aria-label="breadcrumb"
+        sx={{ color: "text.secondary", fontSize: 13 }}
+      >
+        {crumbs.map((crumb, index) => {
+          const isLast = index === crumbs.length - 1;
+          const isFirst = index === 0;
+
+          if (isLast) {
+            return (
+              <Typography
+                key={crumb.href}
+                color="text.primary"
+                fontWeight={500}
+              >
+                {crumb.label}
+              </Typography>
+            );
+          }
+
+          // Make the first segment (Admin, User, Vendor, etc.) non-clickable
+          if (isFirst) {
+            return (
+              <Typography key={crumb.href} color="text.secondary">
+                {crumb.label}
+              </Typography>
+            );
+          }
+
           return (
-            <Typography key={crumb.href} color="text.primary" fontWeight={500}>
+            <Link key={crumb.href} href={crumb.href}>
               {crumb.label}
-            </Typography>
+            </Link>
           );
-        }
-        return (
-          <Link key={crumb.href} href={crumb.href}>
-            {crumb.label}
-          </Link>
-        );
-      })}
-    </Breadcrumbs>
+        })}
+      </Breadcrumbs>
+    </Stack>
   );
 }

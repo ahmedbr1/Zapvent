@@ -49,6 +49,7 @@ interface LoginResponse {
     isVerified?: boolean;
     logo?: string;
     userRole?: string;
+    adminType?: string;
   };
   message?: string;
 }
@@ -99,6 +100,7 @@ export function LoginForm({ variant }: LoginFormProps) {
         companyName: result.user?.companyName,
         logo: result.user?.logo,
         userRole: result.user?.userRole as SessionState["user"]["userRole"],
+        adminType: result.user?.adminType as SessionState["user"]["adminType"],
       };
 
       if (variant === "events-office") {
@@ -135,11 +137,20 @@ export function LoginForm({ variant }: LoginFormProps) {
       enqueueSnackbar("Welcome back!", { variant: "success" });
       router.replace(getDefaultDashboardRoute(effectiveRole));
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : (error as { message?: string }).message;
-      setFormError(message ?? "Something went wrong. Please try again.");
+      console.error("Login error:", error);
+      let message = "Something went wrong. Please try again.";
+
+      // Check if it's a network error (server not running)
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        message =
+          "Cannot connect to server. Please ensure the backend server is running on port 4000.";
+      } else if (error instanceof Error) {
+        message = error.message;
+      } else if (error && typeof error === "object" && "message" in error) {
+        message = (error as { message?: string }).message ?? message;
+      }
+
+      setFormError(message);
       setError("password", { message: " " });
     }
   });

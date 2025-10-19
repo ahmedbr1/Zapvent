@@ -27,3 +27,17 @@ export function getDefaultDashboardRoute(role: AuthRole): string {
       return "/user/dashboard";
   }
 }
+
+export function getProfileRoute(role: AuthRole): string {
+  switch (role) {
+    case AuthRole.Admin:
+      return "/admin/profile"; // Admin's own profile page
+    case AuthRole.EventsOffice:
+      return "/events-office/bazaars"; // Events office dashboard (no profile page yet)
+    case AuthRole.Vendor:
+      return "/vendor/dashboard"; // Vendor dashboard (no profile page yet)
+    case AuthRole.User:
+    default:
+      return "/user/dashboard"; // User dashboard (no profile page yet)
+  }
+}

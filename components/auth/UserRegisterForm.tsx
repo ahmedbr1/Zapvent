@@ -147,11 +147,20 @@ export function UserRegisterForm() {
         );
       }
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : (error as { message?: string }).message;
-      setServerMessage(message ?? "An unexpected error occurred.");
+      console.error("Registration error:", error);
+      let message = "An unexpected error occurred.";
+
+      // Check if it's a network error (server not running)
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        message =
+          "Cannot connect to server. Please ensure the backend server is running on port 4000.";
+      } else if (error instanceof Error) {
+        message = error.message;
+      } else if (error && typeof error === "object" && "message" in error) {
+        message = (error as { message?: string }).message ?? message;
+      }
+
+      setServerMessage(message);
     }
   });
 

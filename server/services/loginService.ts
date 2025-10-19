@@ -39,10 +39,11 @@ interface AdminLoginSuccess extends BaseLoginResponse {
   user: {
     id: string;
     email: string;
-    role: "Admin";
+    role: "Admin" | "EventsOffice";
     firstName: string;
     lastName: string;
     status: string;
+    adminType: "Admin" | "EventOffice";
   };
 }
 
@@ -179,11 +180,17 @@ export async function loginAdmin(
       };
     }
 
+    const derivedRole = admin.adminType === "EventOffice" ? "EventsOffice" : "Admin";
+
     // Generate JWT token
     const payload = {
       id: admin._id,
       email: admin.email,
-      role: "Admin" as const,
+      role: derivedRole,
+      adminType: admin.adminType,
+      firstName: admin.firstName,
+      lastName: admin.lastName,
+      status: admin.status,
     };
 
     const token = jwt.sign(payload, JWT_SECRET, {
@@ -197,10 +204,11 @@ export async function loginAdmin(
       user: {
         id: admin._id.toString(),
         email: admin.email,
-        role: "Admin",
+        role: derivedRole,
         firstName: admin.firstName,
         lastName: admin.lastName,
         status: admin.status,
+        adminType: admin.adminType,
       },
     };
   } catch (error) {

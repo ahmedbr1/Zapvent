@@ -30,9 +30,15 @@ import { useTheme } from "@mui/material/styles";
 import { usePathname, useRouter } from "next/navigation";
 import { useSnackbar } from "notistack";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { AuthRole } from "@/lib/types";
 import { getNavItemsForRole } from "./nav-config";
 import { BreadcrumbsTrail } from "./BreadcrumbsTrail";
-import { getLoginPathForRole } from "@/lib/routing";
+import {
+  getLoginPathForRole,
+  getProfileRoute,
+  getDefaultDashboardRoute,
+} from "@/lib/routing";
+import { useBlockedUserCheck } from "@/hooks/useBlockedUserCheck";
 
 const drawerWidth = 264;
 
@@ -58,10 +64,29 @@ export function AppShell({
   const pathname = usePathname();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
+  // Check if user has been blocked
+  useBlockedUserCheck();
+
   const navItems = useMemo(
-    () => getNavItemsForRole(session?.user.role ?? null, session?.user.userRole ?? null),
+    () =>
+      getNavItemsForRole(
+        session?.user.role ?? null,
+        session?.user.userRole ?? null
+      ),
     [session?.user.role, session?.user.userRole]
   );
+
+  const roleLabel = useMemo(() => {
+    if (!session?.user) {
+      return "Guest";
+    }
+
+    if (session.user.role === AuthRole.User && session.user.userRole) {
+      return session.user.userRole;
+    }
+
+    return session.user.role ?? "Guest";
+  }, [session?.user]);
 
   const currentItem = navItems.find((item) => pathname.startsWith(item.href));
   const title = pageTitle ?? currentItem?.label ?? "Overview";
@@ -98,6 +123,20 @@ export function AppShell({
     }
   };
 
+  const handleProfileClick = () => {
+    const role = session?.user.role;
+    if (role) {
+      handleNavigate(getProfileRoute(role));
+    }
+  };
+
+  const handleLogoClick = () => {
+    const role = session?.user.role;
+    if (role) {
+      handleNavigate(getDefaultDashboardRoute(role));
+    }
+  };
+
   const drawerContent = (
     <Box
       sx={{
@@ -114,7 +153,18 @@ export function AppShell({
         px={3}
         py={2}
       >
-        <Typography variant="h6" fontWeight={700}>
+        <Typography
+          variant="h6"
+          fontWeight={700}
+          onClick={handleLogoClick}
+          sx={{
+            cursor: "pointer",
+            "&:hover": {
+              color: theme.palette.secondary.main,
+            },
+            transition: "color 0.2s",
+          }}
+        >
           Zapvent
         </Typography>
         {!isLarge && (
@@ -123,15 +173,13 @@ export function AppShell({
           </IconButton>
         )}
       </Box>
-      <Divider
-        sx={{ borderColor: "rgba(148, 163, 184, 0.2)", mx: 2, mb: 1 }}
-      />
+      <Divider sx={{ borderColor: "rgba(148, 163, 184, 0.2)", mx: 2, mb: 1 }} />
       <Box px={3} pb={2}>
         <Typography variant="subtitle2" color="rgba(148,163,184,0.7)">
           {session?.user.name ?? session?.user.email}
         </Typography>
         <Typography variant="body2" color="rgba(148,163,184,0.5)">
-          {session?.user.role ?? "Guest"}
+          {roleLabel}
         </Typography>
       </Box>
       <List sx={{ px: 1 }}>
@@ -208,14 +256,22 @@ export function AppShell({
               </Box>
               {actions}
               <Tooltip title="Notifications">
-                <IconButton size="large" sx={{ ml: 1 }} aria-label="Notifications">
+                <IconButton
+                  size="large"
+                  sx={{ ml: 1 }}
+                  aria-label="Notifications"
+                >
                   <Badge badgeContent={2} color="secondary">
                     <NotificationsIcon />
                   </Badge>
                 </IconButton>
               </Tooltip>
               <Tooltip title="Account settings">
-                <IconButton sx={{ ml: 1 }} onClick={handleMenuOpen} size="small">
+                <IconButton
+                  sx={{ ml: 1 }}
+                  onClick={handleMenuOpen}
+                  size="small"
+                >
                   <Avatar
                     sx={{
                       bgcolor: theme.palette.primary.main,
@@ -238,7 +294,7 @@ export function AppShell({
             anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
             transformOrigin={{ horizontal: "right", vertical: "top" }}
           >
-            <MenuItem onClick={() => handleNavigate("/profile")}>
+            <MenuItem onClick={handleProfileClick}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" />
               </ListItemIcon>

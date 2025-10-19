@@ -4,7 +4,7 @@ import multer from "multer";
 import { loginRequired, allowedRoles } from "../middleware/authMiddleware";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ dest: "uploads/" });
 
 // Accept multipart/form-data from the onboarding form (text fields + optional files)
 router.post(
