@@ -25,7 +25,7 @@ export function useBlockedUserCheck() {
       !token ||
       !sessionUser ||
       sessionUser.role === AuthRole.Admin ||
-      sessionUser.role === AuthRole.EventsOffice
+      sessionUser.role === AuthRole.EventOffice
     ) {
       return;
     }
