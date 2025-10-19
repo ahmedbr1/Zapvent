@@ -35,7 +35,7 @@ export function getProfileRoute(role: AuthRole): string {
     case AuthRole.EventsOffice:
       return "/events-office/bazaars"; // Events office dashboard (no profile page yet)
     case AuthRole.Vendor:
-      return "/vendor/dashboard"; // Vendor dashboard (no profile page yet)
+      return "/vendor/profile"; // Vendor profile page
     case AuthRole.User:
     default:
       return "/user/dashboard"; // User dashboard (no profile page yet)

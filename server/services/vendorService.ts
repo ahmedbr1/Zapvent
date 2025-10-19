@@ -362,3 +362,102 @@ export async function verifyVendor(vendorId: string): Promise<{
     };
   }
 }
+
+// Get vendor profile by ID
+export async function getVendorProfile(vendorId: string): Promise<{
+  success: boolean;
+  message?: string;
+  data?: Partial<IVendor>;
+}> {
+  try {
+    const vendor = await vendorModel.findById(vendorId).select("-password");
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: vendor._id.toString(),
+        email: vendor.email,
+        companyName: vendor.companyName,
+        loyaltyForum: vendor.loyaltyForum,
+        logo: vendor.logo,
+        taxCard: vendor.taxCard,
+        documents: vendor.documents,
+        isVerified: vendor.isVerified,
+        createdAt: vendor.createdAt,
+        updatedAt: vendor.updatedAt,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching vendor profile:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching vendor profile",
+    };
+  }
+}
+
+// Update vendor profile
+export async function updateVendorProfile(
+  vendorId: string,
+  updateData: Partial<IVendor>
+): Promise<{
+  success: boolean;
+  message?: string;
+  data?: Partial<IVendor>;
+}> {
+  try {
+    const allowedUpdates = ["companyName", "loyaltyForum"];
+    const updates: Partial<IVendor> = {};
+
+    // Only allow specific fields to be updated
+    for (const key of allowedUpdates) {
+      if (key in updateData) {
+        updates[key as keyof IVendor] = updateData[
+          key as keyof IVendor
+        ] as never;
+      }
+    }
+
+    const vendor = await vendorModel
+      .findByIdAndUpdate(
+        vendorId,
+        { $set: updates },
+        { new: true, runValidators: true }
+      )
+      .select("-password");
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Profile updated successfully",
+      data: {
+        id: vendor._id.toString(),
+        email: vendor.email,
+        companyName: vendor.companyName,
+        loyaltyForum: vendor.loyaltyForum,
+        logo: vendor.logo,
+        taxCard: vendor.taxCard,
+        documents: vendor.documents,
+      },
+    };
+  } catch (error) {
+    console.error("Error updating vendor profile:", error);
+    return {
+      success: false,
+      message: "An error occurred while updating profile",
+    };
+  }
+}

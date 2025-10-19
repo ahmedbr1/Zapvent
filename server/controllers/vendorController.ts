@@ -82,6 +82,14 @@ export class VendorController {
         });
       }
 
+      // Validate attendees limit
+      if (attendees > 5) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum 5 attendees allowed per booth",
+        });
+      }
+
       if (!vendorId) {
         return res.status(401).json({
           success: false,
@@ -236,6 +244,72 @@ export class VendorController {
         success: false,
         message:
           error instanceof Error ? error.message : "Failed to verify vendor",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async getProfile(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = req.user?.id;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
+      const result = await vendorService.getVendorProfile(vendorId);
+
+      if (!result.success) {
+        const statusCode = result.message === "Vendor not found" ? 404 : 400;
+        return res.status(statusCode).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Get vendor profile error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async updateProfile(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = req.user?.id;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updateData = (req as any).body;
+
+      const result = await vendorService.updateVendorProfile(
+        vendorId,
+        updateData
+      );
+
+      if (!result.success) {
+        const statusCode = result.message === "Vendor not found" ? 404 : 400;
+        return res.status(statusCode).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Update vendor profile error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
       });
     }
   }

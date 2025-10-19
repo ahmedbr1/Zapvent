@@ -21,6 +21,11 @@ router.post(
   "/apply-bazaar",
   vendorController.applyToBazaar.bind(vendorController)
 );
+
+// Profile routes - protected with decorators in controller
+router.get("/profile", vendorController.getProfile.bind(vendorController));
+router.patch("/profile", vendorController.updateProfile.bind(vendorController));
+
 router.patch(
   "/bazaar-application/status",
   vendorController.updateBazaarApplicationStatus.bind(vendorController)
