@@ -5,7 +5,7 @@ import vendorModel, {
   BazaarApplication,
 } from "../models/Vendor";
 import { z } from "zod";
-import EventModel, { EventType } from "../models/Event";
+import EventModel, { BazaarBoothSize, EventType } from "../models/Event";
 import { Types } from "mongoose";
 
 // Zod schema for vendor signup validation
@@ -46,7 +46,7 @@ export interface AdminVendorApplication {
   status: VendorStatus;
   applicationDate?: Date;
   attendees: number;
-  boothSize: number;
+  boothSize: BazaarBoothSize;
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;
@@ -106,7 +106,7 @@ export async function applyToBazaar(
   applicationData: {
     eventId: string;
     attendees: { name: string; email: string }[];
-    boothSize: number;
+    boothSize: BazaarBoothSize;
     boothInfo?: {
       boothLocation?: string;
       boothStartTime?: Date;
@@ -149,11 +149,8 @@ export async function applyToBazaar(
       return { success: false, message: "Maximum 5 attendees allowed" };
     }
     // Validate booth size
-    if (
-      !Number.isFinite(applicationData.boothSize) ||
-      applicationData.boothSize < 1
-    ) {
-      return { success: false, message: "boothSize must be a number >= 1" };
+    if (!Object.values(BazaarBoothSize).includes(applicationData.boothSize)) {
+      return { success: false, message: "Invalid boothSize" };
     }
 
     let boothInfoToSave: BoothInfo | undefined = undefined;
