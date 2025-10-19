@@ -162,6 +162,7 @@ export interface IUserRegisteredEventItem {
   startDate: Date;
   endDate: Date;
   registrationDeadline: Date;
+  status: "Past" | "Upcoming";
 }
 
 export interface IUserRegisteredEventsResponse {
@@ -196,14 +197,28 @@ export async function findRegisteredEvents(
       _id: { $in: eventIds },
     }).lean<Array<IEvent & { _id: Types.ObjectId }>>();
 
-    const formattedEvents: IUserRegisteredEventItem[] = events.map((event) => ({
-      id: event._id.toString(),
-      name: event.name,
-      location: event.location,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      registrationDeadline: event.registrationDeadline,
-    }));
+    const now = new Date();
+    const formattedEvents: IUserRegisteredEventItem[] = events.map((event) => {
+      const rawReferenceDate = event.endDate ?? event.startDate;
+      const referenceDate =
+        rawReferenceDate instanceof Date
+          ? rawReferenceDate
+          : rawReferenceDate
+          ? new Date(rawReferenceDate)
+          : null;
+      const status =
+        referenceDate && referenceDate.getTime() < now.getTime() ? "Past" : "Upcoming";
+
+      return {
+        id: event._id.toString(),
+        name: event.name,
+        location: event.location,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        registrationDeadline: event.registrationDeadline,
+        status,
+      };
+    });
 
     return {
       success: true,

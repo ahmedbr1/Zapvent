@@ -158,6 +158,7 @@ export interface UserRegisteredEvent {
   startDate: string;
   endDate: string;
   registrationDeadline: string;
+  status: "Past" | "Upcoming";
 }
 
 export interface CourtSlot {
