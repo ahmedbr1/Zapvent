@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -10,16 +10,11 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Box from "@mui/material/Box";
 import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
 import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelIcon from "@mui/icons-material/CancelRounded";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -101,6 +96,130 @@ export default function VendorApplicationsDetailPage({
         return "default";
     }
   };
+
+  // Define columns for DataGrid
+  const columns = useMemo<GridColDef<AdminVendorApplication>[]>(
+    () => [
+      {
+        field: "eventName",
+        headerName: "Event Name",
+        flex: 1.5,
+        minWidth: 200,
+        renderCell: ({ row }) => (
+          <Typography variant="body2" fontWeight={500}>
+            {row.eventName || "Unknown Event"}
+          </Typography>
+        ),
+      },
+      {
+        field: "eventId",
+        headerName: "Event ID",
+        flex: 1,
+        minWidth: 120,
+        renderCell: ({ value }) => (
+          <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
+            {value.substring(0, 8)}...
+          </Typography>
+        ),
+      },
+      {
+        field: "applicationDate",
+        headerName: "Application Date",
+        flex: 1.2,
+        minWidth: 180,
+        renderCell: ({ value }) => (
+          <Typography variant="body2">
+            {value ? formatDateTime(value) : "—"}
+          </Typography>
+        ),
+      },
+      {
+        field: "attendees",
+        headerName: "Attendees",
+        flex: 0.7,
+        minWidth: 100,
+        align: "center",
+        headerAlign: "center",
+      },
+      {
+        field: "boothSize",
+        headerName: "Booth Size",
+        flex: 0.8,
+        minWidth: 110,
+        renderCell: ({ value }) => (
+          <Typography variant="body2">{value} sq m</Typography>
+        ),
+      },
+      {
+        field: "boothLocation",
+        headerName: "Booth Location",
+        flex: 1,
+        minWidth: 150,
+        renderCell: ({ value }) =>
+          value ? (
+            <Typography variant="body2">{value}</Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Not assigned
+            </Typography>
+          ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        flex: 0.8,
+        minWidth: 110,
+        renderCell: ({ value }) => (
+          <Chip
+            label={value?.toUpperCase() || "PENDING"}
+            size="small"
+            color={getStatusColor(value)}
+          />
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        flex: 0.8,
+        minWidth: 120,
+        sortable: false,
+        align: "right",
+        headerAlign: "right",
+        renderCell: ({ row }) =>
+          row.status === "pending" ? (
+            <Stack direction="row" spacing={0.5}>
+              <IconButton
+                size="small"
+                color="success"
+                onClick={() =>
+                  updateStatusMutation.mutate({
+                    eventId: row.eventId,
+                    status: "approved",
+                  })
+                }
+                disabled={updateStatusMutation.isPending}
+              >
+                <CheckCircleIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() =>
+                  updateStatusMutation.mutate({
+                    eventId: row.eventId,
+                    status: "rejected",
+                  })
+                }
+                disabled={updateStatusMutation.isPending}
+              >
+                <CancelIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          ) : null,
+      },
+    ],
+    [updateStatusMutation]
+  );
 
   if (isLoading) {
     return (
@@ -258,101 +377,32 @@ export default function VendorApplicationsDetailPage({
               This vendor hasn&apos;t submitted any applications yet.
             </Alert>
           ) : (
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Event ID</TableCell>
-                    <TableCell>Application Date</TableCell>
-                    <TableCell>Attendees</TableCell>
-                    <TableCell>Booth Size</TableCell>
-                    <TableCell>Booth Location</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {vendor.applications.map(
-                    (app: AdminVendorApplication, index: number) => (
-                      <TableRow
-                        key={index}
-                        sx={{
-                          bgcolor:
-                            app.status === "pending"
-                              ? "warning.lighter"
-                              : "inherit",
-                        }}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">
-                            {app.eventId.substring(0, 8)}...
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {app.applicationDate
-                              ? formatDateTime(app.applicationDate)
-                              : "—"}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{app.attendees}</TableCell>
-                        <TableCell>{app.boothSize} sq m</TableCell>
-                        <TableCell>
-                          {app.boothLocation || (
-                            <Typography variant="body2" color="text.secondary">
-                              Not assigned
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={app.status.toUpperCase()}
-                            size="small"
-                            color={getStatusColor(app.status)}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          {app.status === "pending" && (
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              justifyContent="flex-end"
-                            >
-                              <IconButton
-                                size="small"
-                                color="success"
-                                onClick={() =>
-                                  updateStatusMutation.mutate({
-                                    eventId: app.eventId,
-                                    status: "approved",
-                                  })
-                                }
-                                disabled={updateStatusMutation.isPending}
-                              >
-                                <CheckCircleIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() =>
-                                  updateStatusMutation.mutate({
-                                    eventId: app.eventId,
-                                    status: "rejected",
-                                  })
-                                }
-                                disabled={updateStatusMutation.isPending}
-                              >
-                                <CancelIcon fontSize="small" />
-                              </IconButton>
-                            </Stack>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <Box sx={{ height: 500, width: "100%" }}>
+              <DataGrid
+                rows={vendor.applications}
+                columns={columns}
+                getRowId={(row) => row.eventId}
+                disableColumnMenu={false}
+                disableRowSelectionOnClick
+                initialState={{
+                  pagination: {
+                    paginationModel: { pageSize: 10, page: 0 },
+                  },
+                }}
+                pageSizeOptions={[5, 10, 25]}
+                getRowClassName={(params) =>
+                  params.row.status === "pending" ? "pending-row" : ""
+                }
+                sx={{
+                  "& .pending-row": {
+                    bgcolor: "warning.lighter",
+                  },
+                  "& .MuiDataGrid-columnHeader": {
+                    fontWeight: 600,
+                  },
+                }}
+              />
+            </Box>
           )}
         </Stack>
       </Card>

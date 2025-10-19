@@ -37,6 +37,7 @@ interface ApproveUserResponse extends AdminActionResponse {
 
 export interface AdminVendorApplication {
   eventId: string;
+  eventName?: string;
   status: VendorStatus;
   applicationDate?: string;
   attendees: number;
