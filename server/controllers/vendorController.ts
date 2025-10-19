@@ -104,6 +104,14 @@ export class VendorController {
         });
       }
 
+      if (boothSize !== "2x2" && boothSize !== "4x4") {
+        console.log("Validation failed: invalid booth size");
+        return res.status(400).json({
+          success: false,
+          message: "Booth size must be '2x2' or '4x4'",
+        });
+      }
+
       // Validate attendees limit
       if (attendees > 5) {
         console.log("Validation failed: too many attendees");

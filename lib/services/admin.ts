@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api-client";
 import type { AuthRole, UserRole, UserStatus, VendorStatus } from "@/lib/types";
+import { BazaarBoothSize } from "@/server/models/Event";
 
 export interface AdminUser {
   id: string;
@@ -34,7 +35,7 @@ export interface AdminVendorApplication {
   status: VendorStatus;
   applicationDate?: Date;
   attendees: number;
-  boothSize: number;
+  boothSize: BazaarBoothSize;
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;

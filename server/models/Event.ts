@@ -29,6 +29,11 @@ export enum EventType {
   BAZAAR = "Bazaar",
 }
 
+export enum BazaarBoothSize {
+  SMALL = "2x2",
+  LARGE = "4x4",
+}
+
 export interface IEvent extends IBaseModel {
   // Event type? workshop, seminar, etc. Not decided yet
   name: string;
