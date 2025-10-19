@@ -15,6 +15,8 @@ import {
   editBazaarDetails,
   createTrip,
   editTripDetails,
+  getAllTrips,
+  getTripById,
   getRequestedUpcomingBazaars,
   createWorkshop,
   editWorkshop,
@@ -67,6 +69,15 @@ export class EventController {
       if (err instanceof Error && err.message === "INVALID_EVENT_ID") {
         return res.status(400).json({ message: "Invalid event id" });
       }
+      if (
+        err instanceof Error &&
+        err.message === "Cannot delete event with registered users"
+      ) {
+        return res.status(400).json({
+          message:
+            "Cannot delete event with registered users. Please remove all registrations first.",
+        });
+      }
       console.error(err);
       return res.status(500).json({ message: "Failed to delete event" });
     }
@@ -97,6 +108,24 @@ export class EventController {
 
   @LoginRequired()
   @AllowedRoles(["Admin", "EventOffice"])
+  async getAllTripsController(_req: AuthRequest, res: Response) {
+    try {
+      const result = await getAllTrips();
+      if (!result.success) {
+        return res.status(500).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Error fetching trips:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to load trips." });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventOffice"])
   async createNewTrip(req: AuthRequest, res: Response) {
     try {
       const tripData: Partial<IEvent> = req.body;
@@ -118,6 +147,34 @@ export class EventController {
     try {
       const { id } = req.params;
       const updateData: Partial<IEvent> = req.body;
+
+      const existingTrip = await getTripById(id);
+
+      if (!existingTrip) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Trip not found" });
+      }
+
+      const isEventsOffice =
+        req.user?.role === "EventOffice" ||
+        (req.user?.role === "Admin" && req.user?.adminType === "EventOffice");
+
+      if (isEventsOffice) {
+        const referenceDate =
+          existingTrip.startDate ?? existingTrip.date ?? null;
+        const hasTripStarted =
+          referenceDate !== null &&
+          new Date(referenceDate).getTime() <= Date.now();
+
+        if (hasTripStarted) {
+          return res.status(403).json({
+            success: false,
+            message:
+              "Trips that have already started or passed can only be edited by administrators.",
+          });
+        }
+      }
 
       const result = await editTripDetails(id, updateData);
 
@@ -606,6 +663,8 @@ const eventController = new EventController();
 
 export const updateBazaarDetails =
   eventController.updateBazaarDetails.bind(eventController);
+export const getAllTripsController =
+  eventController.getAllTripsController.bind(eventController);
 export const createNewTrip =
   eventController.createNewTrip.bind(eventController);
 export const updateTripDetails =

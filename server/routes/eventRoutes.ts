@@ -38,6 +38,7 @@ router.delete("/:eventId", (req, res) =>
 // Authenticated management routes
 // use distinct path for bazaar update to avoid clashing with gym-session edit route
 router.put("/bazaar/:id", eventController.updateBazaarDetails);
+router.get("/trip", eventController.getAllTripsController);
 router.post("/trip", eventController.createNewTrip);
 router.put("/trip/:id", eventController.updateTripDetails);
 

@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActions from "@mui/material/CardActions";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -83,6 +84,7 @@ export default function TripManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
 
   const {
     data,
@@ -164,6 +166,14 @@ export default function TripManagementPage() {
   const handleEditClick = (tripId: string) => {
     const trip = (data ?? []).find((item) => item.id === tripId);
     if (!trip) return;
+
+    if (isEventsOfficeUser && !dayjs(trip.startDate).isAfter(dayjs())) {
+      enqueueSnackbar("Trips that have started can only be edited by administrators.", {
+        variant: "warning",
+      });
+      return;
+    }
+
     setEditingTripId(tripId);
     reset({
       name: trip.name,
@@ -260,16 +270,37 @@ export default function TripManagementPage() {
           </Grid>
         ) : null}
 
-        {trips.map((trip) => (
-          <Grid item xs={12} md={6} lg={4} key={trip.id}>
-            <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="h6" fontWeight={700}>
-                      {trip.name}
+        {trips.map((trip) => {
+          const tripHasStarted = !dayjs(trip.startDate).isAfter(dayjs());
+          const disableEdit = isEventsOfficeUser && tripHasStarted;
+          return (
+            <Grid item xs={12} md={6} lg={4} key={trip.id}>
+              <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Stack spacing={1.5}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="h6" fontWeight={700}>
+                        {trip.name}
+                      </Typography>
+                      <Chip label={trip.location} size="small" color="primary" />
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {trip.description}
                     </Typography>
-                    <Chip label={trip.location} size="small" color="primary" />
+                    <Divider />
+                    <Stack spacing={1}>
+                      <Detail label="Start" value={formatDateTime(trip.startDate)} />
+                      <Detail label="End" value={formatDateTime(trip.endDate)} />
+                      <Detail
+                        label="Registration deadline"
+                        value={formatDateTime(trip.registrationDeadline)}
+                      />
+                      <Detail
+                        label="Capacity"
+                        value={`${trip.capacity ?? 0} participants`}
+                      />
+                      <Detail label="Price" value={formatPrice(trip.price ?? 0)} />
+                    </Stack>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
                     {trip.description}
