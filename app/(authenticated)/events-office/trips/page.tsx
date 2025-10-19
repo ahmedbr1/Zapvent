@@ -27,6 +27,7 @@ import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
+import DeleteIcon from "@mui/icons-material/DeleteRounded";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -35,6 +36,7 @@ import {
   fetchTrips,
   createTrip,
   updateTrip,
+  deleteEvent,
   type TripPayload,
 } from "@/lib/services/events";
 import { formatDateTime } from "@/lib/date";
@@ -80,6 +82,7 @@ export default function TripManagementPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const {
     data,
@@ -135,6 +138,23 @@ export default function TripManagementPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEvent(id, token ?? undefined),
+    onMutate: (id: string) => {
+      setPendingDeleteId(id);
+    },
+    onSuccess: () => {
+      enqueueSnackbar("Trip deleted", { variant: "success" });
+      queryClient.invalidateQueries({ queryKey: ["events", "trips"] });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+    onSettled: () => {
+      setPendingDeleteId(null);
+    },
+  });
+
   const handleCreateClick = () => {
     setEditingTripId(null);
     reset(defaultTripValues());
@@ -156,6 +176,20 @@ export default function TripManagementPage() {
       price: trip.price ?? 0,
     });
     setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (tripId: string, tripName: string) => {
+    const confirmed = window.confirm(
+      `Delete "${tripName}"? This action cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    if (editingTripId === tripId) {
+      setDialogOpen(false);
+      setEditingTripId(null);
+    }
+    deleteMutation.mutate(tripId);
   };
 
   const closeDialog = () => {
@@ -257,13 +291,24 @@ export default function TripManagementPage() {
                 </Stack>
               </CardContent>
               <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
-                <Button
-                  startIcon={<EditIcon />}
-                  onClick={() => handleEditClick(trip.id)}
-                  variant="outlined"
-                >
-                  Edit
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    startIcon={<EditIcon />}
+                    onClick={() => handleEditClick(trip.id)}
+                    variant="outlined"
+                    disabled={deleteMutation.isPending && pendingDeleteId === trip.id}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => handleDeleteClick(trip.id, trip.name)}
+                    disabled={deleteMutation.isPending && pendingDeleteId === trip.id}
+                  >
+                    Delete
+                  </Button>
+                </Stack>
               </CardActions>
             </Card>
           </Grid>
@@ -405,7 +450,11 @@ export default function TripManagementPage() {
             type="submit"
             form="trip-form"
             variant="contained"
-            disabled={createMutation.isPending || updateMutation.isPending}
+            disabled={
+              createMutation.isPending ||
+              updateMutation.isPending ||
+              deleteMutation.isPending
+            }
           >
             {actionLabel}
           </Button>

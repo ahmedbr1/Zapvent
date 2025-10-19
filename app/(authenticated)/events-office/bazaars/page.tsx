@@ -25,6 +25,7 @@ import Skeleton from "@mui/material/Skeleton";
 import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
+import DeleteIcon from "@mui/icons-material/DeleteRounded";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import dayjs from "dayjs";
 import { useSnackbar } from "notistack";
@@ -34,6 +35,7 @@ import {
   fetchUpcomingBazaars,
   createBazaar,
   updateBazaar,
+  deleteEvent,
   type BazaarPayload,
 } from "@/lib/services/events";
 import { formatDateTime } from "@/lib/date";
@@ -66,6 +68,7 @@ export default function BazaarManagementPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBazaarId, setEditingBazaarId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "bazaars", token],
@@ -103,6 +106,23 @@ export default function BazaarManagementPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEvent(id, token ?? undefined),
+    onMutate: (id: string) => {
+      setPendingDeleteId(id);
+    },
+    onSuccess: () => {
+      enqueueSnackbar("Bazaar deleted", { variant: "success" });
+      queryClient.invalidateQueries({ queryKey: ["events", "bazaars"] });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+    onSettled: () => {
+      setPendingDeleteId(null);
+    },
+  });
+
   const handleCreateClick = () => {
     setEditingBazaarId(null);
     reset(defaultBazaarValues());
@@ -122,6 +142,19 @@ export default function BazaarManagementPage() {
       registrationDeadline: dayjs(bazaar.registrationDeadline).toDate(),
     });
     setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (bazaarId: string, bazaarName: string) => {
+    const confirmed = window.confirm(
+      `Delete "${bazaarName}"? This action cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    if (editingBazaarId === bazaarId) {
+      closeDialog();
+    }
+    deleteMutation.mutate(bazaarId);
   };
 
   const closeDialog = () => {
@@ -212,10 +245,24 @@ export default function BazaarManagementPage() {
                     </Typography>
                   </Stack>
                 </CardContent>
-                <CardActions sx={{ px: 3, pb: 3 }}>
-                  <Button startIcon={<EditIcon />} onClick={() => handleEditClick(bazaar.id)}>
-                    Edit bazaar
-                  </Button>
+                <CardActions sx={{ px: 3, pb: 3, justifyContent: "flex-end" }}>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={() => handleEditClick(bazaar.id)}
+                      disabled={deleteMutation.isPending && pendingDeleteId === bazaar.id}
+                    >
+                      Edit bazaar
+                    </Button>
+                    <Button
+                      color="error"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => handleDeleteClick(bazaar.id, bazaar.name)}
+                      disabled={deleteMutation.isPending && pendingDeleteId === bazaar.id}
+                    >
+                      Delete
+                    </Button>
+                  </Stack>
                 </CardActions>
               </Card>
             </Grid>
@@ -258,20 +305,29 @@ export default function BazaarManagementPage() {
               error={Boolean(formState.errors.description)}
               helperText={formState.errors.description?.message}
             />
-            <TextField
-              select
-              label="Location"
-              fullWidth
-              {...register("location")}
-              error={Boolean(formState.errors.location)}
-              helperText={formState.errors.location?.message}
-            >
-              {Object.values(Location).map((loc) => (
-                <MenuItem key={loc} value={loc}>
-                  {loc}
-                </MenuItem>
-              ))}
-            </TextField>
+            <Controller
+              control={control}
+              name="location"
+              render={({ field }) => (
+                <TextField
+                  select
+                  label="Location"
+                  fullWidth
+                  value={field.value ?? ""}
+                  onChange={(event) => field.onChange(event.target.value as Location)}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  error={Boolean(formState.errors.location)}
+                  helperText={formState.errors.location?.message}
+                >
+                  {Object.values(Location).map((loc) => (
+                    <MenuItem key={loc} value={loc}>
+                      {loc}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
             <Controller
               control={control}
               name="startDate"
@@ -324,7 +380,11 @@ export default function BazaarManagementPage() {
             type="submit"
             form="bazaar-form"
             variant="contained"
-            disabled={createMutation.isPending || updateMutation.isPending}
+            disabled={
+              createMutation.isPending ||
+              updateMutation.isPending ||
+              deleteMutation.isPending
+            }
           >
             {actionLabel}
           </Button>

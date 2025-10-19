@@ -29,6 +29,7 @@ import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
 import LinkIcon from "@mui/icons-material/LinkRounded";
+import DeleteIcon from "@mui/icons-material/DeleteRounded";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
@@ -36,6 +37,7 @@ import {
   fetchConferences,
   createConference,
   updateConference,
+  deleteEvent,
   type ConferencePayload,
 } from "@/lib/services/events";
 import { AuthRole, FundingSource } from "@/lib/types";
@@ -78,6 +80,7 @@ export default function ConferenceManagementPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingConferenceId, setEditingConferenceId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "conferences", token ?? "public"],
@@ -123,6 +126,23 @@ export default function ConferenceManagementPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEvent(id, token ?? undefined),
+    onMutate: (id: string) => {
+      setPendingDeleteId(id);
+    },
+    onSuccess: () => {
+      enqueueSnackbar("Conference deleted", { variant: "success" });
+      queryClient.invalidateQueries({ queryKey: ["events", "conferences"] });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+    onSettled: () => {
+      setPendingDeleteId(null);
+    },
+  });
+
   const handleCreateClick = () => {
     setEditingConferenceId(null);
     reset(defaultConferenceValues());
@@ -145,6 +165,19 @@ export default function ConferenceManagementPage() {
       extraRequiredResources: conference.extraRequiredResources ?? "",
     });
     setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (conferenceId: string, conferenceName: string) => {
+    const confirmed = window.confirm(
+      `Delete "${conferenceName}"? This action cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    if (editingConferenceId === conferenceId) {
+      closeDialog();
+    }
+    deleteMutation.mutate(conferenceId);
   };
 
   const closeDialog = () => {
@@ -270,13 +303,24 @@ export default function ConferenceManagementPage() {
                 </Stack>
               </CardContent>
               <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
-                <Button
-                  startIcon={<EditIcon />}
-                  onClick={() => handleEditClick(conference.id)}
-                  variant="outlined"
-                >
-                  Edit
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    startIcon={<EditIcon />}
+                    onClick={() => handleEditClick(conference.id)}
+                    variant="outlined"
+                    disabled={deleteMutation.isPending && pendingDeleteId === conference.id}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => handleDeleteClick(conference.id, conference.name)}
+                    disabled={deleteMutation.isPending && pendingDeleteId === conference.id}
+                  >
+                    Delete
+                  </Button>
+                </Stack>
               </CardActions>
             </Card>
           </Grid>
@@ -431,7 +475,11 @@ export default function ConferenceManagementPage() {
             type="submit"
             form="conference-form"
             variant="contained"
-            disabled={createMutation.isPending || updateMutation.isPending}
+            disabled={
+              createMutation.isPending ||
+              updateMutation.isPending ||
+              deleteMutation.isPending
+            }
           >
             {actionLabel}
           </Button>
