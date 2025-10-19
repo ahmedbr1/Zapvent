@@ -70,18 +70,17 @@ export async function approveUser(userId: string, token?: string) {
   return response;
 }
 
-export async function fetchAdminVendors(
-  token?: string
-): Promise<AdminVendor[]> {
-  const response = await apiFetch<AdminVendorsResponse>("/vendors/admin", {
-    token,
-  });
+export async function fetchAdminVendors(token?: string): Promise<AdminVendor[]> {
+  const response = await apiFetch<{ success: boolean; message: string; vendors?: AdminVendor[] }>(
+    "/vendors/admin",
+    { token }
+  );
 
   if (!response.success) {
-    throw new Error(response.message ?? "Failed to verify vendor");
+    throw new Error(response.message ?? "Failed to fetch vendors");
   }
 
-  return response;
+  return response.vendors ?? [];
 }
 
 export async function rejectUser(
