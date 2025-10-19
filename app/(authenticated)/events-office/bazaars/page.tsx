@@ -131,7 +131,6 @@ export default function BazaarManagementPage() {
       setPendingDeleteId(null);
     },
   });
-
   const bazaars = useMemo(() => {
     if (!data) return [];
     return [...data].sort(
