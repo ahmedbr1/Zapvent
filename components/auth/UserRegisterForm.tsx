@@ -12,6 +12,10 @@ import LoadingButton from "@mui/lab/LoadingButton";
 import { apiFetch } from "@/lib/api-client";
 import { useSnackbar } from "notistack";
 import { UserRole } from "@/lib/types";
+import InputAdornment from "@mui/material/InputAdornment";
+import IconButton from "@mui/material/IconButton";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 const registrationSchema = z
   .object({
@@ -82,6 +86,8 @@ export function UserRegisterForm() {
   const { enqueueSnackbar } = useSnackbar();
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const role = watch("role");
+  const password = watch("password");
+  const [showPassword, setShowPassword] = useState(false);
 
   const showStudentId = role === UserRole.Student;
   const showStaffId = [
@@ -251,7 +257,7 @@ export function UserRegisterForm() {
         <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             fullWidth
             autoComplete="new-password"
             {...register("password")}
@@ -260,12 +266,30 @@ export function UserRegisterForm() {
               errors.password?.message ??
               "Use at least 8 characters with letters, numbers & symbols."
             }
+            slotProps={{
+              input: {
+                endAdornment: password ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      onClick={() => setShowPassword((s) => !s)}
+                      edge="end"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              },
+            }}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             label="Confirm password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             fullWidth
             autoComplete="new-password"
             {...register("confirmPassword")}

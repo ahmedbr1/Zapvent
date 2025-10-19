@@ -38,6 +38,7 @@ export interface IVendor extends IBaseModel {
   verificationStatus: VendorStatus; // Pending, Approved, Rejected
   applications?: BazaarApplication[];
   loyaltyForum?: string; // URL containing the forum link
+  isVerified?: boolean;
 }
 const vendorSchema = new Schema<IVendor>(
   {
