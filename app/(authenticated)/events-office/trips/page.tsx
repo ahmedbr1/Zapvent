@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActions from "@mui/material/CardActions";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -83,6 +84,7 @@ export default function TripManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
 
   const {
     data,
@@ -166,6 +168,14 @@ export default function TripManagementPage() {
   const handleEditClick = (tripId: string) => {
     const trip = (data ?? []).find((item) => item.id === tripId);
     if (!trip) return;
+
+    if (isEventsOfficeUser && !dayjs(trip.startDate).isAfter(dayjs())) {
+      enqueueSnackbar("Trips that have started can only be edited by administrators.", {
+        variant: "warning",
+      });
+      return;
+    }
+
     setEditingTripId(tripId);
     reset({
       name: trip.name,
@@ -263,10 +273,15 @@ export default function TripManagementPage() {
         ) : null}
 
         {trips.map((trip) => {
+<<<<<<< HEAD
           const disableActions =
             disableEdit ||
             (deleteMutation.isPending && pendingDeleteId === trip.id);
 
+=======
+          const tripHasStarted = !dayjs(trip.startDate).isAfter(dayjs());
+          const disableEdit = isEventsOfficeUser && tripHasStarted;
+>>>>>>> eab97295def789158a0243214c7a0b527cee100a
           return (
             <Grid item xs={12} md={6} lg={4} key={trip.id}>
               <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>

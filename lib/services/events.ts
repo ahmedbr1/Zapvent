@@ -165,7 +165,20 @@ export async function fetchTrips(
   token?: string,
   currentUserId?: string
 ): Promise<EventSummary[]> {
-  const events = await fetchUpcomingEvents(token, currentUserId);
+  if (token) {
+    const response = await apiFetch<EventApiResponse>("/events/trip", {
+      method: "GET",
+      token,
+    });
+
+    if (!response.success) {
+      throw new Error(response.message ?? "Failed to load trips");
+    }
+
+    return (response.data ?? []).map((item) => mapEvent(item, currentUserId));
+  }
+
+  const events = await fetchUpcomingEvents(undefined, currentUserId);
   return events.filter((event) => event.eventType === EventType.Trip);
 }
 

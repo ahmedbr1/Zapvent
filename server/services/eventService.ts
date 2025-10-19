@@ -169,8 +169,12 @@ export async function deleteEventById(eventId: string) {
     Comment.deleteMany({ event: event._id }),
     Rating.deleteMany({ event: event._id }),
   ]);
+  if (event.registeredUsers.length == 0) {
+    await event.deleteOne(); // or Event.findByIdAndDelete(eventId)
+  } else {
+    throw new Error("Cannot delete event with registered users");
+  }
 
-  await event.deleteOne(); // or Event.findByIdAndDelete(eventId)
   return event;
 }
 
@@ -199,6 +203,42 @@ export const createTrip = async (
     return newTrip;
   } catch (error) {
     console.error("Error creating trip:", error);
+    throw error;
+  }
+};
+
+export interface IGetAllTripsResponse {
+  success: boolean;
+  data?: Array<IEvent & { _id: Types.ObjectId }>;
+  message?: string;
+}
+
+export const getAllTrips = async (): Promise<IGetAllTripsResponse> => {
+  try {
+    const trips = await EventModel.find({
+      eventType: EventType.TRIP,
+    })
+      .sort({ startDate: 1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    return {
+      success: true,
+      data: trips,
+    };
+  } catch (error) {
+    console.error("Error fetching trips:", error);
+    return {
+      success: false,
+      message: "Failed to fetch trips.",
+    };
+  }
+};
+
+export const getTripById = async (tripId: string): Promise<IEvent | null> => {
+  try {
+    return await EventModel.findById(tripId);
+  } catch (error) {
+    console.error("Error fetching trip:", error);
     throw error;
   }
 };
