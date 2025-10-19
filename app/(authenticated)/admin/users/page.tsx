@@ -18,11 +18,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import {
-  fetchAdminUsers,
+  fetchAdmins,
   approveUser,
   rejectUser,
   blockUser,
-  type AdminUser,
+  AdminAccount,
 } from "@/lib/services/admin";
 import { UserStatus, UserRole } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
@@ -35,7 +35,7 @@ export default function AdminUserManagementPage() {
   const { enqueueSnackbar } = useSnackbar();
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["admin", "users", token],
-    queryFn: () => fetchAdminUsers(token ?? undefined),
+    queryFn: () => fetchAdmins(token ?? undefined),
     enabled: Boolean(token),
   });
 
@@ -73,7 +73,7 @@ export default function AdminUserManagementPage() {
     },
   });
 
-  const rows: AdminUser[] = data ?? [];
+  const rows: AdminAccount[] = data ?? [];
 
   const columns = useMemo<GridColDef[]>(
     () => [
@@ -81,7 +81,7 @@ export default function AdminUserManagementPage() {
         field: "name",
         headerName: "Name",
         flex: 1.2,
-        valueGetter: (_value, row: AdminUser) => {
+        valueGetter: (_value, row: AdminAccount) => {
           if (!row) return "";
           const firstName = row.firstName?.trim() ?? "";
           const lastName = row.lastName?.trim() ?? "";
@@ -186,7 +186,7 @@ export default function AdminUserManagementPage() {
         headerName: "Created",
         flex: 0.8,
         // Provide the raw ISO string for sorting
-        valueGetter: (_value, row: AdminUser) => row?.createdAt ?? null,
+        valueGetter: (_value, row: AdminAccount) => row?.createdAt ?? null,
         // Display formatted date
         renderCell: (params) => {
           const createdAt = params.row?.createdAt as string | undefined;
