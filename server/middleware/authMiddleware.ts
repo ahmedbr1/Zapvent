@@ -180,6 +180,11 @@ export function allowedRoles(roles: UserRole[]) {
       candidateRoles.add(req.user.adminType);
     }
 
+    // Backward compatibility: normalize legacy "EventsOffice" tokens
+    if (candidateRoles.has("EventsOffice")) {
+      candidateRoles.add("EventOffice");
+    }
+
     const hasRequiredRole = roles.some((allowedRole) =>
       candidateRoles.has(allowedRole)
     );

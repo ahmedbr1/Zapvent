@@ -94,7 +94,7 @@ function formatSessionTime(date: string, time: string) {
 export default function EventsOfficeGymSessionsPage() {
   const token = useAuthToken();
   const user = useSessionUser();
-  const isEventsOffice = user?.role === AuthRole.EventsOffice;
+  const isEventsOffice = user?.role === AuthRole.EventOffice;
   const isAdmin = user?.role === AuthRole.Admin;
   const canManage = Boolean(isEventsOffice || isAdmin);
   const { enqueueSnackbar } = useSnackbar();
