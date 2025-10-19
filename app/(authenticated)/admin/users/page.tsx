@@ -1,11 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import {
-  DataGrid,
-  GridActionsCellItem,
-  GridColDef,
-} from "@mui/x-data-grid";
+import { DataGrid, GridActionsCellItem, GridColDef } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -21,8 +17,14 @@ import CancelIcon from "@mui/icons-material/CancelRounded";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { fetchAdminUsers, approveUser, rejectUser, blockUser, type AdminUser } from "@/lib/services/admin";
-import { UserStatus } from "@/lib/types";
+import {
+  fetchAdminUsers,
+  approveUser,
+  rejectUser,
+  blockUser,
+  type AdminUser,
+} from "@/lib/services/admin";
+import { UserStatus, UserRole } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
 import { useSessionUser } from "@/hooks/useSessionUser";
 
@@ -49,7 +51,8 @@ export default function AdminUserManagementPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (userId: string) => rejectUser(userId, undefined, token ?? undefined),
+    mutationFn: (userId: string) =>
+      rejectUser(userId, undefined, token ?? undefined),
     onSuccess: () => {
       enqueueSnackbar("User rejection recorded", { variant: "info" });
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -98,39 +101,117 @@ export default function AdminUserManagementPage() {
         field: "role",
         headerName: "Role",
         flex: 0.6,
-        renderCell: ({ value }) => <Chip label={value} size="small" color="primary" variant="outlined" />,
+        renderCell: ({ value }) => (
+          <Chip label={value} size="small" color="primary" variant="outlined" />
+        ),
       },
       {
         field: "status",
         headerName: "Status",
         flex: 0.6,
-        renderCell: ({ value }) => (
-          <Chip
-            label={value}
-            size="small"
-            color={value === UserStatus.Active ? "success" : "default"}
-            variant="outlined"
-          />
-        ),
+        renderCell: ({ row }) => {
+          // Students are automatically verified, show status
+          const isAutoVerified = row.role === UserRole.Student;
+
+          // Only show status if user is verified or is a student
+          if (!row.verified && !isAutoVerified) {
+            return (
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 1,
+                  bgcolor: "action.hover",
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    bgcolor: "warning.main",
+                    opacity: 0.6,
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    fontWeight: 500,
+                    fontSize: "0.7rem",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  PENDING
+                </Typography>
+              </Box>
+            );
+          }
+          return (
+            <Chip
+              label={row.status}
+              size="small"
+              color={row.status === UserStatus.Active ? "success" : "default"}
+              variant="outlined"
+            />
+          );
+        },
       },
       {
         field: "verified",
         headerName: "Verified",
         flex: 0.5,
-        renderCell: ({ value }) => (
-          <Chip
-            label={value ? "Verified" : "Pending"}
-            size="small"
-            color={value ? "success" : "warning"}
-            variant={value ? "filled" : "outlined"}
-          />
-        ),
+        renderCell: ({ row }) => {
+          // Students are automatically verified
+          const isAutoVerified = row.role === UserRole.Student;
+          const isVerified = row.verified || isAutoVerified;
+
+          return (
+            <Chip
+              label={isVerified ? "Verified" : "Pending"}
+              size="small"
+              color={isVerified ? "success" : "warning"}
+              variant={isVerified ? "filled" : "outlined"}
+            />
+          );
+        },
       },
       {
         field: "createdAt",
         headerName: "Created",
         flex: 0.8,
-        valueGetter: ({ value }) => formatDateTime(value),
+        // Provide the raw ISO string for sorting
+        valueGetter: (_value, row: AdminUser) => row?.createdAt ?? null,
+        // Display formatted date
+        renderCell: (params) => {
+          const createdAt = params.row?.createdAt as string | undefined;
+          if (!createdAt) return "—";
+          try {
+            return formatDateTime(createdAt);
+          } catch (error) {
+            console.error("Error formatting date:", error, createdAt);
+            return "—";
+          }
+        },
+        // Sort by timestamp
+        sortComparator: (v1, v2) => {
+          const toTime = (v: unknown) => {
+            if (!v) return -Infinity;
+            try {
+              const d = new Date(String(v));
+              const t = d.getTime();
+              return isNaN(t) ? -Infinity : t;
+            } catch {
+              return -Infinity;
+            }
+          };
+          return toTime(v1) - toTime(v2);
+        },
       },
       {
         field: "actions",
@@ -169,7 +250,11 @@ export default function AdminUserManagementPage() {
               key="block"
               icon={<BlockIcon color="warning" />}
               label="Block user"
-              disabled={isSelf || blockMutation.isPending || row.status === UserStatus.Blocked}
+              disabled={
+                isSelf ||
+                blockMutation.isPending ||
+                row.status === UserStatus.Blocked
+              }
               onClick={() => blockMutation.mutate(row.id)}
               showInMenu
             />
@@ -205,9 +290,7 @@ export default function AdminUserManagementPage() {
       </Toolbar>
 
       {isError ? (
-        <Alert severity="error">
-          {resolveErrorMessage(error)}
-        </Alert>
+        <Alert severity="error">{resolveErrorMessage(error)}</Alert>
       ) : (
         <Box sx={{ height: 560, width: "100%" }}>
           <DataGrid
@@ -226,7 +309,12 @@ export default function AdminUserManagementPage() {
             pageSizeOptions={[10, 25, 50]}
             slots={{
               noRowsOverlay: () => (
-                <Stack height="100%" alignItems="center" justifyContent="center" spacing={1}>
+                <Stack
+                  height="100%"
+                  alignItems="center"
+                  justifyContent="center"
+                  spacing={1}
+                >
                   <Typography variant="subtitle1" fontWeight={600}>
                     No users found
                   </Typography>

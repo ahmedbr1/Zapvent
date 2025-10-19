@@ -90,10 +90,10 @@ export interface AdminResponse {
   lastName: string;
   email: string;
   status: "Active" | "Blocked";
+  adminType: "EventOffice" | "Admin";
   createdAt: Date;
   updatedAt: Date;
 }
-
 
 export async function findAll(): Promise<AdminResponse[]> {
   const admins = await AdminModel.find().lean();
@@ -104,6 +104,7 @@ export async function findAll(): Promise<AdminResponse[]> {
     lastName: admin.lastName,
     email: admin.email,
     status: admin.status,
+    adminType: admin.adminType,
     createdAt: admin.createdAt,
     updatedAt: admin.updatedAt,
   }));
@@ -122,15 +123,16 @@ export async function findById(id: string): Promise<AdminResponse | null> {
     lastName: admin.lastName,
     email: admin.email,
     status: admin.status,
+    adminType: admin.adminType as "EventOffice" | "Admin",
     createdAt: admin.createdAt,
     updatedAt: admin.updatedAt,
   };
 }
 
 export async function findByEmail(email: string): Promise<IAdmin | null> {
-  return AdminModel.findOne({ email: normalizeEmail(email) }).lean() as Promise<
-    IAdmin | null
-  >;
+  return AdminModel.findOne({
+    email: normalizeEmail(email),
+  }).lean() as Promise<IAdmin | null>;
 }
 
 export async function createAdmin(
@@ -184,6 +186,7 @@ export async function createAdmin(
         lastName: savedAdmin.lastName,
         email: savedAdmin.email,
         status: savedAdmin.status,
+        adminType: savedAdmin.adminType as "EventOffice" | "Admin",
         createdAt: savedAdmin.createdAt,
         updatedAt: savedAdmin.updatedAt,
       },
@@ -223,6 +226,7 @@ export async function updateAdminStatus(
         lastName: admin.lastName,
         email: admin.email,
         status: admin.status,
+        adminType: admin.adminType as "EventOffice" | "Admin",
         createdAt: admin.createdAt,
         updatedAt: admin.updatedAt,
       },
@@ -365,5 +369,166 @@ export async function viewAllUsers(): Promise<{
       success: false,
       message: "Failed to retrieve users",
     };
+  }
+}
+
+// Events Office Management
+export async function findAllEventsOffice(): Promise<AdminResponse[]> {
+  const eventsOfficeAccounts = await AdminModel.find({
+    adminType: "EventOffice",
+  }).lean();
+
+  return eventsOfficeAccounts.map((admin) => ({
+    id: admin._id as string,
+    firstName: admin.firstName,
+    lastName: admin.lastName,
+    email: admin.email,
+    status: admin.status,
+    adminType: admin.adminType as "EventOffice" | "Admin",
+    createdAt: admin.createdAt,
+    updatedAt: admin.updatedAt,
+  }));
+}
+
+export async function findAllAdmins(): Promise<AdminResponse[]> {
+  const admins = await AdminModel.find({
+    adminType: "Admin",
+  }).lean();
+
+  return admins.map((admin) => ({
+    id: admin._id as string,
+    firstName: admin.firstName,
+    lastName: admin.lastName,
+    email: admin.email,
+    status: admin.status,
+    adminType: admin.adminType as "EventOffice" | "Admin",
+    createdAt: admin.createdAt,
+    updatedAt: admin.updatedAt,
+  }));
+}
+
+export async function updateAdmin(
+  id: string,
+  data: { firstName?: string; lastName?: string; email?: string }
+): Promise<{ success: boolean; admin?: AdminResponse; message?: string }> {
+  try {
+    if (!isValidObjectId(id)) {
+      return {
+        success: false,
+        message: "Invalid admin ID",
+      };
+    }
+
+    const updateData: Partial<{
+      firstName: string;
+      lastName: string;
+      email: string;
+    }> = {};
+    if (data.firstName) updateData.firstName = data.firstName.trim();
+    if (data.lastName) updateData.lastName = data.lastName.trim();
+    if (data.email) updateData.email = normalizeEmail(data.email);
+
+    if (Object.keys(updateData).length === 0) {
+      return {
+        success: false,
+        message: "No fields to update",
+      };
+    }
+
+    // Check if email already exists (if email is being updated)
+    if (data.email) {
+      const existingAdmin = await AdminModel.findOne({
+        email: updateData.email,
+        _id: { $ne: id },
+      });
+      if (existingAdmin) {
+        return {
+          success: false,
+          message: "An admin with this email already exists",
+        };
+      }
+    }
+
+    const admin = (await AdminModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    }).lean()) as IAdmin | null;
+
+    if (!admin) {
+      return {
+        success: false,
+        message: "Admin not found",
+      };
+    }
+
+    return {
+      success: true,
+      admin: {
+        id: admin._id as string,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        email: admin.email,
+        status: admin.status,
+        adminType: admin.adminType as "EventOffice" | "Admin",
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt,
+      },
+    };
+  } catch (error) {
+    console.error("Error updating admin:", error);
+    return {
+      success: false,
+      message: "Failed to update admin",
+    };
+  }
+}
+
+export async function blockAdminAccount(
+  adminId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(adminId)) {
+      return { success: false, message: "Invalid admin ID" };
+    }
+
+    const admin = await AdminModel.findByIdAndUpdate(
+      adminId,
+      { status: "Blocked" },
+      { new: true }
+    );
+
+    if (!admin) {
+      return { success: false, message: "Admin not found" };
+    }
+
+    return { success: true, message: "Admin blocked successfully" };
+  } catch (error) {
+    console.error("Error blocking admin:", error);
+    return { success: false, message: "Failed to block admin" };
+  }
+}
+
+export async function unblockAdminAccount(
+  adminId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(adminId)) {
+      return { success: false, message: "Invalid admin ID" };
+    }
+
+    const admin = await AdminModel.findByIdAndUpdate(
+      adminId,
+      { status: "Active" },
+      { new: true }
+    );
+
+    if (!admin) {
+      return { success: false, message: "Admin not found" };
+    }
+
+    return { success: true, message: "Admin unblocked successfully" };
+  } catch (error) {
+    console.error("Error unblocking admin:", error);
+    return { success: false, message: "Failed to unblock admin" };
   }
 }

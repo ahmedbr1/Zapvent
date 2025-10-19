@@ -12,12 +12,21 @@ export default function AdminLoginPage() {
       title="Administrator Sign In"
       subtitle="Securely manage approvals, user governance, and vendor onboarding."
       accent="admin"
+      backLink={{
+        href: "/",
+        label: "Back to Home",
+      }}
       footer={
         <>
           <Typography variant="body2" color="text.secondary">
             Events Office team?
           </Typography>
-          <Button component={Link} href="/login/events-office" variant="text" color="secondary">
+          <Button
+            component={Link}
+            href="/login/events-office"
+            variant="text"
+            color="secondary"
+          >
             Switch to Events Office
           </Button>
         </>
