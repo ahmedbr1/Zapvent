@@ -12,7 +12,6 @@ import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActions from "@mui/material/CardActions";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -114,8 +113,6 @@ export default function TripManagementPage() {
       dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
     );
   }, [data]);
-
-  const disableEdit = user?.role !== AuthRole.EventOffice;
 
   const createMutation = useMutation({
     mutationFn: (payload: TripPayload) => createTrip(payload, token ?? undefined),
@@ -273,15 +270,12 @@ export default function TripManagementPage() {
         ) : null}
 
         {trips.map((trip) => {
-<<<<<<< HEAD
-          const disableActions =
-            disableEdit ||
-            (deleteMutation.isPending && pendingDeleteId === trip.id);
-
-=======
           const tripHasStarted = !dayjs(trip.startDate).isAfter(dayjs());
-          const disableEdit = isEventsOfficeUser && tripHasStarted;
->>>>>>> eab97295def789158a0243214c7a0b527cee100a
+          const baseActionsDisabled =
+            !isEventsOfficeUser || (isEventsOfficeUser && tripHasStarted);
+          const disableActions =
+            baseActionsDisabled ||
+            (deleteMutation.isPending && pendingDeleteId === trip.id);
           return (
             <Grid item xs={12} md={6} lg={4} key={trip.id}>
               <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
