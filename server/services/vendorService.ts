@@ -28,7 +28,10 @@ export const vendorSignupSchema = z.object({
     .min(2, { message: "Company name must be at least 2 characters long." })
     .max(50, { message: "Company name must be at most 50 characters long." })
     .trim(),
-  loyaltyForum: z.string().url({ message: "Please enter a valid URL." }).optional(),
+  loyaltyForum: z
+    .string()
+    .url({ message: "Please enter a valid URL." })
+    .optional(),
 });
 
 export type vendorSignupData = z.infer<typeof vendorSignupSchema>;
@@ -52,6 +55,8 @@ export interface AdminVendorResponse {
   id: string;
   email: string;
   companyName: string;
+  verified: boolean;
+  verificationStatus: VendorStatus;
   loyaltyForum?: string;
   logo?: string;
   taxCard?: string;
@@ -274,6 +279,8 @@ export async function findAllForAdmin(): Promise<{
         id: vendor._id.toString(),
         email: vendor.email,
         companyName: vendor.companyName,
+        verified: vendor.verified ?? false,
+        verificationStatus: vendor.verificationStatus ?? VendorStatus.PENDING,
         loyaltyForum: vendor.loyaltyForum || undefined,
         logo: vendor.logo || undefined,
         taxCard: vendor.taxCard || undefined,
@@ -302,6 +309,68 @@ export async function findAllForAdmin(): Promise<{
       message: "Failed to retrieve vendors",
       count: 0,
       vendors: [],
+    };
+  }
+}
+
+export async function approveVendorAccount(vendorId: string) {
+  try {
+    const vendor = await vendorModel.findByIdAndUpdate(
+      vendorId,
+      {
+        verified: true,
+        verificationStatus: VendorStatus.APPROVED,
+      },
+      { new: true }
+    );
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Vendor account approved successfully",
+    };
+  } catch (error) {
+    console.error("Error approving vendor account:", error);
+    return {
+      success: false,
+      message: "Failed to approve vendor account",
+    };
+  }
+}
+
+export async function rejectVendorAccount(vendorId: string) {
+  try {
+    const vendor = await vendorModel.findByIdAndUpdate(
+      vendorId,
+      {
+        verified: false,
+        verificationStatus: VendorStatus.REJECTED,
+      },
+      { new: true }
+    );
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Vendor account rejected",
+    };
+  } catch (error) {
+    console.error("Error rejecting vendor account:", error);
+    return {
+      success: false,
+      message: "Failed to reject vendor account",
     };
   }
 }

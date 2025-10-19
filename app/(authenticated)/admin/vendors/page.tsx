@@ -8,17 +8,31 @@ import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
+import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
+import CancelIcon from "@mui/icons-material/CancelRounded";
+import VisibilityIcon from "@mui/icons-material/VisibilityRounded";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
+import { useRouter } from "next/navigation";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { fetchAdminVendors, type AdminVendor } from "@/lib/services/admin";
+import {
+  fetchAdminVendors,
+  approveVendorAccount,
+  rejectVendorAccount,
+  type AdminVendor,
+} from "@/lib/services/admin";
 import { formatDateTime } from "@/lib/date";
 
 export default function VendorApplicationsPage() {
   const token = useAuthToken();
   const { enqueueSnackbar } = useSnackbar();
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["admin", "vendors", token],
@@ -27,6 +41,40 @@ export default function VendorApplicationsPage() {
   });
 
   const vendors = data ?? [];
+
+  // Mutation for approving vendor account
+  const approveMutation = useMutation({
+    mutationFn: (vendorId: string) =>
+      approveVendorAccount(vendorId, token ?? undefined),
+    onSuccess: () => {
+      enqueueSnackbar("Vendor account approved successfully", {
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
+    },
+    onError: (error: Error) => {
+      enqueueSnackbar(error.message || "Failed to approve vendor", {
+        variant: "error",
+      });
+    },
+  });
+
+  // Mutation for rejecting vendor account
+  const rejectMutation = useMutation({
+    mutationFn: (vendorId: string) =>
+      rejectVendorAccount(vendorId, token ?? undefined),
+    onSuccess: () => {
+      enqueueSnackbar("Vendor account rejected", {
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
+    },
+    onError: (error: Error) => {
+      enqueueSnackbar(error.message || "Failed to reject vendor", {
+        variant: "error",
+      });
+    },
+  });
 
   const columns = useMemo<GridColDef<AdminVendor>[]>(
     () => [
@@ -45,6 +93,24 @@ export default function VendorApplicationsPage() {
           </Stack>
         ),
         sortable: false,
+      },
+      {
+        field: "verificationStatus",
+        headerName: "Account Status",
+        flex: 0.8,
+        renderCell: ({ value }) => (
+          <Chip
+            label={value?.toUpperCase() || "PENDING"}
+            size="small"
+            color={
+              value === "approved"
+                ? "success"
+                : value === "rejected"
+                  ? "error"
+                  : "warning"
+            }
+          />
+        ),
       },
       {
         field: "pendingApplications",
@@ -115,8 +181,53 @@ export default function VendorApplicationsPage() {
           return toTime(v1) - toTime(v2);
         },
       },
+      {
+        field: "actions",
+        headerName: "Actions",
+        flex: 1.2,
+        sortable: false,
+        renderCell: ({ row }) => (
+          <Stack direction="row" spacing={1}>
+            <Tooltip title="View Applications">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() =>
+                  router.push(`/admin/vendors/${row.id}/applications`)
+                }
+              >
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {row.verificationStatus === "pending" && (
+              <>
+                <Tooltip title="Approve Account">
+                  <IconButton
+                    size="small"
+                    color="success"
+                    onClick={() => approveMutation.mutate(row.id)}
+                    disabled={approveMutation.isPending}
+                  >
+                    <CheckCircleIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Reject Account">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => rejectMutation.mutate(row.id)}
+                    disabled={rejectMutation.isPending}
+                  >
+                    <CancelIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+          </Stack>
+        ),
+      },
     ],
-    []
+    [router, approveMutation, rejectMutation]
   );
 
   useEffect(() => {

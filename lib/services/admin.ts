@@ -50,7 +50,8 @@ export interface AdminVendor {
   id: string;
   email: string;
   companyName: string;
-  isVerified: boolean;
+  verified: boolean;
+  verificationStatus: VendorStatus;
   loyaltyForum?: string;
   logo?: string;
   taxCard?: string;
@@ -123,6 +124,60 @@ export async function verifyVendor(vendorId: string, token?: string) {
 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to verify vendor");
+  }
+
+  return response;
+}
+
+export async function approveVendorAccount(vendorId: string, token?: string) {
+  const response = await apiFetch<AdminActionResponse>(
+    `/vendors/admin/${vendorId}/approve`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to approve vendor account");
+  }
+
+  return response;
+}
+
+export async function rejectVendorAccount(vendorId: string, token?: string) {
+  const response = await apiFetch<AdminActionResponse>(
+    `/vendors/admin/${vendorId}/reject`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to reject vendor account");
+  }
+
+  return response;
+}
+
+export async function updateVendorApplicationStatus(
+  vendorId: string,
+  eventId: string,
+  status: "approved" | "rejected",
+  token?: string
+) {
+  const response = await apiFetch<AdminActionResponse>(
+    `/vendors/bazaar-application/status`,
+    {
+      method: "PATCH",
+      body: { vendorId, eventId, status },
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to update application status");
   }
 
   return response;
