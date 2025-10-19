@@ -89,7 +89,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const user = useSessionUser();
   const userId = user?.id ?? null;
   const isProfessor = user?.userRole === UserRole.Professor;
-  const isEventsOffice = user?.role === AuthRole.EventsOffice;
+  const isEventsOffice = user?.role === AuthRole.EventOffice;
   const isAdmin = user?.role === AuthRole.Admin;
   const isEventsOfficeVariant = variant === "events-office";
   const canManage = isEventsOfficeVariant
@@ -125,7 +125,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const canCreate = isEventsOfficeVariant ? Boolean(isEventsOffice || isAdmin) : Boolean(isProfessor);
+  const canCreate = isEventsOfficeVariant ? Boolean(isAdmin) : Boolean(isProfessor);
   const queryKey = ["workshops", variant, token];
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -249,7 +249,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
       updateMutation.mutate({ id: editingId, payload });
     } else {
       if (!canCreate) {
-        enqueueSnackbar("Workshop creation is limited to professor accounts.", {
+        enqueueSnackbar("Workshop creation is limited to professor or admin accounts.", {
           variant: "info",
         });
         return;

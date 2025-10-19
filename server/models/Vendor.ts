@@ -34,6 +34,8 @@ export interface IVendor extends IBaseModel {
   documents?: string;
   logo?: string;
   taxCard?: string;
+  verified: boolean; // Vendor account verification status
+  verificationStatus: VendorStatus; // Pending, Approved, Rejected
   applications?: BazaarApplication[];
   loyaltyForum?: string; // URL containing the forum link
   isVerified?: boolean;
@@ -46,6 +48,12 @@ const vendorSchema = new Schema<IVendor>(
     documents: { type: String },
     logo: { type: String },
     taxCard: { type: String },
+    verified: { type: Boolean, default: false },
+    verificationStatus: {
+      type: String,
+      enum: Object.values(VendorStatus),
+      default: VendorStatus.PENDING,
+    },
     applications: {
       type: [
         {

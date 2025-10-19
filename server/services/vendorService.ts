@@ -31,7 +31,6 @@ export const vendorSignupSchema = z.object({
   loyaltyForum: z
     .string()
     .url({ message: "Please enter a valid URL." })
-    .or(z.literal(""))
     .optional(),
 });
 
@@ -43,6 +42,7 @@ export async function findAll() {
 
 export interface AdminVendorApplication {
   eventId: string;
+  eventName?: string;
   status: VendorStatus;
   applicationDate?: Date;
   attendees: number;
@@ -56,6 +56,8 @@ export interface AdminVendorResponse {
   id: string;
   email: string;
   companyName: string;
+  verified: boolean;
+  verificationStatus: VendorStatus;
   loyaltyForum?: string;
   logo?: string;
   taxCard?: string;
@@ -330,44 +332,58 @@ export async function findAllForAdmin(): Promise<{
       .find()
       .lean<Array<IVendor & { _id: Types.ObjectId }>>();
 
-    const normalized: AdminVendorResponse[] = vendors.map((vendor) => {
-      const applications = (vendor.applications ?? []).map((application) => ({
-        eventId: application.eventId.toString(),
-        status: application.status,
-        applicationDate: application.applicationDate,
-        attendees: application.attendees?.length ?? 0,
-        boothSize: application.boothSize,
-        boothLocation: application.boothInfo?.boothLocation,
-        boothStartTime: application.boothInfo?.boothStartTime,
-        boothEndTime: application.boothInfo?.boothEndTime,
-      }));
+    const normalized: AdminVendorResponse[] = await Promise.all(
+      vendors.map(async (vendor) => {
+        // Fetch event names for all applications
+        const applicationsWithNames = await Promise.all(
+          (vendor.applications ?? []).map(async (application) => {
+            const event = await EventModel.findById(application.eventId)
+              .select("name")
+              .lean<{ name: string }>();
 
-      const pendingApplications = applications.filter(
-        (app) => app.status === VendorStatus.PENDING
-      ).length;
-      const approvedApplications = applications.filter(
-        (app) => app.status === VendorStatus.APPROVED
-      ).length;
-      const rejectedApplications = applications.filter(
-        (app) => app.status === VendorStatus.REJECTED
-      ).length;
+            return {
+              eventId: application.eventId.toString(),
+              eventName: event?.name || "Unknown Event",
+              status: application.status,
+              applicationDate: application.applicationDate,
+              attendees: application.attendees?.length ?? 0,
+              boothSize: application.boothSize,
+              boothLocation: application.boothInfo?.boothLocation,
+              boothStartTime: application.boothInfo?.boothStartTime,
+              boothEndTime: application.boothInfo?.boothEndTime,
+            };
+          })
+        );
 
-      return {
-        id: vendor._id.toString(),
-        email: vendor.email,
-        companyName: vendor.companyName,
-        loyaltyForum: vendor.loyaltyForum || undefined,
-        logo: vendor.logo || undefined,
-        taxCard: vendor.taxCard || undefined,
-        documents: vendor.documents || undefined,
-        applications,
-        pendingApplications,
-        approvedApplications,
-        rejectedApplications,
-        createdAt: vendor.createdAt,
-        updatedAt: vendor.updatedAt,
-      };
-    });
+        const pendingApplications = applicationsWithNames.filter(
+          (app) => app.status === VendorStatus.PENDING
+        ).length;
+        const approvedApplications = applicationsWithNames.filter(
+          (app) => app.status === VendorStatus.APPROVED
+        ).length;
+        const rejectedApplications = applicationsWithNames.filter(
+          (app) => app.status === VendorStatus.REJECTED
+        ).length;
+
+        return {
+          id: vendor._id.toString(),
+          email: vendor.email,
+          companyName: vendor.companyName,
+          verified: vendor.verified ?? false,
+          verificationStatus: vendor.verificationStatus ?? VendorStatus.PENDING,
+          loyaltyForum: vendor.loyaltyForum || undefined,
+          logo: vendor.logo || undefined,
+          taxCard: vendor.taxCard || undefined,
+          documents: vendor.documents || undefined,
+          applications: applicationsWithNames,
+          pendingApplications,
+          approvedApplications,
+          rejectedApplications,
+          createdAt: vendor.createdAt,
+          updatedAt: vendor.updatedAt,
+        };
+      })
+    );
 
     return {
       success: true,
@@ -384,6 +400,68 @@ export async function findAllForAdmin(): Promise<{
       message: "Failed to retrieve vendors",
       count: 0,
       vendors: [],
+    };
+  }
+}
+
+export async function approveVendorAccount(vendorId: string) {
+  try {
+    const vendor = await vendorModel.findByIdAndUpdate(
+      vendorId,
+      {
+        verified: true,
+        verificationStatus: VendorStatus.APPROVED,
+      },
+      { new: true }
+    );
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Vendor account approved successfully",
+    };
+  } catch (error) {
+    console.error("Error approving vendor account:", error);
+    return {
+      success: false,
+      message: "Failed to approve vendor account",
+    };
+  }
+}
+
+export async function rejectVendorAccount(vendorId: string) {
+  try {
+    const vendor = await vendorModel.findByIdAndUpdate(
+      vendorId,
+      {
+        verified: false,
+        verificationStatus: VendorStatus.REJECTED,
+      },
+      { new: true }
+    );
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Vendor account rejected",
+    };
+  } catch (error) {
+    console.error("Error rejecting vendor account:", error);
+    return {
+      success: false,
+      message: "Failed to reject vendor account",
     };
   }
 }

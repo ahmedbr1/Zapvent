@@ -104,7 +104,7 @@ export function LoginForm({ variant }: LoginFormProps) {
       };
 
       if (variant === "events-office") {
-        overrides.role = AuthRole.EventsOffice;
+        overrides.role = AuthRole.EventOffice;
       }
 
       setSessionFromToken(result.token, overrides);
@@ -115,14 +115,14 @@ export function LoginForm({ variant }: LoginFormProps) {
         (result.user?.role ? (result.user.role as AuthRole) : undefined);
 
       const effectiveRole =
-        variant === "events-office" ? AuthRole.EventsOffice : roleFromToken;
+        variant === "events-office" ? AuthRole.EventOffice : roleFromToken;
 
       if (variant === "events-office") {
         enqueueSnackbar(
           "Events Office login successful. Redirecting to your workspace.",
           { variant: "success" }
         );
-        router.replace(getDefaultDashboardRoute(AuthRole.EventsOffice));
+        router.replace(getDefaultDashboardRoute(AuthRole.EventOffice));
         return;
       }
 

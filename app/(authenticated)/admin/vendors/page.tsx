@@ -8,10 +8,14 @@ import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
+import VisibilityIcon from "@mui/icons-material/VisibilityRounded";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
+import { useRouter } from "next/navigation";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { fetchAdminVendors, type AdminVendor } from "@/lib/services/admin";
 import { formatDateTime } from "@/lib/date";
@@ -19,6 +23,7 @@ import { formatDateTime } from "@/lib/date";
 export default function VendorApplicationsPage() {
   const token = useAuthToken();
   const { enqueueSnackbar } = useSnackbar();
+  const router = useRouter();
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["admin", "vendors", token],
@@ -115,8 +120,27 @@ export default function VendorApplicationsPage() {
           return toTime(v1) - toTime(v2);
         },
       },
+      {
+        field: "actions",
+        headerName: "Actions",
+        flex: 0.6,
+        sortable: false,
+        renderCell: ({ row }) => (
+          <Tooltip title="View Applications">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() =>
+                router.push(`/admin/vendors/${row.id}/applications`)
+              }
+            >
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ),
+      },
     ],
-    []
+    [router]
   );
 
   useEffect(() => {
