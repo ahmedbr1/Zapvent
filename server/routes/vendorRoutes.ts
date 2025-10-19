@@ -29,4 +29,14 @@ router.get(
   vendorController.listVendorsForAdmin.bind(vendorController)
 );
 
+router.patch(
+  "/admin/:vendorId/approve",
+  vendorController.approveVendorAccount.bind(vendorController)
+);
+
+router.patch(
+  "/admin/:vendorId/reject",
+  vendorController.rejectVendorAccount.bind(vendorController)
+);
+
 export default router;

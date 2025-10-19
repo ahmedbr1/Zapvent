@@ -196,6 +196,57 @@ export class VendorController {
     }
   }
 
+  @LoginRequired()
+  @AllowedRoles(["Admin"])
+  async approveVendorAccount(req: AuthRequest, res: Response) {
+    try {
+      const { vendorId } = req.params;
+
+      if (!vendorId) {
+        return res.status(400).json({
+          success: false,
+          message: "Vendor ID is required",
+        });
+      }
+
+      const result = await vendorService.approveVendorAccount(vendorId);
+
+      const statusCode = result.success ? 200 : 400;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Approve vendor account error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Admin"])
+  async rejectVendorAccount(req: AuthRequest, res: Response) {
+    try {
+      const { vendorId } = req.params;
+
+      if (!vendorId) {
+        return res.status(400).json({
+          success: false,
+          message: "Vendor ID is required",
+        });
+      }
+
+      const result = await vendorService.rejectVendorAccount(vendorId);
+
+      const statusCode = result.success ? 200 : 400;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Reject vendor account error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
 }
 
 export const vendorController = new VendorController();
