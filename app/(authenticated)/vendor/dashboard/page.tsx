@@ -24,6 +24,8 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForwardRounded";
 import { useRouter } from "next/navigation";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
+import { apiFetch } from "@/lib/api-client";
+import { formatDateTime } from "@/lib/date";
 
 interface VendorStats {
   totalApplications: number;
@@ -34,9 +36,14 @@ interface VendorStats {
 
 interface VendorApplication {
   id: string;
+  eventId: string;
   eventName: string;
+  eventDate?: string;
+  eventLocation?: string;
   applicationDate: string;
-  boothSize: string;
+  attendees: number;
+  boothSize: number;
+  boothLocation?: string;
   status: "pending" | "approved" | "rejected";
 }
 
@@ -46,32 +53,58 @@ export default function VendorDashboardPage() {
   const router = useRouter();
   const companyName = user?.name ?? "Vendor";
 
-  // TODO: Replace with actual API calls when backend is ready
-  const statsQuery = useQuery({
-    queryKey: ["vendor-stats", user?.id, token],
-    queryFn: async (): Promise<VendorStats> => {
-      // Placeholder data - replace with actual API call
-      return {
-        totalApplications: 0,
-        pendingApplications: 0,
-        approvedApplications: 0,
-        rejectedApplications: 0,
-      };
-    },
-    enabled: Boolean(token && user?.id),
-  });
-
+  // Fetch all applications from the API
   const applicationsQuery = useQuery({
     queryKey: ["vendor-applications", user?.id, token],
     queryFn: async (): Promise<VendorApplication[]> => {
-      // Placeholder - replace with actual API call
-      return [];
+      const response = (await apiFetch("/vendors/my-applications", {
+        method: "GET",
+        token: token ?? undefined,
+      })) as { success: boolean; data: VendorApplication[] };
+
+      if (!response.success) {
+        throw new Error("Failed to fetch applications");
+      }
+
+      return response.data || [];
     },
     enabled: Boolean(token && user?.id),
   });
 
-  const stats = statsQuery.data;
   const applications = applicationsQuery.data ?? [];
+
+  // Calculate stats from applications data
+  const stats: VendorStats = {
+    totalApplications: applications.length,
+    pendingApplications: applications.filter((app) => app.status === "pending")
+      .length,
+    approvedApplications: applications.filter(
+      (app) => app.status === "approved"
+    ).length,
+    rejectedApplications: applications.filter(
+      (app) => app.status === "rejected"
+    ).length,
+  };
+
+  // Get pending applications for quick view
+  const pendingApplications = applications.filter(
+    (app) => app.status === "pending"
+  );
+
+  const getStatusColor = (
+    status: string
+  ): "success" | "warning" | "error" | "default" => {
+    switch (status) {
+      case "approved":
+        return "success";
+      case "pending":
+        return "warning";
+      case "rejected":
+        return "error";
+      default:
+        return "default";
+    }
+  };
 
   const StatCard = ({
     title,
@@ -110,7 +143,7 @@ export default function VendorDashboardPage() {
             </Stack>
           </Stack>
           <Typography variant="h3" fontWeight={700}>
-            {statsQuery.isLoading ? <Skeleton width={60} /> : value}
+            {applicationsQuery.isLoading ? <Skeleton width={60} /> : value}
           </Typography>
         </Stack>
       </CardContent>
@@ -166,6 +199,28 @@ export default function VendorDashboardPage() {
         </Grid>
       </Grid>
 
+      {/* Pending Applications Alert */}
+      {stats.pendingApplications > 0 && (
+        <Alert
+          severity="warning"
+          icon={<PendingIcon />}
+          action={
+            <Button
+              size="small"
+              color="inherit"
+              onClick={() => router.push("/vendor/applications")}
+            >
+              View All
+            </Button>
+          }
+        >
+          <Typography variant="body2" fontWeight={500}>
+            You have {stats.pendingApplications} pending application
+            {stats.pendingApplications > 1 ? "s" : ""} awaiting review
+          </Typography>
+        </Alert>
+      )}
+
       {/* Quick Actions */}
       <Card>
         <CardContent>
@@ -199,6 +254,98 @@ export default function VendorDashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Pending Applications */}
+      {pendingApplications.length > 0 && (
+        <Card sx={{ bgcolor: "warning.lighter" }}>
+          <CardContent>
+            <Stack spacing={3}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <PendingIcon color="warning" />
+                  <Typography variant="h6" fontWeight={600}>
+                    Pending Applications ({pendingApplications.length})
+                  </Typography>
+                </Stack>
+                <Button
+                  size="small"
+                  endIcon={<ArrowForwardIcon />}
+                  onClick={() => router.push("/vendor/applications")}
+                >
+                  View All
+                </Button>
+              </Stack>
+
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Bazaar Event</TableCell>
+                      <TableCell>Applied On</TableCell>
+                      <TableCell>Attendees</TableCell>
+                      <TableCell>Booth Size</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pendingApplications
+                      .slice(0, 3)
+                      .map((app: VendorApplication) => (
+                        <TableRow key={app.id}>
+                          <TableCell>
+                            <Stack spacing={0.5}>
+                              <Typography variant="body2" fontWeight={500}>
+                                {app.eventName}
+                              </Typography>
+                              {app.eventLocation && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {app.eventLocation}
+                                </Typography>
+                              )}
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {formatDateTime(app.applicationDate)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {app.attendees}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {app.boothSize} sq m
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() =>
+                                router.push(`/vendor/applications`)
+                              }
+                            >
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recent Applications */}
       <Card>
         <CardContent>
@@ -209,7 +356,7 @@ export default function VendorDashboardPage() {
               alignItems="center"
             >
               <Typography variant="h6" fontWeight={600}>
-                Recent Applications
+                All Applications
               </Typography>
               {applications.length > 0 && (
                 <Button
@@ -240,6 +387,7 @@ export default function VendorDashboardPage() {
                     <TableRow>
                       <TableCell>Bazaar Event</TableCell>
                       <TableCell>Application Date</TableCell>
+                      <TableCell>Attendees</TableCell>
                       <TableCell>Booth Size</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell align="right">Actions</TableCell>
@@ -247,21 +395,50 @@ export default function VendorDashboardPage() {
                   </TableHead>
                   <TableBody>
                     {applications.slice(0, 5).map((app: VendorApplication) => (
-                      <TableRow key={app.id}>
-                        <TableCell>{app.eventName}</TableCell>
-                        <TableCell>{app.applicationDate}</TableCell>
-                        <TableCell>{app.boothSize}</TableCell>
+                      <TableRow
+                        key={app.id}
+                        sx={{
+                          bgcolor:
+                            app.status === "pending"
+                              ? "warning.lighter"
+                              : "inherit",
+                        }}
+                      >
+                        <TableCell>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2" fontWeight={500}>
+                              {app.eventName}
+                            </Typography>
+                            {app.eventLocation && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {app.eventLocation}
+                              </Typography>
+                            )}
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDateTime(app.applicationDate)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {app.attendees}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {app.boothSize} sq m
+                          </Typography>
+                        </TableCell>
                         <TableCell>
                           <Chip
-                            label={app.status}
+                            label={app.status.toUpperCase()}
                             size="small"
-                            color={
-                              app.status === "approved"
-                                ? "success"
-                                : app.status === "pending"
-                                  ? "warning"
-                                  : "error"
-                            }
+                            color={getStatusColor(app.status)}
                           />
                         </TableCell>
                         <TableCell align="right">
@@ -269,7 +446,7 @@ export default function VendorDashboardPage() {
                             size="small"
                             onClick={() => router.push(`/vendor/applications`)}
                           >
-                            View
+                            View Details
                           </Button>
                         </TableCell>
                       </TableRow>

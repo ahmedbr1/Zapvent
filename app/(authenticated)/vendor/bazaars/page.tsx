@@ -61,6 +61,16 @@ function ApplyDialog({
       return;
     }
 
+    if (!companyName) {
+      enqueueSnackbar(
+        "Company name is required. Please update your profile first.",
+        {
+          variant: "error",
+        }
+      );
+      return;
+    }
+
     const attendeesNum = parseInt(attendees);
     if (attendeesNum > 5) {
       enqueueSnackbar("Maximum 5 attendees allowed per booth", {
@@ -71,17 +81,24 @@ function ApplyDialog({
 
     setIsSubmitting(true);
     try {
-      const response = (await apiFetch("/vendor/apply-bazaar", {
+      const requestBody = {
+        eventId: bazaar.id,
+        attendees: attendeesNum,
+        boothSize: parseFloat(boothSize),
+        vendorEmail,
+        companyName,
+      };
+
+      console.log("=== Submitting Application ===");
+      console.log("Request Body:", requestBody);
+      console.log("Token:", token ? "Present" : "Missing");
+
+      const response = (await apiFetch("/vendors/apply-bazaar", {
         method: "POST",
-        body: JSON.stringify({
-          eventId: bazaar.id,
-          attendees: attendeesNum,
-          boothSize: parseFloat(boothSize),
-          vendorEmail,
-          companyName,
-        }),
+        body: requestBody,
         token: token ?? undefined,
       })) as { success: boolean; message?: string };
+      console.log("Response:", response);
 
       if (response.success) {
         enqueueSnackbar("Application submitted successfully!", {
@@ -97,8 +114,13 @@ function ApplyDialog({
           variant: "error",
         });
       }
-    } catch {
-      enqueueSnackbar("An error occurred while submitting application", {
+    } catch (error) {
+      console.error("Application submission error:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "An error occurred while submitting application";
+      enqueueSnackbar(errorMessage, {
         variant: "error",
       });
     } finally {
@@ -188,6 +210,27 @@ export default function VendorBazaarsPage() {
     enabled: Boolean(token),
   });
 
+  // Fetch vendor applications to check which bazaars already applied to
+  const applicationsQuery = useQuery({
+    queryKey: ["vendor-applications", token],
+    queryFn: async () => {
+      const response = (await apiFetch("/vendors/my-applications", {
+        method: "GET",
+        token: token ?? undefined,
+      })) as {
+        success: boolean;
+        data: Array<{ eventId: string; status: string }>;
+      };
+      return response.success ? response.data : [];
+    },
+    enabled: Boolean(token),
+  });
+
+  // Check if already applied to a bazaar
+  const hasApplied = (bazaarId: string) => {
+    return applicationsQuery.data?.some((app) => app.eventId === bazaarId);
+  };
+
   // Helper function to check if bazaar is outdated
   const isBazaarOutdated = (endDate: string) => {
     return new Date(endDate) < new Date();
@@ -217,6 +260,7 @@ export default function VendorBazaarsPage() {
 
   const handleApplicationSuccess = () => {
     bazaarsQuery.refetch();
+    applicationsQuery.refetch();
   };
 
   return (
@@ -319,6 +363,13 @@ export default function VendorBazaarsPage() {
                         !isBazaarOutdated(bazaar.endDate) && (
                           <Chip label="Full" size="small" color="error" />
                         )}
+                      {hasApplied(bazaar.id) && (
+                        <Chip
+                          label="Already Applied"
+                          size="small"
+                          color="success"
+                        />
+                      )}
                     </Stack>
                   </Stack>
                 </CardContent>
@@ -328,13 +379,17 @@ export default function VendorBazaarsPage() {
                     fullWidth
                     onClick={() => handleApply(bazaar)}
                     startIcon={<StorefrontIcon />}
-                    disabled={!canApplyToBazaar(bazaar)}
+                    disabled={
+                      !canApplyToBazaar(bazaar) || hasApplied(bazaar.id)
+                    }
                   >
-                    {isBazaarOutdated(bazaar.endDate)
-                      ? "Finished"
-                      : isBazaarFull(bazaar)
-                        ? "Full"
-                        : "Apply Now"}
+                    {hasApplied(bazaar.id)
+                      ? "Already Applied"
+                      : isBazaarOutdated(bazaar.endDate)
+                        ? "Finished"
+                        : isBazaarFull(bazaar)
+                          ? "Full"
+                          : "Apply Now"}
                   </Button>
                 </CardActions>
               </Card>
@@ -351,7 +406,9 @@ export default function VendorBazaarsPage() {
           onClose={handleCloseDialog}
           onSuccess={handleApplicationSuccess}
           vendorEmail={user?.email || ""}
-          companyName={profileQuery.data?.data?.companyName || ""}
+          companyName={
+            profileQuery.data?.data?.companyName || user?.name || "Vendor"
+          }
         />
       )}
     </Stack>

@@ -12,14 +12,19 @@ import {
   CircularProgress,
   Alert,
   Divider,
-  Link,
+  IconButton,
+  InputAdornment,
 } from "@mui/material";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import DownloadIcon from "@mui/icons-material/Download";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { fetchVendorProfile, updateVendorProfile } from "@/lib/services/vendor";
+import { fetchVendorProfile } from "@/lib/services/vendor";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 
 // Validation schema for editable fields
 const profileSchema = z.object({
@@ -37,6 +42,9 @@ export default function VendorProfilePage() {
   const token = useAuthToken();
   const queryClient = useQueryClient();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [taxCardFile, setTaxCardFile] = useState<File | null>(null);
+  const [documentsFile, setDocumentsFile] = useState<File | null>(null);
 
   // Fetch vendor profile
   const {
@@ -75,19 +83,54 @@ export default function VendorProfilePage() {
     }
   }, [profile, reset]);
 
-  // Update mutation
+  // Update mutation with multipart form data
   const updateMutation = useMutation({
-    mutationFn: (data: ProfileFormData) =>
-      updateVendorProfile(data, token || ""),
+    mutationFn: async (data: ProfileFormData) => {
+      const formData = new FormData();
+      formData.append("companyName", data.companyName);
+      if (data.loyaltyForum) {
+        formData.append("loyaltyForum", data.loyaltyForum);
+      }
+
+      // Append files if they exist
+      if (logoFile) {
+        formData.append("logo", logoFile);
+      }
+      if (taxCardFile) {
+        formData.append("taxCard", taxCardFile);
+      }
+      if (documentsFile) {
+        formData.append("documents", documentsFile);
+      }
+
+      return apiFetch("/vendors/profile", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendorProfile"] });
       setSuccessMessage("Profile updated successfully!");
+      setLogoFile(null);
+      setTaxCardFile(null);
+      setDocumentsFile(null);
       setTimeout(() => setSuccessMessage(null), 3000);
     },
   });
 
   const onSubmit = (data: ProfileFormData) => {
     updateMutation.mutate(data);
+  };
+
+  const handleFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    setter: (file: File | null) => void
+  ) => {
+    const file = event.target.files?.[0] || null;
+    setter(file);
   };
 
   if (isLoading) {
@@ -113,6 +156,18 @@ export default function VendorProfilePage() {
     );
   }
 
+  if (!profile) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="warning">
+          No profile data found. Please contact support.
+        </Alert>
+      </Container>
+    );
+  }
+
+  const hasChanges = isDirty || logoFile || taxCardFile || documentsFile;
+
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 4 }}>
@@ -131,6 +186,15 @@ export default function VendorProfilePage() {
             Failed to update profile. Please try again.
           </Alert>
         )}
+
+        {/* Verification Status */}
+        <Alert
+          severity={profile.isVerified ? "success" : "warning"}
+          sx={{ mb: 3 }}
+        >
+          Verification Status:{" "}
+          {profile.isVerified ? "✓ Verified" : "⏳ Pending Verification"}
+        </Alert>
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
@@ -186,87 +250,177 @@ export default function VendorProfilePage() {
                 Documents
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Documents can only be uploaded during registration and cannot be
-                changed here.
+                Upload or update your business documents below.
               </Typography>
             </Grid>
 
-            {/* Read-only Documents */}
-            <Grid size={{ xs: 12, md: 4 }}>
+            {/* Logo Upload */}
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Logo"
-                value={profile?.logo ? "Uploaded" : "Not uploaded"}
+                label="Company Logo"
+                value={
+                  logoFile?.name ||
+                  (profile.logo ? "Current file uploaded" : "No file")
+                }
                 disabled
                 slotProps={{
                   input: {
-                    endAdornment: profile?.logo && (
-                      <Link
-                        href={profile.logo}
-                        target="_blank"
-                        rel="noopener"
-                        sx={{ ml: 1 }}
-                      >
-                        View
-                      </Link>
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        {profile.logo && !logoFile && (
+                          <IconButton
+                            component="a"
+                            href={`/${profile.logo}`}
+                            target="_blank"
+                            size="small"
+                            sx={{ mr: 1 }}
+                          >
+                            <DownloadIcon />
+                          </IconButton>
+                        )}
+                        {logoFile && (
+                          <IconButton
+                            onClick={() => setLogoFile(null)}
+                            size="small"
+                            sx={{ mr: 1 }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                        <Button
+                          component="label"
+                          variant="contained"
+                          size="small"
+                          startIcon={<UploadFileIcon />}
+                        >
+                          Upload
+                          <input
+                            type="file"
+                            hidden
+                            accept="image/*"
+                            onChange={(e) => handleFileChange(e, setLogoFile)}
+                          />
+                        </Button>
+                      </InputAdornment>
                     ),
                   },
                 }}
               />
             </Grid>
 
-            <Grid size={{ xs: 12, md: 4 }}>
+            {/* Tax Card Upload */}
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="Tax Card"
-                value={profile?.taxCard ? "Uploaded" : "Not uploaded"}
+                value={
+                  taxCardFile?.name ||
+                  (profile.taxCard ? "Current file uploaded" : "No file")
+                }
                 disabled
                 slotProps={{
                   input: {
-                    endAdornment: profile?.taxCard && (
-                      <Link
-                        href={profile.taxCard}
-                        target="_blank"
-                        rel="noopener"
-                        sx={{ ml: 1 }}
-                      >
-                        View
-                      </Link>
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        {profile.taxCard && !taxCardFile && (
+                          <IconButton
+                            component="a"
+                            href={`/${profile.taxCard}`}
+                            target="_blank"
+                            size="small"
+                            sx={{ mr: 1 }}
+                          >
+                            <DownloadIcon />
+                          </IconButton>
+                        )}
+                        {taxCardFile && (
+                          <IconButton
+                            onClick={() => setTaxCardFile(null)}
+                            size="small"
+                            sx={{ mr: 1 }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                        <Button
+                          component="label"
+                          variant="contained"
+                          size="small"
+                          startIcon={<UploadFileIcon />}
+                        >
+                          Upload
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) =>
+                              handleFileChange(e, setTaxCardFile)
+                            }
+                          />
+                        </Button>
+                      </InputAdornment>
                     ),
                   },
                 }}
               />
             </Grid>
 
-            <Grid size={{ xs: 12, md: 4 }}>
+            {/* Documents Upload */}
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Documents"
-                value={profile?.documents ? "Uploaded" : "Not uploaded"}
+                label="Business Documents"
+                value={
+                  documentsFile?.name ||
+                  (profile.documents ? "Current file uploaded" : "No file")
+                }
                 disabled
                 slotProps={{
                   input: {
-                    endAdornment: profile?.documents && (
-                      <Link
-                        href={profile.documents}
-                        target="_blank"
-                        rel="noopener"
-                        sx={{ ml: 1 }}
-                      >
-                        View
-                      </Link>
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        {profile.documents && !documentsFile && (
+                          <IconButton
+                            component="a"
+                            href={`/${profile.documents}`}
+                            target="_blank"
+                            size="small"
+                            sx={{ mr: 1 }}
+                          >
+                            <DownloadIcon />
+                          </IconButton>
+                        )}
+                        {documentsFile && (
+                          <IconButton
+                            onClick={() => setDocumentsFile(null)}
+                            size="small"
+                            sx={{ mr: 1 }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                        <Button
+                          component="label"
+                          variant="contained"
+                          size="small"
+                          startIcon={<UploadFileIcon />}
+                        >
+                          Upload
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) =>
+                              handleFileChange(e, setDocumentsFile)
+                            }
+                          />
+                        </Button>
+                      </InputAdornment>
                     ),
                   },
                 }}
               />
-            </Grid>
-
-            {/* Verification Status */}
-            <Grid size={{ xs: 12 }}>
-              <Alert severity={profile?.isVerified ? "success" : "warning"}>
-                Verification Status:{" "}
-                {profile?.isVerified ? "Verified" : "Pending Verification"}
-              </Alert>
             </Grid>
 
             {/* Submit Button */}
@@ -275,7 +429,7 @@ export default function VendorProfilePage() {
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={!isDirty || updateMutation.isPending}
+                disabled={!hasChanges || updateMutation.isPending}
                 fullWidth
               >
                 {updateMutation.isPending ? "Saving..." : "Save Changes"}

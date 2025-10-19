@@ -113,15 +113,24 @@ export async function applyToBazaar(
   }
 ) {
   try {
+    console.log("=== applyToBazaar Service Called ===");
+    console.log("vendorId:", vendorId);
+    console.log("applicationData:", JSON.stringify(applicationData, null, 2));
+
     // Validate event exists and is a bazaar
     if (!Types.ObjectId.isValid(applicationData.eventId)) {
+      console.log("Invalid eventId format");
       return { success: false, message: "Invalid eventId" };
     }
     const event = await EventModel.findById(applicationData.eventId);
     if (!event) {
+      console.log("Event not found in database");
       return { success: false, message: "Event not found" };
     }
+    console.log("Event found:", event.name, "Type:", event.eventType);
+
     if (event.eventType !== EventType.BAZAAR) {
+      console.log("Event is not a bazaar, type:", event.eventType);
       return { success: false, message: "Event is not a bazaar" };
     }
 
@@ -130,6 +139,7 @@ export async function applyToBazaar(
       !Array.isArray(applicationData.attendees) ||
       applicationData.attendees.length < 1
     ) {
+      console.log("Invalid attendees array:", applicationData.attendees);
       return { success: false, message: "At least 1 attendee is required" };
     }
     // Validate attendees count (max 5)
@@ -202,7 +212,13 @@ export async function applyToBazaar(
       ...(boothInfoToSave ? { boothInfo: boothInfoToSave } : {}),
     };
 
+    console.log(
+      "Prepared application:",
+      JSON.stringify(newApplication, null, 2)
+    );
+
     // Atomically insert only if no existing application for this event
+    console.log("Attempting to save application to vendor:", vendorId);
     const updatedVendor = await vendorModel.findOneAndUpdate(
       {
         _id: vendorId,
@@ -219,12 +235,24 @@ export async function applyToBazaar(
     );
 
     if (!updatedVendor) {
+      console.log("Failed to update vendor - checking if vendor exists");
       const exists = await vendorModel.exists({ _id: vendorId });
       if (!exists) {
+        console.log("Vendor not found:", vendorId);
         return { success: false, message: "Vendor not found" };
       }
+      console.log("Vendor exists but already applied for this bazaar");
       return { success: false, message: "Already applied for this bazaar" };
     }
+
+    console.log("Application saved successfully!");
+
+    // Update event capacity - decrease available spots
+    const numAttendees = applicationData.attendees.length;
+    await EventModel.findByIdAndUpdate(applicationData.eventId, {
+      $inc: { capacity: -numAttendees },
+    });
+    console.log(`Decreased event capacity by ${numAttendees} attendees`);
 
     const savedApp = updatedVendor.applications[0];
     return {
@@ -237,6 +265,56 @@ export async function applyToBazaar(
     return {
       success: false,
       message: "An error occurred while submitting application",
+    };
+  }
+}
+
+export async function getVendorApplications(vendorId: string) {
+  try {
+    const vendor = await vendorModel
+      .findById(vendorId)
+      .select("applications")
+      .lean();
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    // Get event details for each application
+    const applicationsWithEvents = await Promise.all(
+      (vendor.applications || []).map(async (app) => {
+        const event = await EventModel.findById(app.eventId).lean();
+        return {
+          id: app._id?.toString(),
+          eventId: app.eventId.toString(),
+          eventName: event?.name || "Unknown Event",
+          eventDate: event?.date,
+          eventLocation: event?.location,
+          eventType: event?.eventType,
+          applicationDate: app.applicationDate,
+          status: app.status,
+          attendees: app.attendees.length,
+          boothSize: app.boothSize,
+          boothLocation: app.boothInfo?.boothLocation,
+          boothStartTime: app.boothInfo?.boothStartTime,
+          boothEndTime: app.boothInfo?.boothEndTime,
+        };
+      })
+    );
+
+    return {
+      success: true,
+      message: "Applications retrieved successfully",
+      data: applicationsWithEvents,
+    };
+  } catch (error) {
+    console.error("Error getting vendor applications:", error);
+    return {
+      success: false,
+      message: "An error occurred while retrieving applications",
     };
   }
 }
@@ -413,7 +491,13 @@ export async function updateVendorProfile(
   data?: Partial<IVendor>;
 }> {
   try {
-    const allowedUpdates = ["companyName", "loyaltyForum"];
+    const allowedUpdates = [
+      "companyName",
+      "loyaltyForum",
+      "logo",
+      "taxCard",
+      "documents",
+    ];
     const updates: Partial<IVendor> = {};
 
     // Only allow specific fields to be updated

@@ -18,11 +18,14 @@ import ChecklistIcon from "@mui/icons-material/ChecklistRounded";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { formatDateTime } from "@/lib/date";
+import { apiFetch } from "@/lib/api-client";
 
 interface VendorApplication {
   id: string;
   eventId: string;
   eventName: string;
+  eventDate?: string;
+  eventLocation?: string;
   applicationDate: string;
   attendees: number;
   boothSize: number;
@@ -37,9 +40,16 @@ export default function VendorApplicationsPage() {
   const applicationsQuery = useQuery({
     queryKey: ["vendor-applications", user?.id, token],
     queryFn: async (): Promise<VendorApplication[]> => {
-      // TODO: Replace with actual API call when backend is ready
-      // For now, returning empty array as placeholder
-      return [];
+      const response = (await apiFetch("/vendors/my-applications", {
+        method: "GET",
+        token: token ?? undefined,
+      })) as { success: boolean; data: VendorApplication[] };
+
+      if (!response.success) {
+        throw new Error("Failed to fetch applications");
+      }
+
+      return response.data || [];
     },
     enabled: Boolean(token && user?.id),
   });

@@ -19,12 +19,30 @@ router.post(
 
 router.post(
   "/apply-bazaar",
+  loginRequired,
+  allowedRoles(["Vendor"]),
   vendorController.applyToBazaar.bind(vendorController)
+);
+
+// Get vendor's own applications
+router.get(
+  "/my-applications",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.getMyApplications.bind(vendorController)
 );
 
 // Profile routes - protected with decorators in controller
 router.get("/profile", vendorController.getProfile.bind(vendorController));
-router.patch("/profile", vendorController.updateProfile.bind(vendorController));
+router.patch(
+  "/profile",
+  upload.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "taxCard", maxCount: 1 },
+    { name: "documents", maxCount: 1 },
+  ]),
+  vendorController.updateProfile.bind(vendorController)
+);
 
 router.patch(
   "/bazaar-application/status",

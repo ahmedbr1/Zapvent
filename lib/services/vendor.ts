@@ -24,7 +24,7 @@ export interface VendorProfileResponse {
 export async function fetchVendorProfile(
   token: string
 ): Promise<VendorProfileResponse> {
-  return apiFetch("/vendor/profile", {
+  return apiFetch("/vendors/profile", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -37,7 +37,7 @@ export async function updateVendorProfile(
   data: UpdateVendorProfileData,
   token: string
 ): Promise<VendorProfileResponse> {
-  return apiFetch("/vendor/profile", {
+  return apiFetch("/vendors/profile", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
