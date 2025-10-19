@@ -1,10 +1,26 @@
-import type { Request, Response } from "express";
+import type * as express from "express";
 import * as vendorService from "../services/vendorService";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { applyToBazaar } from "../services/vendorService";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 import vendorModel, { VendorStatus } from "../models/Vendor";
+
+// Extended types for Express Request/Response
+interface Request extends express.Request {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any;
+  headers: Record<string, string | string[] | undefined>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  files?: any;
+}
+
+interface Response extends express.Response {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  status(code: number): any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  json(body?: any): any;
+}
 
 export class VendorController {
   async vendorSignup(req: Request, res: Response) {

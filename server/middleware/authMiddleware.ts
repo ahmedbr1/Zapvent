@@ -1,5 +1,15 @@
-import { Request, Response, NextFunction } from "express";
+import type * as express from "express";
 import jwt from "jsonwebtoken";
+
+// Extended types for Express
+type Request = express.Request;
+interface Response extends express.Response {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  status(code: number): any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  json(body?: any): any;
+}
+type NextFunction = () => void;
 
 // Replace the default-fallback with a fail-fast check
 if (!process.env.JWT_SECRET) {
@@ -17,6 +27,12 @@ export type UserRole =
   | "EventOffice";
 
 export interface AuthRequest extends Request {
+  params: Record<string, string>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any;
+  headers: Record<string, string | string[] | undefined>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cookies?: any;
   user?: {
     id: string;
     email: string;
@@ -43,7 +59,11 @@ function extractAndVerifyToken(req: AuthRequest): {
   };
   message?: string;
 } {
-  let token = req.headers.authorization?.replace("Bearer ", "");
+  const authHeader = req.headers.authorization;
+  let token =
+    typeof authHeader === "string"
+      ? authHeader.replace("Bearer ", "")
+      : undefined;
 
   console.log("=== Token Extraction ===");
   console.log("Authorization Header:", req.headers.authorization);

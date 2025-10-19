@@ -1,6 +1,7 @@
 import { Router } from "express";
 import vendorController from "../controllers/vendorController";
-import multer from "multer";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const multer = require("multer");
 import { loginRequired, allowedRoles } from "../middleware/authMiddleware";
 
 const router = Router();

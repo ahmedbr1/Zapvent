@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
-import type { AuthRole, UserRole, UserStatus, VendorStatus } from "@/lib/types";
+import type { AuthRole, UserRole, UserStatus } from "@/lib/types";
 
 // ---------------- Types ----------------
 
@@ -17,7 +17,7 @@ export interface AdminUser {
   updatedAt: string;
 }
 
-interface AdminUsersResponse {
+export interface AdminUsersResponse {
   success: boolean;
   message: string;
   count: number;
@@ -71,6 +71,19 @@ interface AdminVendorsResponse {
 }
 
 // ---------------- Backend API Calls ----------------
+
+export async function fetchAdminUsers(token?: string): Promise<AdminUser[]> {
+  const response = await apiFetch<AdminUsersResponse>("/admin/users", {
+    method: "GET",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to fetch users");
+  }
+
+  return response.users;
+}
 
 export async function approveUser(userId: string, token?: string) {
   const response = await apiFetch<ApproveUserResponse>(

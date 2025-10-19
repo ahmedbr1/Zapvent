@@ -1,8 +1,16 @@
-import type { Response } from "express";
+import type * as express from "express";
 import * as adminService from "../services/adminService";
 import { AdminRequired } from "../middleware/authDecorators";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { ValidateBody } from "../middleware/validationDecorators";
+
+// Extended Response type with proper method signatures
+interface Response extends express.Response {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  status(code: number): any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  json(body?: any): any;
+}
 
 export class AdminController {
   @AdminRequired()
