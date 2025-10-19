@@ -8,7 +8,7 @@ export enum UserRole {
 export enum AuthRole {
   User = "User",
   Admin = "Admin",
-  EventsOffice = "EventsOffice",
+  EventOffice = "EventOffice",
   Vendor = "Vendor",
 }
 
@@ -72,7 +72,7 @@ export interface SessionUser {
   role: AuthRole;
   name?: string;
   userRole?: UserRole;
-  adminType?: "Admin" | "EventsOffice";
+  adminType?: "Admin" | "EventOffice";
   status?: string;
   companyName?: string;
   logo?: string;
