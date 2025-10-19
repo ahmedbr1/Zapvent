@@ -45,12 +45,24 @@ function extractAndVerifyToken(req: AuthRequest): {
 } {
   let token = req.headers.authorization?.replace("Bearer ", "");
 
+  console.log("=== Token Extraction ===");
+  console.log("Authorization Header:", req.headers.authorization);
+  console.log(
+    "Extracted Token:",
+    token ? `${token.substring(0, 20)}...` : "None"
+  );
+
   // If not in header, try to get from cookies
   if (!token && req.cookies && req.cookies.token) {
     token = req.cookies.token;
+    console.log(
+      "Token from cookies:",
+      token ? `${token.substring(0, 20)}...` : "None"
+    );
   }
 
   if (!token) {
+    console.log("❌ No token found in header or cookies");
     return {
       success: false,
       message: "Authentication required. No token provided.",
@@ -67,11 +79,21 @@ function extractAndVerifyToken(req: AuthRequest): {
       userRole?: string;
       adminType?: string;
     };
+    console.log("✅ Token verified successfully");
+    console.log("Decoded user:", {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    });
     return {
       success: true,
       user: decoded,
     };
-  } catch {
+  } catch (error) {
+    console.log(
+      "❌ Token verification failed:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     return {
       success: false,
       message: "Invalid or expired token.",
