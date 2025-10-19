@@ -9,18 +9,22 @@ The vendor dashboard has been updated to show real-time application data includi
 ## 🎨 New Features
 
 ### 1. **Live Statistics Cards**
+
 Shows real-time data from your applications:
+
 - 📊 **Total Applications** - All applications submitted
 - ⏳ **Pending Applications** - Applications awaiting review (yellow icon)
 - ✅ **Approved Applications** - Applications that were approved (green icon)
 - ❌ **Rejected Applications** - Applications that were declined (red icon)
 
 ### 2. **Pending Applications Alert**
+
 - 🟡 Yellow alert banner at the top when you have pending applications
 - Shows count: "You have X pending application(s) awaiting review"
 - Quick "View All" button to jump to applications page
 
 ### 3. **Pending Applications Section**
+
 - 📋 Dedicated table showing ONLY pending applications
 - Highlighted with yellow/warning background color
 - Shows up to 3 pending applications with:
@@ -32,6 +36,7 @@ Shows real-time data from your applications:
 - Only appears when you have pending applications
 
 ### 4. **All Applications Table**
+
 - 📝 Shows last 5 applications (all statuses)
 - Pending applications have yellow highlight background
 - Color-coded status chips:
@@ -69,12 +74,14 @@ Frontend calculates stats and displays
 ## 🎯 User Experience Improvements
 
 ### Before:
+
 - ❌ Empty placeholder text "No applications"
 - ❌ No stats showing
 - ❌ No way to see pending status quickly
 - ❌ No real data from backend
 
 ### After:
+
 - ✅ Real-time application data
 - ✅ Visual statistics at a glance
 - ✅ Pending applications highlighted prominently
@@ -129,6 +136,7 @@ Frontend calculates stats and displays
 ## 🔧 Technical Details
 
 ### Files Modified:
+
 1. **`app/(authenticated)/vendor/dashboard/page.tsx`**
    - Added `apiFetch` import
    - Added `formatDateTime` import
@@ -143,6 +151,7 @@ Frontend calculates stats and displays
    - Highlighted pending rows with yellow background
 
 ### API Endpoint Used:
+
 - **GET** `/api/vendors/my-applications`
   - Returns: `{ success: boolean, data: VendorApplication[] }`
   - Each application includes:
@@ -151,6 +160,7 @@ Frontend calculates stats and displays
     - `boothLocation` (optional)
 
 ### Component Structure:
+
 ```tsx
 VendorDashboardPage
 ├── Header (Welcome message)
