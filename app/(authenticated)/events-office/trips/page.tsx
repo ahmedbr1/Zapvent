@@ -113,6 +113,8 @@ export default function TripManagementPage() {
     );
   }, [data]);
 
+  const disableEdit = user?.role !== AuthRole.EventOffice;
+
   const createMutation = useMutation({
     mutationFn: (payload: TripPayload) => createTrip(payload, token ?? undefined),
     onSuccess: () => {
@@ -260,59 +262,65 @@ export default function TripManagementPage() {
           </Grid>
         ) : null}
 
-        {trips.map((trip) => (
-          <Grid item xs={12} md={6} lg={4} key={trip.id}>
-            <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="h6" fontWeight={700}>
-                      {trip.name}
+        {trips.map((trip) => {
+          const disableActions =
+            disableEdit ||
+            (deleteMutation.isPending && pendingDeleteId === trip.id);
+
+          return (
+            <Grid item xs={12} md={6} lg={4} key={trip.id}>
+              <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Stack spacing={1.5}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="h6" fontWeight={700}>
+                        {trip.name}
+                      </Typography>
+                      <Chip label={trip.location} size="small" color="primary" />
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {trip.description}
                     </Typography>
-                    <Chip label={trip.location} size="small" color="primary" />
+                    <Divider />
+                    <Stack spacing={1}>
+                      <Detail label="Start" value={formatDateTime(trip.startDate)} />
+                      <Detail label="End" value={formatDateTime(trip.endDate)} />
+                      <Detail
+                        label="Registration deadline"
+                        value={formatDateTime(trip.registrationDeadline)}
+                      />
+                      <Detail
+                        label="Capacity"
+                        value={`${trip.capacity ?? 0} participants`}
+                      />
+                      <Detail label="Price" value={formatPrice(trip.price ?? 0)} />
+                    </Stack>
                   </Stack>
-                  <Typography variant="body2" color="text.secondary">
-                    {trip.description}
-                  </Typography>
-                  <Divider />
-                  <Stack spacing={1}>
-                    <Detail label="Start" value={formatDateTime(trip.startDate)} />
-                    <Detail label="End" value={formatDateTime(trip.endDate)} />
-                    <Detail
-                      label="Registration deadline"
-                      value={formatDateTime(trip.registrationDeadline)}
-                    />
-                    <Detail
-                      label="Capacity"
-                      value={`${trip.capacity ?? 0} participants`}
-                    />
-                    <Detail label="Price" value={formatPrice(trip.price ?? 0)} />
+                </CardContent>
+                <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={() => handleEditClick(trip.id)}
+                      variant="outlined"
+                      disabled={disableActions}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      color="error"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => handleDeleteClick(trip.id, trip.name)}
+                      disabled={disableActions}
+                    >
+                      Delete
+                    </Button>
                   </Stack>
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    startIcon={<EditIcon />}
-                    onClick={() => handleEditClick(trip.id)}
-                    variant="outlined"
-                    disabled={deleteMutation.isPending && pendingDeleteId === trip.id}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    color="error"
-                    startIcon={<DeleteIcon />}
-                    onClick={() => handleDeleteClick(trip.id, trip.name)}
-                    disabled={deleteMutation.isPending && pendingDeleteId === trip.id}
-                  >
-                    Delete
-                  </Button>
-                </Stack>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
+                </CardActions>
+              </Card>
+            </Grid>
+          );
+        })}
       </Grid>
 
       {user?.role === AuthRole.EventOffice ? (
