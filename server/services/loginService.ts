@@ -39,7 +39,7 @@ interface AdminLoginSuccess extends BaseLoginResponse {
   user: {
     id: string;
     email: string;
-    role: "Admin" | "EventsOffice";
+    role: "Admin" | "EventOffice";
     firstName: string;
     lastName: string;
     status: string;
@@ -180,7 +180,7 @@ export async function loginAdmin(
       };
     }
 
-    const derivedRole = admin.adminType === "EventOffice" ? "EventsOffice" : "Admin";
+    const derivedRole = admin.adminType === "EventOffice" ? "EventOffice" : "Admin";
 
     // Generate JWT token
     const payload = {

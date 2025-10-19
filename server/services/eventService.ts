@@ -16,7 +16,9 @@ import vendorModel, {
 } from "../models/Vendor";
 import UserModel, { IUser, userRole } from "../models/User";
 
-function buildProfessorName(user: Pick<IUser, "firstName" | "lastName">): string {
+function buildProfessorName(
+  user: Pick<IUser, "firstName" | "lastName">
+): string {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
 }
 
@@ -79,7 +81,8 @@ async function validateProfessorSelection(
   if (professors.length !== ids.length) {
     return {
       success: false,
-      message: "All participating professors must be verified professor accounts.",
+      message:
+        "All participating professors must be verified professor accounts.",
     };
   }
 
@@ -97,9 +100,18 @@ async function validateProfessorSelection(
   };
 }
 
-async function enrichEventsWithProfessors<T extends { participatingProfessors?: string[] }>(
+async function enrichEventsWithProfessors<
+  T extends { participatingProfessors?: string[] },
+>(
   events: Array<T>
-): Promise<Array<T & { participatingProfessorIds: string[]; participatingProfessors: string[] }>> {
+): Promise<
+  Array<
+    T & {
+      participatingProfessorIds: string[];
+      participatingProfessors: string[];
+    }
+  >
+> {
   const uniqueIds = new Set<string>();
   events.forEach((event) => {
     (event.participatingProfessors ?? []).forEach((value) => {
@@ -118,7 +130,10 @@ async function enrichEventsWithProfessors<T extends { participatingProfessors?: 
           })
             .select(["firstName", "lastName"])
             .lean<Array<IUser & { _id: Types.ObjectId }>>()
-        ).map((professor) => [professor._id.toString(), buildProfessorName(professor)])
+        ).map((professor) => [
+          professor._id.toString(),
+          buildProfessorName(professor),
+        ])
       )
     : new Map<string, string>();
 
@@ -128,7 +143,9 @@ async function enrichEventsWithProfessors<T extends { participatingProfessors?: 
     const namesFromIds = ids
       .map((id) => professorMap.get(id))
       .filter((name): name is string => Boolean(name));
-    const embeddedNames = rawList.filter((entry) => !Types.ObjectId.isValid(entry));
+    const embeddedNames = rawList.filter(
+      (entry) => !Types.ObjectId.isValid(entry)
+    );
     const names = [...namesFromIds, ...embeddedNames];
 
     return {
@@ -484,7 +501,9 @@ export async function createWorkshop(
       };
     }
 
-    const professorValidation = await validateProfessorSelection(participatingProfessorIds);
+    const professorValidation = await validateProfessorSelection(
+      participatingProfessorIds
+    );
     if (!professorValidation.success) {
       return professorValidation;
     }
@@ -600,7 +619,7 @@ export async function editWorkshop(
     // Check if the user is the creator
     if (
       workshop.createdBy !== userId &&
-      actorRole !== "EventsOffice" &&
+      actorRole !== "EventOffice" &&
       actorRole !== "Admin"
     ) {
       return {
@@ -613,9 +632,15 @@ export async function editWorkshop(
 
     // Validate dates if provided
     if (updates.startDate || updates.endDate || updates.registrationDeadline) {
-      const parsedStart = updates.startDate ? new Date(updates.startDate) : workshop.startDate;
-      const parsedEnd = updates.endDate ? new Date(updates.endDate) : workshop.endDate;
-      const parsedDeadline = updates.registrationDeadline ? new Date(updates.registrationDeadline) : workshop.registrationDeadline;
+      const parsedStart = updates.startDate
+        ? new Date(updates.startDate)
+        : workshop.startDate;
+      const parsedEnd = updates.endDate
+        ? new Date(updates.endDate)
+        : workshop.endDate;
+      const parsedDeadline = updates.registrationDeadline
+        ? new Date(updates.registrationDeadline)
+        : workshop.registrationDeadline;
 
       if (
         (updates.startDate && Number.isNaN(parsedStart.getTime())) ||
@@ -644,7 +669,9 @@ export async function editWorkshop(
 
       // Update date field if startDate is changed
       if (updates.startDate) {
-        updates = { ...updates, date: parsedStart } as IEditWorkshopInput & { date: Date };
+        updates = { ...updates, date: parsedStart } as IEditWorkshopInput & {
+          date: Date;
+        };
       }
     }
 
@@ -662,12 +689,16 @@ export async function editWorkshop(
       };
     }
 
-    let updatePayload: Partial<IEvent> & { participatingProfessors?: string[] } = {
+    let updatePayload: Partial<IEvent> & {
+      participatingProfessors?: string[];
+    } = {
       ...updates,
     } as Partial<IEvent> & { participatingProfessorIds?: string[] };
 
     if (updates.participatingProfessorIds) {
-      const professorValidation = await validateProfessorSelection(updates.participatingProfessorIds);
+      const professorValidation = await validateProfessorSelection(
+        updates.participatingProfessorIds
+      );
       if (!professorValidation.success) {
         return professorValidation;
       }
@@ -678,7 +709,8 @@ export async function editWorkshop(
     }
 
     if ("participatingProfessorIds" in updatePayload) {
-      delete (updatePayload as { participatingProfessorIds?: string[] }).participatingProfessorIds;
+      delete (updatePayload as { participatingProfessorIds?: string[] })
+        .participatingProfessorIds;
     }
 
     const updatedWorkshop = await EventModel.findByIdAndUpdate(
@@ -797,8 +829,9 @@ export async function registerUserForWorkshop(
     }
 
     const alreadyRegistered =
-      event.registeredUsers?.some((registeredId: string) => registeredId === userId) ??
-      false;
+      event.registeredUsers?.some(
+        (registeredId: string) => registeredId === userId
+      ) ?? false;
 
     if (alreadyRegistered) {
       return {
@@ -1088,7 +1121,8 @@ export async function createConference(
     if (!name || !description || !fullAgenda || !websiteLink) {
       return {
         success: false,
-        message: "Name, description, full agenda, and website link are required.",
+        message:
+          "Name, description, full agenda, and website link are required.",
       };
     }
 

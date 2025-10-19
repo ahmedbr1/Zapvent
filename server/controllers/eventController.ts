@@ -313,7 +313,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Professor"])
+  @AllowedRoles(["Professor", "Admin"])
   async createWorkshopController(req: AuthRequest, res: Response) {
     try {
       const {
@@ -344,16 +344,13 @@ export class EventController {
       const sessionUserRole = (
         req.user as typeof req.user & { userRole?: string }
       )?.userRole;
-      const canManageWorkshops =
-        sessionUserRole === userRole.PROFESSOR ||
-        actorRole === "EventOffice" ||
-        actorRole === "Admin";
+      const isProfessor = sessionUserRole === userRole.PROFESSOR;
+      const isAdmin = actorRole === "Admin";
 
-      if (!canManageWorkshops) {
+      if (!isProfessor && !isAdmin) {
         return res.status(403).json({
           success: false,
-          message:
-            "Only professors or Events Office or Admins can manage workshops.",
+          message: "Only professors or admins can create workshops.",
         });
       }
 
@@ -469,7 +466,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Professor"])
+  @AllowedRoles(["Professor", "EventOffice", "Admin"])
   async getMyWorkshopsController(req: AuthRequest, res: Response) {
     try {
       const userId = extractUserId(req.user);
@@ -480,8 +477,9 @@ export class EventController {
       }
 
       const actorRole = req.user?.role;
-      const sessionUserRole =
-        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      const sessionUserRole = (
+        req.user as typeof req.user & { userRole?: string }
+      )?.userRole;
       const isProfessor = sessionUserRole === userRole.PROFESSOR;
       const isEventsOffice = actorRole === "EventOffice";
       const isAdmin = actorRole === "Admin";

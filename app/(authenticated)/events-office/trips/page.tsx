@@ -270,7 +270,7 @@ export default function TripManagementPage() {
         ))}
       </Grid>
 
-      {user?.role === AuthRole.EventsOffice ? (
+      {user?.role === AuthRole.EventOffice ? (
         <Fab
           color="primary"
           sx={{ position: "fixed", bottom: 32, right: 32 }}
