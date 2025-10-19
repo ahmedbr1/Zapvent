@@ -13,6 +13,10 @@ import Button from "@mui/material/Button";
 import UploadFileIcon from "@mui/icons-material/UploadFileRounded";
 import LoadingButton from "@mui/lab/LoadingButton";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { apiFetch } from "@/lib/api-client";
 import { useSnackbar } from "notistack";
 
@@ -20,7 +24,8 @@ const fileSchema = z
   .instanceof(File)
   .refine((file) => file.size <= 5 * 1024 * 1024, "File must be less than 5MB")
   .refine(
-    (file) => ["image/png", "image/jpeg", "application/pdf"].includes(file.type),
+    (file) =>
+      ["image/png", "image/jpeg", "application/pdf"].includes(file.type),
     "Allowed formats: PNG, JPG, PDF"
   );
 
@@ -34,10 +39,14 @@ const vendorSchema = z.object({
     .regex(/[0-9]/, "Include a number")
     .regex(/[^a-zA-Z0-9]/, "Include a special character"),
   companyName: z.string().min(2, "Company name must be at least 2 characters"),
-  loyaltyForum: z.string().url("Enter a valid URL").optional(),
-  logo: fileSchema.optional(),
-  taxCard: fileSchema.optional(),
-  documents: fileSchema.optional(),
+  loyaltyForum: z
+    .string()
+    .url("Enter a valid URL")
+    .or(z.literal(""))
+    .optional(),
+  logo: fileSchema,
+  taxCard: fileSchema,
+  documents: fileSchema,
 });
 
 type VendorFormValues = z.infer<typeof vendorSchema>;
@@ -76,12 +85,15 @@ export function VendorRegisterForm() {
     formState: { errors, isSubmitting },
     reset,
     setValue,
+    watch,
   } = useForm<VendorFormValues>({
     resolver: zodResolver(vendorSchema),
   });
   const { enqueueSnackbar } = useSnackbar();
   const [message, setMessage] = useState<string | null>(null);
   const [filePreviews, setFilePreviews] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const password = watch("password");
 
   const onSubmit = handleSubmit(async (values) => {
     setMessage(null);
@@ -89,21 +101,28 @@ export function VendorRegisterForm() {
     formData.append("email", values.email);
     formData.append("password", values.password);
     formData.append("companyName", values.companyName);
-    if (values.loyaltyForum) formData.append("loyaltyForum", values.loyaltyForum);
+    if (values.loyaltyForum)
+      formData.append("loyaltyForum", values.loyaltyForum);
     if (values.logo) formData.append("logo", values.logo);
     if (values.taxCard) formData.append("taxCard", values.taxCard);
     if (values.documents) formData.append("documents", values.documents);
 
     try {
-      const response = await apiFetch<VendorSignupResponse, FormData>("/vendors/signUp", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await apiFetch<VendorSignupResponse, FormData>(
+        "/vendors/signUp",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (response.success) {
-        enqueueSnackbar("Vendor registration sent. Our team will review shortly.", {
-          variant: "success",
-        });
+        enqueueSnackbar(
+          "Vendor registration sent. Our team will review shortly.",
+          {
+            variant: "success",
+          }
+        );
         setMessage(response.message);
         reset();
         setFilePreviews({});
@@ -123,11 +142,17 @@ export function VendorRegisterForm() {
     (name: keyof VendorFormValues) =>
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
+      // If user cancelled the file picker, do not clear existing previews/values
+      if (!file) return;
+
       setValue(name, file as File, { shouldValidate: true });
-      if (file && file.type.startsWith("image/")) {
+      if (file.type.startsWith("image/")) {
         const reader = new FileReader();
         reader.onload = () => {
-          setFilePreviews((prev) => ({ ...prev, [name]: reader.result as string }));
+          setFilePreviews((prev) => ({
+            ...prev,
+            [name]: reader.result as string,
+          }));
         };
         reader.readAsDataURL(file);
       } else {
@@ -156,7 +181,7 @@ export function VendorRegisterForm() {
         <Grid size={12}>
           <TextField
             label="Create Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             fullWidth
             autoComplete="new-password"
             {...register("password")}
@@ -165,6 +190,24 @@ export function VendorRegisterForm() {
               errors.password?.message ??
               "Use at least 8 characters with uppercase, lowercase, numbers, and symbols."
             }
+            slotProps={{
+              input: {
+                endAdornment: password ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      onClick={() => setShowPassword((s) => !s)}
+                      edge="end"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              },
+            }}
           />
         </Grid>
         <Grid size={12}>
@@ -187,7 +230,11 @@ export function VendorRegisterForm() {
           />
         </Grid>
         <Grid size={12}>
-          <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 2, mb: 1 }}>
+          <Typography
+            variant="subtitle1"
+            fontWeight={600}
+            sx={{ mt: 2, mb: 1 }}
+          >
             Required uploads
           </Typography>
         </Grid>

@@ -169,8 +169,12 @@ export async function deleteEventById(eventId: string) {
     Comment.deleteMany({ event: event._id }),
     Rating.deleteMany({ event: event._id }),
   ]);
+  if (event.registeredUsers.length == 0) {
+    await event.deleteOne(); // or Event.findByIdAndDelete(eventId)
+  } else {
+    throw new Error("Cannot delete event with registered users");
+  }
 
-  await event.deleteOne(); // or Event.findByIdAndDelete(eventId)
   return event;
 }
 

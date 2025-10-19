@@ -15,13 +15,6 @@ export interface AdminUser {
   updatedAt: string;
 }
 
-interface AdminUsersResponse {
-  success: boolean;
-  message: string;
-  count: number;
-  users: AdminUser[];
-}
-
 interface AdminActionResponse {
   success: boolean;
   message: string;
@@ -39,12 +32,12 @@ export interface AdminVendorApplication {
   eventId: string;
   eventName?: string;
   status: VendorStatus;
-  applicationDate?: string;
+  applicationDate?: Date;
   attendees: number;
   boothSize: number;
   boothLocation?: string;
-  boothStartTime?: string;
-  boothEndTime?: string;
+  boothStartTime?: Date;
+  boothEndTime?: Date;
 }
 
 export interface AdminVendor {
@@ -65,24 +58,7 @@ export interface AdminVendor {
   updatedAt: string;
 }
 
-interface AdminVendorsResponse {
-  success: boolean;
-  message: string;
-  count: number;
-  vendors: AdminVendor[];
-}
-
-export async function fetchAdminUsers(token?: string): Promise<AdminUser[]> {
-  const response = await apiFetch<AdminUsersResponse>("/admin/users", {
-    token,
-  });
-
-  if (!response.success) {
-    throw new Error(response.message ?? "Failed to load users");
-  }
-
-  return response.users ?? [];
-}
+// ---------------- Backend API Calls ----------------
 
 export async function approveUser(userId: string, token?: string) {
   const response = await apiFetch<ApproveUserResponse>(
@@ -103,31 +79,17 @@ export async function approveUser(userId: string, token?: string) {
 export async function fetchAdminVendors(
   token?: string
 ): Promise<AdminVendor[]> {
-  const response = await apiFetch<AdminVendorsResponse>("/vendors/admin", {
-    token,
-  });
+  const response = await apiFetch<{
+    success: boolean;
+    message: string;
+    vendors?: AdminVendor[];
+  }>("/vendors/admin", { token });
 
   if (!response.success) {
-    throw new Error(response.message ?? "Failed to load vendors");
+    throw new Error(response.message ?? "Failed to fetch vendors");
   }
 
   return response.vendors ?? [];
-}
-
-export async function verifyVendor(vendorId: string, token?: string) {
-  const response = await apiFetch<AdminActionResponse>(
-    `/vendors/admin/${vendorId}/verify`,
-    {
-      method: "PATCH",
-      token,
-    }
-  );
-
-  if (!response.success) {
-    throw new Error(response.message ?? "Failed to verify vendor");
-  }
-
-  return response;
 }
 
 export async function approveVendorAccount(vendorId: string, token?: string) {
@@ -477,3 +439,5 @@ export async function unblockAdmin(adminId: string, token?: string) {
 
   return response;
 }
+
+// ----------------------------------------------------
