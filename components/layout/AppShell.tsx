@@ -74,7 +74,7 @@ export function AppShell({
     }
 
     return session.user.role ?? "Guest";
-  }, [session?.user?.role, session?.user?.userRole]);
+  }, [session?.user]);
 
   const currentItem = navItems.find((item) => pathname.startsWith(item.href));
   const title = pageTitle ?? currentItem?.label ?? "Overview";
