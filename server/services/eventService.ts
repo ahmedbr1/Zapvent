@@ -487,6 +487,7 @@ export async function createBazaar(
     const bazaar = await EventModel.create({
       name,
       description,
+      eventType: EventType.BAZAAR,
       startDate: parsedStart,
       endDate: parsedEnd,
       date: parsedStart,

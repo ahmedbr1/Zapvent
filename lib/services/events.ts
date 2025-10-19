@@ -336,6 +336,13 @@ export async function updateConference(
   return data ? mapEvent(data) : null;
 }
 
+export async function deleteEvent(id: string, token?: string): Promise<void> {
+  await apiFetch<unknown>(`/events/${id}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
   const isRegistered = currentUserId
     ? (event.registeredUsers ?? []).some((userId) => userId === currentUserId)
