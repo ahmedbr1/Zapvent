@@ -6,8 +6,12 @@ import {
   getGymSessionsByMonth,
   editGymSession,
 } from "../services/gymSessionService";
+import type { AuthRequest } from "../middleware/authMiddleware";
+import type { IGymSession } from "../models/GymSession";
 
-export async function cancelGymSessionController(req: Request, res: Response) {
+const EVENT_OFFICE_EDITABLE_FIELDS = new Set(["date", "time", "duration"]);
+
+export async function cancelGymSessionController(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params;
 
@@ -34,7 +38,7 @@ export async function cancelGymSessionController(req: Request, res: Response) {
   }
 }
 
-export async function editGymSessionController(req: Request, res: Response) {
+export async function editGymSessionController(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params;
     if (!id) {
@@ -44,7 +48,7 @@ export async function editGymSessionController(req: Request, res: Response) {
       });
     }
 
-    const updates = req.body;
+    const updates = req.body as Partial<IGymSession> & Record<string, unknown>;
     if (!updates || Object.keys(updates).length === 0) {
       return res.status(400).json({
         success: false,
@@ -52,7 +56,37 @@ export async function editGymSessionController(req: Request, res: Response) {
       });
     }
 
-    const result = await editGymSession(id, updates);
+    const isEventOffice =
+      req.user?.role === "EventOffice" ||
+      (req.user?.role === "Admin" && req.user?.adminType === "EventOffice");
+
+    if (isEventOffice) {
+      const disallowedFields = Object.keys(updates).filter(
+        (field) => !EVENT_OFFICE_EDITABLE_FIELDS.has(field)
+      );
+
+      if (disallowedFields.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Events office accounts can only update date, time, or duration for gym sessions.",
+        });
+      }
+    }
+
+    const sanitizedUpdates = (isEventOffice
+      ? Object.fromEntries(
+          Object.entries(updates).filter(([field]) => EVENT_OFFICE_EDITABLE_FIELDS.has(field))
+        )
+      : updates) as Partial<IGymSession>;
+
+    if (Object.keys(sanitizedUpdates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid updates provided.",
+      });
+    }
+
+    const result = await editGymSession(id, sanitizedUpdates);
 
     if (result.statusCode !== 200) {
       return res.status(result.statusCode ?? 500).json(result);
@@ -67,7 +101,7 @@ export async function editGymSessionController(req: Request, res: Response) {
   }
 }
 
-export async function createGymSessionController(req: Request, res: Response) {
+export async function createGymSessionController(req: AuthRequest, res: Response) {
   try {
     // Optionally check user role here if you have authentication middleware
     const { date, time, duration, type, maxParticipants } = req.body;
