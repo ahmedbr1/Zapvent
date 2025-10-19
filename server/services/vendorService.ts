@@ -261,7 +261,7 @@ export async function findAllForAdmin(): Promise<{
           (vendor.applications ?? []).map(async (application) => {
             const event = await EventModel.findById(application.eventId)
               .select("name")
-              .lean();
+              .lean<{ name: string }>();
 
             return {
               eventId: application.eventId.toString(),
