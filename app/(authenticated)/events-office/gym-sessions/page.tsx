@@ -104,6 +104,7 @@ export default function EventsOfficeGymSessionsPage() {
   const [selectedYear, setSelectedYear] = useState(TODAY.year());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<GymSession | null>(null);
+  const isEventsOfficeEditor = Boolean(editingSession && isEventsOffice);
 
   const {
     control,
@@ -253,18 +254,24 @@ export default function EventsOfficeGymSessionsPage() {
   };
 
   const onSubmit = (data: GymSessionFormValues) => {
-    const payload = {
+    const basePayload = {
       date: dayjs(data.date).format("YYYY-MM-DD"),
       time: data.time,
       duration: data.duration,
-      type: data.type,
-      maxParticipants: data.maxParticipants,
     };
 
     if (editingSession) {
-      updateMutation.mutate({ id: editingSession.id, data: payload });
+      const updatePayload = {
+        ...basePayload,
+        ...(isAdmin ? { type: data.type, maxParticipants: data.maxParticipants } : {}),
+      };
+      updateMutation.mutate({ id: editingSession.id, data: updatePayload });
     } else {
-      createMutation.mutate(payload);
+      createMutation.mutate({
+        ...basePayload,
+        type: data.type,
+        maxParticipants: data.maxParticipants,
+      });
     }
   };
 
@@ -473,6 +480,11 @@ export default function EventsOfficeGymSessionsPage() {
         <DialogTitle>{editingSession ? "Edit Gym Session" : "Create New Gym Session"}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 2 }}>
+            {isEventsOfficeEditor && (
+              <Alert severity="info">
+                Events office staff can update the session date, time, or duration only.
+              </Alert>
+            )}
             <Controller
               name="date"
               control={control}
@@ -529,6 +541,7 @@ export default function EventsOfficeGymSessionsPage() {
                   label="Session Type"
                   select
                   {...field}
+                  disabled={isEventsOfficeEditor}
                   error={Boolean(errors.type)}
                   helperText={errors.type?.message}
                   fullWidth
@@ -542,14 +555,26 @@ export default function EventsOfficeGymSessionsPage() {
               )}
             />
 
-            <TextField
-              label="Max Participants"
-              type="number"
-              {...register("maxParticipants")}
-              error={Boolean(errors.maxParticipants)}
-              helperText={errors.maxParticipants?.message}
-              inputProps={{ min: 1 }}
-              fullWidth
+            <Controller
+              name="maxParticipants"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  label="Max Participants"
+                  type="number"
+                  value={field.value ?? ""}
+                  onChange={(event) =>
+                    field.onChange(
+                      event.target.value === "" ? event.target.value : Number(event.target.value)
+                    )
+                  }
+                  disabled={isEventsOfficeEditor}
+                  error={Boolean(errors.maxParticipants)}
+                  helperText={errors.maxParticipants?.message}
+                  inputProps={{ min: 1 }}
+                  fullWidth
+                />
+              )}
             />
           </Stack>
         </DialogContent>
