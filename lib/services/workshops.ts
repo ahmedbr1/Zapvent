@@ -22,6 +22,9 @@ interface WorkshopApiItem {
   extraRequiredResources?: string;
   capacity?: number;
   registrationDeadline?: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdByRole?: string;
 }
 
 interface WorkshopListResponse {
@@ -108,6 +111,17 @@ export async function updateWorkshop(
   return mapWorkshop(response.data);
 }
 
+export async function deleteWorkshop(id: string, token?: string): Promise<void> {
+  const response = await apiFetch<WorkshopMutationResponse>(`/events/${id}`, {
+    method: "DELETE",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to delete workshop.");
+  }
+}
+
 function mapWorkshop(item: WorkshopApiItem): Workshop {
   const id = item.id ?? item._id;
   if (!id) {
@@ -131,6 +145,9 @@ function mapWorkshop(item: WorkshopApiItem): Workshop {
     extraRequiredResources: item.extraRequiredResources ?? "",
     capacity: typeof item.capacity === "number" ? item.capacity : 0,
     registrationDeadline: item.registrationDeadline ?? new Date().toISOString(),
+    createdBy: item.createdBy,
+    createdByName: item.createdByName,
+    createdByRole: item.createdByRole,
   };
 }
 
