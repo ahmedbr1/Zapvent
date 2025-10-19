@@ -207,6 +207,42 @@ export const createTrip = async (
   }
 };
 
+export interface IGetAllTripsResponse {
+  success: boolean;
+  data?: Array<IEvent & { _id: Types.ObjectId }>;
+  message?: string;
+}
+
+export const getAllTrips = async (): Promise<IGetAllTripsResponse> => {
+  try {
+    const trips = await EventModel.find({
+      eventType: EventType.TRIP,
+    })
+      .sort({ startDate: 1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    return {
+      success: true,
+      data: trips,
+    };
+  } catch (error) {
+    console.error("Error fetching trips:", error);
+    return {
+      success: false,
+      message: "Failed to fetch trips.",
+    };
+  }
+};
+
+export const getTripById = async (tripId: string): Promise<IEvent | null> => {
+  try {
+    return await EventModel.findById(tripId);
+  } catch (error) {
+    console.error("Error fetching trip:", error);
+    throw error;
+  }
+};
+
 export const editTripDetails = async (
   tripId: string,
   updateData: Partial<IEvent>
