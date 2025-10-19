@@ -261,16 +261,6 @@ export default function VendorApplicationsDetailPage({
           <Typography variant="body1" color="text.secondary">
             {vendor.email}
           </Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" color="text.secondary">
-              Account Status:
-            </Typography>
-            <Chip
-              label={vendor.verificationStatus?.toUpperCase() || "PENDING"}
-              size="small"
-              color={getStatusColor(vendor.verificationStatus)}
-            />
-          </Stack>
         </Stack>
       </Stack>
 
