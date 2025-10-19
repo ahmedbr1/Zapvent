@@ -46,6 +46,7 @@ interface LoginResponse {
     isVerified?: boolean;
     logo?: string;
     userRole?: string;
+    adminType?: string;
   };
   message?: string;
 }
@@ -93,6 +94,7 @@ export function LoginForm({ variant }: LoginFormProps) {
         companyName: result.user?.companyName,
         logo: result.user?.logo,
         userRole: result.user?.userRole as SessionState["user"]["userRole"],
+        adminType: result.user?.adminType as SessionState["user"]["adminType"],
       };
 
       if (variant === "events-office") {

@@ -38,6 +38,7 @@ function extractAndVerifyToken(req: AuthRequest): {
     email: string;
     role: UserRole;
     userRole?: string; // For User sub-roles (Student, Staff, Professor, TA)
+    adminType?: string; // For Admin sub-roles (EventOffice, etc.)
   };
   message?: string;
 } {
@@ -63,6 +64,7 @@ function extractAndVerifyToken(req: AuthRequest): {
       email: string;
       role: UserRole;
       userRole?: string;
+      adminType?: string;
     };
     return {
       success: true,
