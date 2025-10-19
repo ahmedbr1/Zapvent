@@ -22,7 +22,7 @@ router.get(
 router.get(
   "/:eventId/applications",
   loginRequired,
-  allowedRoles(["Admin", "EventsOffice"]),
+  allowedRoles(["Admin", "EventOffice"]),
   eventController.getVendorApplicationsForBazaarController
 );
 

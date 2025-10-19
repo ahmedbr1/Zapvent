@@ -12,14 +12,14 @@ const router = express.Router();
 // POST /api/gym-sessions - Create a new gym session (EventsOffice or Admin only)
 router.post(
   "/",
-  allowedRoles(["EventsOffice", "Admin"]),
+  allowedRoles(["EventOffice", "Admin"]),
   createGymSessionController
 );
 
 // DELETE /api/gym-sessions/:id - Delete a gym session (EventsOffice or Admin only)
 router.delete(
   "/:id",
-  allowedRoles(["EventsOffice", "Admin"]),
+  allowedRoles(["EventOffice", "Admin"]),
   cancelGymSessionController
 );
 
@@ -29,7 +29,7 @@ router.get("/schedule", viewGymScheduleByMonthController);
 // PUT /api/gym-sessions/:id - Update a gym session (EventsOffice or Admin only)
 router.put(
   "/:id",
-  allowedRoles(["EventsOffice", "Admin"]),
+  allowedRoles(["EventOffice", "Admin"]),
   editGymSessionController
 );
 export default router;

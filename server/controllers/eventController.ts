@@ -34,7 +34,7 @@ function extractUserId(user: unknown): string | undefined {
 }
 export class EventController {
   @LoginRequired()
-  @AllowedRoles(["EventsOffice"])
+  @AllowedRoles(["EventOffice"])
   async updateConferenceController(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params;
@@ -53,7 +53,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async deleteAnyEvent(req: AuthRequest, res: Response) {
     try {
       const { eventId } = req.params as { eventId: string };
@@ -72,7 +72,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async updateBazaarDetails(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -96,7 +96,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async createNewTrip(req: AuthRequest, res: Response) {
     try {
       const tripData: Partial<IEvent> = req.body;
@@ -113,7 +113,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async updateTripDetails(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -168,7 +168,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Vendor", "EventsOffice", "Admin"])
+  @AllowedRoles(["Vendor", "EventOffice", "Admin"])
   async getUpcomingBazaarsController(req: AuthRequest, res: Response) {
     try {
       const bazaars = await getUpcomingBazaars();
@@ -180,7 +180,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async createBazaarController(req: AuthRequest, res: Response) {
     try {
       const {
@@ -280,7 +280,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin", "EventsOffice"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async getVendorApplicationsForBazaarController(
     req: AuthRequest,
     res: Response
@@ -346,7 +346,7 @@ export class EventController {
       )?.userRole;
       const canManageWorkshops =
         sessionUserRole === userRole.PROFESSOR ||
-        actorRole === "EventsOffice" ||
+        actorRole === "EventOffice" ||
         actorRole === "Admin";
 
       if (!canManageWorkshops) {
@@ -413,7 +413,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Professor"])
+  @AllowedRoles(["Professor", "EventOffice", "Admin"])
   async editWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -427,14 +427,20 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
+      const actorRole = req.user?.role;
       const sessionUserRole = (
         req.user as typeof req.user & { userRole?: string }
       )?.userRole;
-      if (sessionUserRole !== userRole.PROFESSOR) {
+      const canManageWorkshop =
+        sessionUserRole === userRole.PROFESSOR ||
+        actorRole === "EventOffice" ||
+        actorRole === "Admin";
+
+      if (!canManageWorkshop) {
         return res.status(403).json({
           success: false,
           message:
-            "Only professors or Events Office admins can manage workshops.",
+            "Only professors or Events Office or Admins can manage workshops.",
         });
       }
 
@@ -477,7 +483,7 @@ export class EventController {
       const sessionUserRole =
         (req.user as typeof req.user & { userRole?: string })?.userRole;
       const isProfessor = sessionUserRole === userRole.PROFESSOR;
-      const isEventsOffice = actorRole === "EventsOffice";
+      const isEventsOffice = actorRole === "EventOffice";
       const isAdmin = actorRole === "Admin";
 
       if (isEventsOffice || isAdmin) {
@@ -494,13 +500,6 @@ export class EventController {
       }
 
       const result = await getWorkshopsByCreator(userId);
-      const status = result.success ? 200 : 400;
-      return res.status(status).json(result);
-    
-      }
-
-      const result = await getWorkshopsByCreator(userId);
-
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
     } catch (error) {
@@ -549,7 +548,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["EventsOffice"])
+  @AllowedRoles(["EventOffice"])
   async createConferenceController(req: AuthRequest, res: Response) {
     try {
       const {
