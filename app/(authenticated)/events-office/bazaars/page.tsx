@@ -244,8 +244,8 @@ export default function BazaarManagementPage() {
         </Alert>
       ) : bazaars.length === 0 ? (
         <Alert severity="info">
-          No bazaars scheduled yet. Tap "New bazaar" to launch your next campus
-          experience.
+          No bazaars scheduled yet. Tap &quot;New bazaar&quot; to launch your next
+          campus experience.
         </Alert>
       ) : (
         <Grid container spacing={3}>
