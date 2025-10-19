@@ -276,7 +276,7 @@ export async function getVendorApplications(vendorId: string) {
     const vendor = await vendorModel
       .findById(vendorId)
       .select("applications")
-      .lean();
+      .lean<IVendor>();
 
     if (!vendor) {
       return {
@@ -288,9 +288,13 @@ export async function getVendorApplications(vendorId: string) {
     // Get event details for each application
     const applicationsWithEvents = await Promise.all(
       (vendor.applications || []).map(async (app) => {
-        const event = await EventModel.findById(app.eventId).lean();
+        const event = await EventModel.findById(app.eventId).lean<{
+          name: string;
+          date?: Date;
+          location?: string;
+          eventType?: EventType;
+        }>();
         return {
-          id: app._id?.toString(),
           eventId: app.eventId.toString(),
           eventName: event?.name || "Unknown Event",
           eventDate: event?.date,

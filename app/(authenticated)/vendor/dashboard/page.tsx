@@ -35,7 +35,6 @@ interface VendorStats {
 }
 
 interface VendorApplication {
-  id: string;
   eventId: string;
   eventName: string;
   eventDate?: string;
@@ -294,7 +293,9 @@ export default function VendorDashboardPage() {
                     {pendingApplications
                       .slice(0, 3)
                       .map((app: VendorApplication) => (
-                        <TableRow key={app.id}>
+                        <TableRow
+                          key={`pending-${app.eventId}-${app.applicationDate}`}
+                        >
                           <TableCell>
                             <Stack spacing={0.5}>
                               <Typography variant="body2" fontWeight={500}>
@@ -396,7 +397,7 @@ export default function VendorDashboardPage() {
                   <TableBody>
                     {applications.slice(0, 5).map((app: VendorApplication) => (
                       <TableRow
-                        key={app.id}
+                        key={`application-${app.eventId}-${app.applicationDate}`}
                         sx={{
                           bgcolor:
                             app.status === "pending"

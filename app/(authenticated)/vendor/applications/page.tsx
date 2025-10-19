@@ -21,7 +21,6 @@ import { formatDateTime } from "@/lib/date";
 import { apiFetch } from "@/lib/api-client";
 
 interface VendorApplication {
-  id: string;
   eventId: string;
   eventName: string;
   eventDate?: string;
@@ -143,7 +142,10 @@ export default function VendorApplicationsPage() {
                 </TableHead>
                 <TableBody>
                   {applicationsQuery.data?.map((application) => (
-                    <TableRow key={application.id} hover>
+                    <TableRow
+                      key={`application-${application.eventId}-${application.applicationDate}`}
+                      hover
+                    >
                       <TableCell>
                         <Typography variant="body2" fontWeight={500}>
                           {application.eventName}
