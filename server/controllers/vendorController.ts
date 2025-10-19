@@ -302,7 +302,7 @@ export class VendorController {
 
   @LoginRequired()
   @AllowedRoles(["Admin"])
-  async verifyVendor(req: AuthRequest, res: Response) {
+  async approveVendorAccount(req: AuthRequest, res: Response) {
     try {
       const { vendorId } = req.params;
 

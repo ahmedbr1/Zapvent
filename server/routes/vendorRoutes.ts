@@ -58,10 +58,13 @@ router.get(
 );
 
 router.patch(
-  "/admin/:vendorId/verify",
-  loginRequired,
-  allowedRoles(["Admin"]),
-  vendorController.verifyVendor.bind(vendorController)
+  "/admin/:vendorId/approve",
+  vendorController.approveVendorAccount.bind(vendorController)
+);
+
+router.patch(
+  "/admin/:vendorId/reject",
+  vendorController.rejectVendorAccount.bind(vendorController)
 );
 
 export default router;
