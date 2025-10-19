@@ -15,13 +15,6 @@ export interface AdminUser {
   updatedAt: string;
 }
 
-interface AdminUsersResponse {
-  success: boolean;
-  message: string;
-  count: number;
-  users: AdminUser[];
-}
-
 interface AdminActionResponse {
   success: boolean;
   message: string;
@@ -35,6 +28,17 @@ interface ApproveUserResponse extends AdminActionResponse {
   };
 }
 
+interface AdminVendorApplication {
+  eventId: string;
+  status: VendorStatus;
+  applicationDate?: Date;
+  attendees: number;
+  boothSize: number;
+  boothLocation?: string;
+  boothStartTime?: Date;
+  boothEndTime?: Date;
+}
+
 export interface AdminVendor {
   id: string;
   email: string;
@@ -44,7 +48,7 @@ export interface AdminVendor {
   logo?: string;
   taxCard?: string;
   documents?: string;
-  applications: any[];
+  applications: AdminVendorApplication[];
   pendingApplications: number;
   approvedApplications: number;
   rejectedApplications: number;
@@ -70,11 +74,14 @@ export async function approveUser(userId: string, token?: string) {
   return response;
 }
 
-export async function fetchAdminVendors(token?: string): Promise<AdminVendor[]> {
-  const response = await apiFetch<{ success: boolean; message: string; vendors?: AdminVendor[] }>(
-    "/vendors/admin",
-    { token }
-  );
+export async function fetchAdminVendors(
+  token?: string
+): Promise<AdminVendor[]> {
+  const response = await apiFetch<{
+    success: boolean;
+    message: string;
+    vendors?: AdminVendor[];
+  }>("/vendors/admin", { token });
 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to fetch vendors");
