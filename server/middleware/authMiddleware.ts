@@ -39,6 +39,7 @@ function extractAndVerifyToken(req: AuthRequest): {
     email: string;
     role: UserRole | "User";
     userRole?: string; // For User sub-roles (Student, Staff, Professor, TA)
+    adminType?: string; // For Admin sub-roles (EventOffice, etc.)
   };
   message?: string;
 } {
@@ -59,7 +60,13 @@ function extractAndVerifyToken(req: AuthRequest): {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
       algorithms: ["HS256"], // Or ['RS256'] if using asymmetric keys
-    }) as NonNullable<AuthRequest["user"]>;
+    }) as {
+      id: string;
+      email: string;
+      role: UserRole;
+      userRole?: string;
+      adminType?: string;
+    };
     return {
       success: true,
       user: decoded,

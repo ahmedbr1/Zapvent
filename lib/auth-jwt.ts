@@ -5,6 +5,7 @@ interface TokenPayload {
   email: string;
   role: SessionUser["role"];
   userRole?: SessionUser["userRole"];
+  adminType?: SessionUser["adminType"];
   firstName?: string;
   lastName?: string;
   companyName?: string;
@@ -53,6 +54,7 @@ export function decodeToken(token: string): SessionState | null {
       email: payload.email,
       role: payload.role,
       userRole: payload.userRole,
+      adminType: payload.adminType,
       name:
         payload.firstName || payload.lastName
           ? [payload.firstName, payload.lastName].filter(Boolean).join(" ")

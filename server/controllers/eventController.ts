@@ -1,10 +1,6 @@
 import type { Request, Response } from "express";
 import { type AuthRequest } from "../middleware/authMiddleware";
-import {
-  LoginRequired,
-  AllowedRoles,
-  AdminRequired,
-} from "../middleware/authDecorators";
+import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 import {
   deleteEventById,
   getAllEvents,
@@ -23,6 +19,7 @@ import {
   createWorkshop,
   editWorkshop,
   getWorkshopsByCreator,
+  getAllWorkshops,
   createConference,
   registerUserForWorkshop,
 } from "../services/eventService";
@@ -74,8 +71,9 @@ export class EventController {
       return res.status(500).json({ message: "Failed to delete event" });
     }
   }
-  @AdminRequired()
-  async updateBazaarDetails(req: Request, res: Response) {
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventOffice"])
+  async updateBazaarDetails(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
       const updateData: Partial<IEvent> = req.body;
@@ -97,8 +95,9 @@ export class EventController {
     }
   }
 
-  @AdminRequired()
-  async createNewTrip(req: Request, res: Response) {
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventOffice"])
+  async createNewTrip(req: AuthRequest, res: Response) {
     try {
       const tripData: Partial<IEvent> = req.body;
 
@@ -113,8 +112,9 @@ export class EventController {
     }
   }
 
-  @AdminRequired()
-  async updateTripDetails(req: Request, res: Response) {
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventOffice"])
+  async updateTripDetails(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
       const updateData: Partial<IEvent> = req.body;
@@ -168,7 +168,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Vendor"])
+  @AllowedRoles(["Vendor", "EventOffice", "Admin"])
   async getUpcomingBazaarsController(req: AuthRequest, res: Response) {
     try {
       const bazaars = await getUpcomingBazaars();
@@ -180,7 +180,7 @@ export class EventController {
     }
   }
   @LoginRequired()
-  @AllowedRoles(["Admin"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async createBazaarController(req: AuthRequest, res: Response) {
     try {
       const {
@@ -340,13 +340,20 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
+      const actorRole = req.user?.role;
       const sessionUserRole = (
         req.user as typeof req.user & { userRole?: string }
       )?.userRole;
-      if (sessionUserRole !== userRole.PROFESSOR) {
+      const canManageWorkshops =
+        sessionUserRole === userRole.PROFESSOR ||
+        actorRole === "EventOffice" ||
+        actorRole === "Admin";
+
+      if (!canManageWorkshops) {
         return res.status(403).json({
           success: false,
-          message: "Only professors can manage workshops.",
+          message:
+            "Only professors or Events Office or Admins can manage workshops.",
         });
       }
 
@@ -406,7 +413,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Professor"])
+  @AllowedRoles(["Professor", "EventOffice", "Admin"])
   async editWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -420,13 +427,20 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
+      const actorRole = req.user?.role;
       const sessionUserRole = (
         req.user as typeof req.user & { userRole?: string }
       )?.userRole;
-      if (sessionUserRole !== userRole.PROFESSOR) {
+      const canManageWorkshop =
+        sessionUserRole === userRole.PROFESSOR ||
+        actorRole === "EventOffice" ||
+        actorRole === "Admin";
+
+      if (!canManageWorkshop) {
         return res.status(403).json({
           success: false,
-          message: "Only professors can manage workshops.",
+          message:
+            "Only professors or Events Office or Admins can manage workshops.",
         });
       }
 
@@ -441,7 +455,7 @@ export class EventController {
         ...(professorIds ? { participatingProfessorIds: professorIds } : {}),
       };
 
-      const result = await editWorkshop(id, userId, updatePayload);
+      const result = await editWorkshop(id, userId, updatePayload, actorRole);
 
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
@@ -465,10 +479,20 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const sessionUserRole = (
-        req.user as typeof req.user & { userRole?: string }
-      )?.userRole;
-      if (sessionUserRole !== userRole.PROFESSOR) {
+      const actorRole = req.user?.role;
+      const sessionUserRole =
+        (req.user as typeof req.user & { userRole?: string })?.userRole;
+      const isProfessor = sessionUserRole === userRole.PROFESSOR;
+      const isEventsOffice = actorRole === "EventOffice";
+      const isAdmin = actorRole === "Admin";
+
+      if (isEventsOffice || isAdmin) {
+        const result = await getAllWorkshops();
+        const status = result.success ? 200 : 400;
+        return res.status(status).json(result);
+      }
+
+      if (!isProfessor) {
         return res.status(403).json({
           success: false,
           message: "Only professors can access their workshops.",
@@ -476,7 +500,6 @@ export class EventController {
       }
 
       const result = await getWorkshopsByCreator(userId);
-
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
     } catch (error) {
@@ -489,7 +512,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Student", "Staff", "Professor", "TA", "EventOffice"])
+  @AllowedRoles(["Student", "Staff", "Professor", "EventOffice", "TA"])
   async registerForWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
