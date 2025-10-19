@@ -15,7 +15,9 @@ import {
   editBazaarDetails,
   createTrip,
   editTripDetails,
+  getAllBazaars,
   getAllTrips,
+  getBazaarById,
   getTripById,
   getRequestedUpcomingBazaars,
   createWorkshop,
@@ -80,6 +82,34 @@ export class EventController {
       const { id } = req.params;
       const updateData: Partial<IEvent> = req.body;
 
+      const existingBazaar = await getBazaarById(id);
+
+      if (!existingBazaar) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Event not found" });
+      }
+
+      const isEventsOffice =
+        req.user?.role === "EventOffice" ||
+        (req.user?.role === "Admin" && req.user?.adminType === "EventOffice");
+
+      if (isEventsOffice) {
+        const referenceDate =
+          existingBazaar.startDate ?? existingBazaar.date ?? null;
+        const hasBazaarStarted =
+          referenceDate !== null &&
+          new Date(referenceDate).getTime() <= Date.now();
+
+        if (hasBazaarStarted) {
+          return res.status(403).json({
+            success: false,
+            message:
+              "Bazaars that have already started or passed can only be edited by administrators.",
+          });
+        }
+      }
+
       const result = await editBazaarDetails(id, updateData);
 
       if (!result) {
@@ -94,6 +124,25 @@ export class EventController {
       res
         .status(500)
         .json({ success: false, message: "Failed to update event" });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventOffice"])
+  async getAllBazaarsController(_req: AuthRequest, res: Response) {
+    try {
+      const result = await getAllBazaars();
+      if (!result.success) {
+        return res.status(500).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Error fetching bazaars:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load bazaars.",
+      });
     }
   }
 
@@ -654,6 +703,8 @@ const eventController = new EventController();
 
 export const updateBazaarDetails =
   eventController.updateBazaarDetails.bind(eventController);
+export const getAllBazaarsController =
+  eventController.getAllBazaarsController.bind(eventController);
 export const getAllTripsController =
   eventController.getAllTripsController.bind(eventController);
 export const createNewTrip =

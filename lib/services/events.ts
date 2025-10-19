@@ -146,6 +146,19 @@ export async function fetchUpcomingBazaars(
   token?: string,
   currentUserId?: string
 ): Promise<EventSummary[]> {
+  if (token) {
+    const response = await apiFetch<EventApiResponse>("/events/bazaar", {
+      method: "GET",
+      token,
+    });
+
+    if (!response.success) {
+      throw new Error(response.message ?? "Failed to load bazaars");
+    }
+
+    return (response.data ?? []).map((item) => mapEvent(item, currentUserId));
+  }
+
   const response = await apiFetch<UpcomingBazaarsResponse>(
     "/events/upcoming-bazaars",
     {

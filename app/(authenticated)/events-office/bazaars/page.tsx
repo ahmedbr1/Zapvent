@@ -11,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActions from "@mui/material/CardActions";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -66,6 +67,7 @@ export default function BazaarManagementPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBazaarId, setEditingBazaarId] = useState<string | null>(null);
+  const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "bazaars", token],
@@ -103,6 +105,13 @@ export default function BazaarManagementPage() {
     },
   });
 
+  const bazaars = useMemo(() => {
+    if (!data) return [];
+    return [...data].sort(
+      (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
+    );
+  }, [data]);
+
   const handleCreateClick = () => {
     setEditingBazaarId(null);
     reset(defaultBazaarValues());
@@ -112,6 +121,12 @@ export default function BazaarManagementPage() {
   const handleEditClick = (bazaarId: string) => {
     const bazaar = (data ?? []).find((item) => item.id === bazaarId);
     if (!bazaar) return;
+    if (isEventsOfficeUser && !dayjs(bazaar.startDate).isAfter(dayjs())) {
+      enqueueSnackbar("Bazaars that have started can only be edited by administrators.", {
+        variant: "warning",
+      });
+      return;
+    }
     setEditingBazaarId(bazaarId);
     reset({
       name: bazaar.name,
@@ -146,8 +161,6 @@ export default function BazaarManagementPage() {
     }
   });
 
-  const upcoming = useMemo(() => data ?? [], [data]);
-
   const actionLabel = editingBazaarId ? "Save changes" : "Create bazaar";
 
   return (
@@ -179,47 +192,64 @@ export default function BazaarManagementPage() {
         <Alert severity="error" action={<Button onClick={() => refetch()}>Retry</Button>}>
           {resolveErrorMessage(error)}
         </Alert>
-      ) : upcoming.length === 0 ? (
+      ) : bazaars.length === 0 ? (
         <Alert severity="info">
           No bazaars scheduled yet. Tap “New bazaar” to launch your next campus experience.
         </Alert>
       ) : (
         <Grid container spacing={3}>
-          {upcoming.map((bazaar) => (
-            <Grid key={bazaar.id} size={{ xs: 12, md: 6, lg: 4 }}>
-              <Card sx={{ borderRadius: 3, height: "100%", display: "flex", flexDirection: "column" }}>
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Stack spacing={1.5}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip label="Bazaar" size="small" color="secondary" />
-                      <Chip label={bazaar.location} size="small" variant="outlined" />
+          {bazaars.map((bazaar) => {
+            const bazaarHasStarted = !dayjs(bazaar.startDate).isAfter(dayjs());
+            const disableEdit = isEventsOfficeUser && bazaarHasStarted;
+            return (
+              <Grid key={bazaar.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                <Card
+                  sx={{ borderRadius: 3, height: "100%", display: "flex", flexDirection: "column" }}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Stack spacing={1.5}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Chip label="Bazaar" size="small" color="secondary" />
+                        <Chip label={bazaar.location} size="small" variant="outlined" />
+                      </Stack>
+                      <Typography variant="h6" fontWeight={700}>
+                        {bazaar.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {bazaar.description}
+                      </Typography>
+                      <Divider sx={{ my: 1 }} />
+                      <Detail label="Starts" value={formatDateTime(bazaar.startDate)} />
+                      <Detail label="Ends" value={formatDateTime(bazaar.endDate)} />
+                      <Detail
+                        label="Registration deadline"
+                        value={formatDateTime(bazaar.registrationDeadline)}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        Vendors assigned: {bazaar.vendors?.length ?? 0}
+                      </Typography>
                     </Stack>
-                    <Typography variant="h6" fontWeight={700}>
-                      {bazaar.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {bazaar.description}
-                    </Typography>
-                    <Divider sx={{ my: 1 }} />
-                    <Detail label="Starts" value={formatDateTime(bazaar.startDate)} />
-                    <Detail label="Ends" value={formatDateTime(bazaar.endDate)} />
-                    <Detail
-                      label="Registration deadline"
-                      value={formatDateTime(bazaar.registrationDeadline)}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      Vendors assigned: {bazaar.vendors?.length ?? 0}
-                    </Typography>
-                  </Stack>
-                </CardContent>
-                <CardActions sx={{ px: 3, pb: 3 }}>
-                  <Button startIcon={<EditIcon />} onClick={() => handleEditClick(bazaar.id)}>
-                    Edit bazaar
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
+                  </CardContent>
+                  <CardActions sx={{ px: 3, pb: 3, alignItems: "center" }}>
+                    {disableEdit ? (
+                      <Typography variant="caption" color="error" sx={{ flexGrow: 1, pr: 1 }}>
+                        Bazaar already started; contact an administrator for changes.
+                      </Typography>
+                    ) : (
+                      <Box sx={{ flexGrow: 1 }} />
+                    )}
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={() => handleEditClick(bazaar.id)}
+                      disabled={disableEdit}
+                    >
+                      Edit bazaar
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
       )}
 

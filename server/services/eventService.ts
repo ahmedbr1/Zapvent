@@ -191,6 +191,42 @@ export const editBazaarDetails = async (
   }
 };
 
+export interface IGetAllBazaarsResponse {
+  success: boolean;
+  data?: Array<IEvent & { _id: Types.ObjectId }>;
+  message?: string;
+}
+
+export const getAllBazaars = async (): Promise<IGetAllBazaarsResponse> => {
+  try {
+    const bazaars = await EventModel.find({
+      eventType: EventType.BAZAAR,
+    })
+      .sort({ startDate: 1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    return {
+      success: true,
+      data: bazaars,
+    };
+  } catch (error) {
+    console.error("Error fetching bazaars:", error);
+    return {
+      success: false,
+      message: "Failed to fetch bazaars.",
+    };
+  }
+};
+
+export const getBazaarById = async (eventId: string): Promise<IEvent | null> => {
+  try {
+    return await EventModel.findById(eventId);
+  } catch (error) {
+    console.error("Error fetching bazaar:", error);
+    throw error;
+  }
+};
+
 export const createTrip = async (
   tripData: Partial<IEvent>
 ): Promise<IEvent> => {
