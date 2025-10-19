@@ -84,7 +84,7 @@ function ApplyDialog({
       const requestBody = {
         eventId: bazaar.id,
         attendees: attendeesNum,
-        boothSize: parseFloat(boothSize),
+        boothSize: boothSize,
         vendorEmail,
         companyName,
       };
@@ -163,14 +163,21 @@ function ApplyDialog({
             }
           />
           <TextField
-            label="Booth Size (sq meters)"
-            type="number"
+            label="Booth Size"
+            select
             value={boothSize}
             onChange={(e) => setBoothSize(e.target.value)}
             fullWidth
             required
-            helperText="Requested booth size in square meters"
-          />
+            SelectProps={{
+              native: true,
+            }}
+            helperText="Select your preferred booth size"
+          >
+            <option value=""></option>
+            <option value="2x2">2x2 meters</option>
+            <option value="4x4">4x4 meters</option>
+          </TextField>
         </Stack>
       </DialogContent>
       <DialogActions>

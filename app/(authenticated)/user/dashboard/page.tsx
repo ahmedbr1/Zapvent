@@ -155,6 +155,7 @@ export default function UserDashboardPage() {
                   <TableCell>Location</TableCell>
                   <TableCell>Start</TableCell>
                   <TableCell>Registration deadline</TableCell>
+                  <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -173,6 +174,13 @@ export default function UserDashboardPage() {
                     </TableCell>
                     <TableCell>{formatDateTime(registration.startDate)}</TableCell>
                     <TableCell>{formatDateTime(registration.registrationDeadline)}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={registration.status}
+                        size="small"
+                        color={registration.status === "Past" ? "warning" : "success"}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
