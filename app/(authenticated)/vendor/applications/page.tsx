@@ -19,6 +19,7 @@ import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { formatDateTime } from "@/lib/date";
 import { apiFetch } from "@/lib/api-client";
+import { BazaarBoothSize } from "@/server/models/Event";
 
 interface VendorApplication {
   eventId: string;
@@ -27,7 +28,7 @@ interface VendorApplication {
   eventLocation?: string;
   applicationDate: string;
   attendees: number;
-  boothSize: number;
+  boothSize: BazaarBoothSize;
   boothLocation?: string;
   status: "pending" | "approved" | "rejected";
 }

@@ -2,6 +2,7 @@
 import mongoose, { Schema, Types } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 import bcrypt from "bcrypt";
+import { BazaarBoothSize } from "./Event";
 
 export enum VendorStatus {
   PENDING = "pending",
@@ -23,7 +24,7 @@ export interface BazaarApplication {
     name: string;
     email: string;
   }[];
-  boothSize: number;
+  boothSize: BazaarBoothSize;
   boothInfo?: BoothInfo; // Only filled after approval
 }
 
@@ -88,7 +89,11 @@ const vendorSchema = new Schema<IVendor>(
               message: "Attendees must include 1 to 5 entries.",
             },
           },
-          boothSize: { type: Number, required: true, min: 1 },
+          boothSize: {
+            type: String,
+            enum: Object.values(BazaarBoothSize),
+            required: true,
+          },
           boothInfo: {
             boothLocation: { type: String },
             boothStartTime: { type: Date },

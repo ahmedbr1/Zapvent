@@ -26,13 +26,15 @@ import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { formatDateTime } from "@/lib/date";
+import { apiFetch } from "@/lib/api-client";
+import { BazaarBoothSize } from "@/server/models/Event";
 
 interface BoothSetup {
   id: string;
   eventName: string;
   eventDate: string;
   boothLocation: string;
-  boothSize: number;
+  boothSize: BazaarBoothSize;
   attendees: number;
   setupNotes?: string;
   status: "pending" | "confirmed" | "completed";
@@ -122,8 +124,11 @@ export default function VendorBoothSetupPage() {
   const boothsQuery = useQuery({
     queryKey: ["vendor-booths", user?.id, token],
     queryFn: async (): Promise<BoothSetup[]> => {
-      // TODO: Replace with actual API call when backend is ready
-      return [];
+      const response = (await apiFetch("/vendors/my-applications", {
+        method: "GET",
+        token: token ?? undefined,
+      })) as { success: boolean; data: BoothSetup[] };
+      return response.data || [];
     },
     enabled: Boolean(token && user?.id),
   });
