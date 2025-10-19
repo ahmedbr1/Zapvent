@@ -28,7 +28,7 @@ interface ApproveUserResponse extends AdminActionResponse {
   };
 }
 
-interface AdminVendorApplication {
+export interface AdminVendorApplication {
   eventId: string;
   eventName?: string;
   status: VendorStatus;
