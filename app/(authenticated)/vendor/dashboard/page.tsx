@@ -26,6 +26,7 @@ import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { apiFetch } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/date";
+import { BazaarBoothSize } from "@/server/models/Event";
 
 interface VendorStats {
   totalApplications: number;
@@ -41,7 +42,7 @@ interface VendorApplication {
   eventLocation?: string;
   applicationDate: string;
   attendees: number;
-  boothSize: number;
+  boothSize: BazaarBoothSize;
   boothLocation?: string;
   status: "pending" | "approved" | "rejected";
 }

@@ -84,7 +84,7 @@ function ApplyDialog({
       const requestBody = {
         eventId: bazaar.id,
         attendees: attendeesNum,
-        boothSize: parseFloat(boothSize),
+        boothSize: boothSize,
         vendorEmail,
         companyName,
       };
