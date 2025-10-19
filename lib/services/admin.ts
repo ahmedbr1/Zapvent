@@ -184,6 +184,22 @@ export async function blockUser(userId: string, token?: string) {
   return response;
 }
 
+export async function fetchAdminUsers(token?: string): Promise<AdminUser[]> {
+  const response = await apiFetch<{
+    success: boolean;
+    message?: string;
+    users?: AdminUser[];
+  }>("/admin/users", {
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to fetch users");
+  }
+
+  return response.users ?? [];
+}
+
 // Events Office Management
 export interface EventsOfficeAccount {
   id: string;
