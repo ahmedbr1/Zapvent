@@ -11,7 +11,7 @@ export default async function EventsOfficeLayout({ children }: { children: React
     redirect("/login/events-office");
   }
 
-  if (session.user.role !== AuthRole.EventsOffice && session.user.role !== AuthRole.Admin) {
+  if (session.user.role !== AuthRole.EventOffice && session.user.role !== AuthRole.Admin) {
     redirect(getDefaultDashboardRoute(session.user.role));
   }
 

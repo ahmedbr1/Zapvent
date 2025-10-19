@@ -161,7 +161,7 @@ export default function BazaarManagementPage() {
         </Typography>
       </Stack>
 
-      {user?.role === AuthRole.EventsOffice ? (
+      {user?.role === AuthRole.EventOffice ? (
         <Typography variant="body2" color="text.secondary">
           Signed in as Events Office. All published bazaars sync automatically with vendor portals.
         </Typography>
