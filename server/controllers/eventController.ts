@@ -69,6 +69,15 @@ export class EventController {
       if (err instanceof Error && err.message === "INVALID_EVENT_ID") {
         return res.status(400).json({ message: "Invalid event id" });
       }
+      if (
+        err instanceof Error &&
+        err.message === "Cannot delete event with registered users"
+      ) {
+        return res.status(400).json({
+          message:
+            "Cannot delete event with registered users. Please remove all registrations first.",
+        });
+      }
       console.error(err);
       return res.status(500).json({ message: "Failed to delete event" });
     }
