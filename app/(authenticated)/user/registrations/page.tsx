@@ -78,7 +78,14 @@ export default function UserRegistrationsPage() {
                       Registration closes {formatDateTime(item.registrationDeadline)}
                     </Typography>
                   </Stack>
-                  <Chip label={item.location} size="small" />
+                  <Stack direction="row" spacing={1}>
+                    <Chip label={item.location} size="small" />
+                    <Chip
+                      label={item.status}
+                      size="small"
+                      color={item.status === "Past" ? "warning" : "success"}
+                    />
+                  </Stack>
                 </Stack>
                 <Divider sx={{ my: 2 }} />
                 <GridDetails
@@ -86,6 +93,7 @@ export default function UserRegistrationsPage() {
                     { label: "Event starts", value: formatDateTime(item.startDate) },
                     { label: "Event ends", value: formatDateTime(item.endDate) },
                     { label: "Event ID", value: item.id },
+                    { label: "Registration status", value: item.status },
                   ]}
                 />
               </CardContent>
