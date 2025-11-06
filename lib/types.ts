@@ -149,6 +149,7 @@ export interface VendorSummary {
     startTime: string;
     endTime: string;
   };
+  hasPaid?: boolean;
 }
 
 export interface UserRegisteredEvent {

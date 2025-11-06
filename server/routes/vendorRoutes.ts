@@ -20,7 +20,7 @@ router.post(
 router.post(
   "/apply-bazaar",
   loginRequired,
-  allowedRoles(["Vendor"]),
+  // allowedRoles(["Vendor"]),
   vendorController.applyToBazaar.bind(vendorController)
 );
 
@@ -30,6 +30,13 @@ router.get(
   loginRequired,
   allowedRoles(["Vendor"]),
   vendorController.getMyApplications.bind(vendorController)
+);
+
+router.delete(
+  "/my-applications/:eventId",
+  // loginRequired,
+  // allowedRoles(["Vendor"]),
+  vendorController.cancelMyApplication.bind(vendorController)
 );
 
 // Profile routes - protected with decorators in controller

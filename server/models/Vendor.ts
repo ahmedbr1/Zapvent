@@ -25,6 +25,7 @@ export interface BazaarApplication {
     email: string;
   }[];
   boothSize: BazaarBoothSize;
+  hasPaid?: boolean;
   boothInfo?: BoothInfo; // Only filled after approval
 }
 
@@ -93,6 +94,10 @@ const vendorSchema = new Schema<IVendor>(
             type: String,
             enum: Object.values(BazaarBoothSize),
             required: true,
+          },
+          hasPaid: {
+            type: Boolean,
+            default: false,
           },
           boothInfo: {
             boothLocation: { type: String },

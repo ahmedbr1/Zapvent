@@ -50,6 +50,7 @@ export interface AdminVendorApplication {
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;
+  hasPaid: boolean;
 }
 
 export interface AdminVendorResponse {
@@ -107,6 +108,7 @@ export async function applyToBazaar(
     eventId: string;
     attendees: { name: string; email: string }[];
     boothSize: BazaarBoothSize;
+    hasPaid?: boolean;
     boothInfo?: {
       boothLocation?: string;
       boothStartTime?: Date;
@@ -208,6 +210,7 @@ export async function applyToBazaar(
       applicationDate: new Date(),
       attendees: applicationData.attendees,
       boothSize: applicationData.boothSize,
+      hasPaid: Boolean(applicationData.hasPaid),
       ...(boothInfoToSave ? { boothInfo: boothInfoToSave } : {}),
     };
 
@@ -268,6 +271,63 @@ export async function applyToBazaar(
   }
 }
 
+export async function cancelBazaarApplication(
+  vendorId: string,
+  eventId: string
+) {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return { success: false, message: "Invalid event ID" };
+    }
+
+    const vendor = await vendorModel.findById(vendorId);
+    if (!vendor) {
+      return { success: false, message: "Vendor not found" };
+    }
+
+    const applications = (vendor.applications ?? []) as BazaarApplication[];
+    const targetEventId = eventId.toString();
+    const applicationIndex = applications.findIndex(
+      (app) => app.eventId?.toString() === targetEventId
+    );
+
+    if (applicationIndex === -1) {
+      return { success: false, message: "Application not found" };
+    }
+
+    const application = applications[applicationIndex];
+
+    if (application.hasPaid) {
+      return {
+        success: false,
+        message: "Cannot cancel an application after payment has been completed",
+      };
+    }
+
+    const attendeesCount = application.attendees?.length ?? 0;
+    applications.splice(applicationIndex, 1);
+    vendor.applications = applications;
+    await vendor.save();
+
+    if (attendeesCount > 0) {
+      await EventModel.findByIdAndUpdate(application.eventId, {
+        $inc: { capacity: attendeesCount },
+      });
+    }
+
+    return {
+      success: true,
+      message: "Application canceled successfully",
+    };
+  } catch (error) {
+    console.error("Error canceling bazaar application:", error);
+    return {
+      success: false,
+      message: "Failed to cancel application",
+    };
+  }
+}
+
 export async function getVendorApplications(vendorId: string) {
   try {
     const vendor = await vendorModel
@@ -304,6 +364,7 @@ export async function getVendorApplications(vendorId: string) {
           boothLocation: app.boothInfo?.boothLocation,
           boothStartTime: app.boothInfo?.boothStartTime,
           boothEndTime: app.boothInfo?.boothEndTime,
+          hasPaid: Boolean(app.hasPaid),
         };
       })
     );
@@ -352,6 +413,7 @@ export async function findAllForAdmin(): Promise<{
               boothLocation: application.boothInfo?.boothLocation,
               boothStartTime: application.boothInfo?.boothStartTime,
               boothEndTime: application.boothInfo?.boothEndTime,
+              hasPaid: Boolean(application.hasPaid),
             };
           })
         );
