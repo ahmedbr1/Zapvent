@@ -154,6 +154,101 @@ export class EmailService {
       throw error;
     }
   }
+
+  async sendStudentVerificationEmail(options: {
+    user: IUser;
+    verificationUrl: string;
+    loginUrl: string;
+    expiresAt: Date;
+  }) {
+    const { user, verificationUrl, loginUrl, expiresAt } = options;
+    const expiryString = expiresAt.toLocaleString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    try {
+      const result = await sendEmail({
+        to: user.email,
+        subject: "Verify your Zapvent account",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #333;">Welcome to Zapvent, ${user.firstName}!</h2>
+            <p>You're almost there. Please confirm your student account by clicking the button below.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verificationUrl}" style="background-color: #007cba; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                Verify My Account
+              </a>
+            </div>
+            <p>This link expires on <strong>${expiryString}</strong>. If it expires, you can request a new verification email from the login page.</p>
+            <p>Once verified you'll be redirected to <a href="${loginUrl}">the Zapvent login page</a>.</p>
+            <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+          </div>
+        `,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Email service error:", error);
+      throw error;
+    }
+  }
+
+  async sendCommentDeletionWarning(options: {
+    user: IUser;
+    eventName: string;
+    eventDate?: Date;
+    commentContent: string;
+    reason?: string;
+  }) {
+    const { user, eventName, eventDate, commentContent, reason } = options;
+
+    const formattedDate = eventDate
+      ? new Date(eventDate).toLocaleString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "the event";
+
+    const escapeHtml = (value: string) =>
+      value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    try {
+      const result = await sendEmail({
+        to: user.email,
+        subject: `Important: Your comment on ${eventName} was removed`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #d32f2f;">Comment Removed</h2>
+            <p>Hello ${user.firstName},</p>
+            <p>Our moderation team removed one of your comments posted on <strong>${eventName}</strong> (${formattedDate}).</p>
+            <p style="margin-bottom: 0;">Removed comment:</p>
+            <blockquote style="background: #f9f9f9; border-left: 4px solid #d32f2f; padding: 12px; margin-top: 4px;">
+              ${escapeHtml(commentContent)}
+            </blockquote>
+            ${
+              reason
+                ? `<p><strong>Reason provided:</strong> ${escapeHtml(reason)}</p>`
+                : "<p>The comment violated our community guidelines.</p>"
+            }
+            <p>If you believe this decision was made in error, please reach out to the Events Office.</p>
+            <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+          </div>
+        `,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Email service error:", error);
+      throw error;
+    }
+  }
 }
 
 export const emailService = new EmailService();
