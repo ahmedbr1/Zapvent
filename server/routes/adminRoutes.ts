@@ -23,6 +23,10 @@ router.delete(
   "/events-office/:id",
   adminController.deleteEventsOffice.bind(adminController)
 );
+router.get(
+  "/notifications",
+  adminController.getMyNotifications.bind(adminController)
+);
 
 // Admins only routes (adminType: "Admin")
 router.get(
