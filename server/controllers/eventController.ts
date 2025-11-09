@@ -18,6 +18,7 @@ import {
   setEventRoleRestrictions,
   exportEventRegistrations,
   generateEventQRCode,
+  sendWorkshopCertificates,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -994,6 +995,30 @@ export class EventController {
       return res.send(result.buffer);
     } catch (error) {
       console.error("Generate event QR code controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async sendWorkshopCertificatesController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const result = await sendWorkshopCertificates(id);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Send workshop certificates controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
