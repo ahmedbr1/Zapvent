@@ -56,6 +56,13 @@ router.get(
 );
 router.get("/my-workshops", eventController.getMyWorkshopsController);
 
+// Event Office routes for workshop approval
+router.patch(
+  "/workshop/:id/approve",
+  eventController.approveWorkshopController
+);
+router.patch("/workshop/:id/reject", eventController.rejectWorkshopController);
+
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);
 
