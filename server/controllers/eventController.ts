@@ -17,6 +17,7 @@ import {
   archiveEvent,
   setEventRoleRestrictions,
   exportEventRegistrations,
+  generateEventQRCode,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -953,6 +954,46 @@ export class EventController {
       return res.send(result.buffer);
     } catch (error) {
       console.error("Export event registrations controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async generateEventQRCodeController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      const result = await generateEventQRCode(id);
+
+      if (!result.success) {
+        const status = result.message === "Event not found." ? 404 : 400;
+        return res.status(status).json({
+          success: result.success,
+          message: result.message,
+        });
+      }
+
+      // Set headers for image download
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${result.filename}"`
+      );
+
+      // Send the QR code image buffer
+      return res.send(result.buffer);
+    } catch (error) {
+      console.error("Generate event QR code controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
