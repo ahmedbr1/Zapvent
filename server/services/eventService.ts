@@ -1664,3 +1664,66 @@ export async function rejectWorkshop(
     };
   }
 }
+
+export async function requestWorkshopEdits(
+  workshopId: string,
+  message: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    if (!message || message.trim().length === 0) {
+      return {
+        success: false,
+        message: "Edit request message is required.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.APPROVED) {
+      return {
+        success: false,
+        message: "Cannot request edits for an already approved workshop.",
+      };
+    }
+
+    workshop.requestedEdits = message.trim();
+    await workshop.save();
+
+    return {
+      success: true,
+      message: "Edit request sent to professor successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        requestedEdits: workshop.requestedEdits,
+      },
+    };
+  } catch (error) {
+    console.error("Error requesting workshop edits:", error);
+    return {
+      success: false,
+      message: "An error occurred while requesting workshop edits.",
+    };
+  }
+}
