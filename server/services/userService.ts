@@ -216,10 +216,12 @@ export async function findRegisteredEvents(
         rawReferenceDate instanceof Date
           ? rawReferenceDate
           : rawReferenceDate
-          ? new Date(rawReferenceDate)
-          : null;
+            ? new Date(rawReferenceDate)
+            : null;
       const status =
-        referenceDate && referenceDate.getTime() < now.getTime() ? "Past" : "Upcoming";
+        referenceDate && referenceDate.getTime() < now.getTime()
+          ? "Past"
+          : "Upcoming";
 
       return {
         id: event._id.toString(),
@@ -308,4 +310,46 @@ export async function addEventToFavorites(
     message: "Event added to favorites.",
     data: { favorites: updatedUser?.favorites ?? [eventId] },
   };
+}
+
+export async function getProfessorNotifications(
+  userId: string
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: { notifications: string[] };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(userId)) {
+      return {
+        success: false,
+        message: "Invalid user ID.",
+      };
+    }
+
+    const user = await UserModel.findById(userId)
+      .select("notifications")
+      .lean<IUser | null>();
+
+    if (!user) {
+      return {
+        success: false,
+        message: "User not found.",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Notifications retrieved successfully.",
+      data: {
+        notifications: user.notifications ?? [],
+      },
+    };
+  } catch (error) {
+    console.error("Error retrieving professor notifications:", error);
+    return {
+      success: false,
+      message: "An error occurred while retrieving notifications.",
+    };
+  }
 }
