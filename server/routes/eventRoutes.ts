@@ -20,6 +20,11 @@ router.get(
   eventController.getRequestedUpcomingBazaarsController
 );
 router.get(
+  "/reports/attendance",
+  eventController.getAttendanceReportController
+);
+router.get("/reports/sales", eventController.getSalesReportController);
+router.get(
   "/:eventId/applications",
   loginRequired,
   allowedRoles(["Admin", "EventOffice"]),
