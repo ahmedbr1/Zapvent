@@ -1018,6 +1018,34 @@ async function notifyEventOffice(message: string): Promise<void> {
   }
 }
 
+async function notifyProfessorWorkshopStatus(
+  professorId: string,
+  workshopName: string,
+  status: "approved" | "rejected",
+  reason?: string
+): Promise<void> {
+  try {
+    if (!Types.ObjectId.isValid(professorId)) {
+      return;
+    }
+
+    let message: string;
+    if (status === "approved") {
+      message = `Your workshop "${workshopName}" has been approved and published by the Event Office.`;
+    } else {
+      message = reason
+        ? `Your workshop "${workshopName}" has been rejected by the Event Office. Reason: ${reason}`
+        : `Your workshop "${workshopName}" has been rejected by the Event Office.`;
+    }
+
+    await UserModel.findByIdAndUpdate(professorId, {
+      $push: { notifications: message },
+    });
+  } catch (error) {
+    console.error("Error sending notification to professor:", error);
+  }
+}
+
 interface WorkshopCreatorDetails {
   name?: string;
   role?: string;
@@ -1592,6 +1620,15 @@ export async function approveWorkshop(
     workshop.workshopStatus = WorkshopStatus.APPROVED;
     await workshop.save();
 
+    // Notify the professor about approval
+    if (workshop.createdBy) {
+      await notifyProfessorWorkshopStatus(
+        workshop.createdBy,
+        workshop.name,
+        "approved"
+      );
+    }
+
     return {
       success: true,
       message: "Workshop approved and published successfully.",
@@ -1647,6 +1684,16 @@ export async function rejectWorkshop(
 
     workshop.workshopStatus = WorkshopStatus.REJECTED;
     await workshop.save();
+
+    // Notify the professor about rejection
+    if (workshop.createdBy) {
+      await notifyProfessorWorkshopStatus(
+        workshop.createdBy,
+        workshop.name,
+        "rejected",
+        reason
+      );
+    }
 
     return {
       success: true,
