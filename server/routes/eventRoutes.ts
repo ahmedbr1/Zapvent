@@ -62,6 +62,10 @@ router.patch(
   eventController.approveWorkshopController
 );
 router.patch("/workshop/:id/reject", eventController.rejectWorkshopController);
+router.patch(
+  "/workshop/:id/request-edits",
+  eventController.requestWorkshopEditsController
+);
 
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);
