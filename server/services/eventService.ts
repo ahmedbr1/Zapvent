@@ -18,6 +18,7 @@ import vendorModel, {
 import UserModel, { IUser, userRole } from "../models/User";
 import * as XLSX from "xlsx";
 import * as qr from "qr-image";
+import { emailService } from "./emailService";
 
 function buildProfessorName(
   user: Pick<IUser, "firstName" | "lastName">
@@ -2166,6 +2167,111 @@ export async function generateEventQRCode(eventId: string): Promise<{
     return {
       success: false,
       message: "An error occurred while generating the QR code.",
+    };
+  }
+}
+
+export async function sendWorkshopCertificates(workshopId: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: { sentCount: number; failedCount: number };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    // Only workshops support certificates
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Certificates can only be issued for workshops.",
+      };
+    }
+
+    // Check if workshop has ended
+    const currentDate = new Date();
+    if (workshop.endDate > currentDate) {
+      return {
+        success: false,
+        message: `Workshop has not ended yet. It ends on ${workshop.endDate.toISOString()}.`,
+      };
+    }
+
+    // Collect all participants: registered users + creator (professor)
+    const participantIds: string[] = [...(workshop.registeredUsers ?? [])];
+    if (workshop.createdBy) {
+      participantIds.push(workshop.createdBy);
+    }
+
+    // Remove duplicates (in case creator is also in registered users)
+    const uniqueParticipantIds = [...new Set(participantIds)];
+
+    if (uniqueParticipantIds.length === 0) {
+      return {
+        success: false,
+        message: "No participants found for this workshop.",
+      };
+    }
+
+    // Fetch all participants
+    const participants = await UserModel.find({
+      _id: { $in: uniqueParticipantIds },
+    }).select("firstName lastName email role");
+
+    if (participants.length === 0) {
+      return {
+        success: false,
+        message: "No valid participant data found.",
+      };
+    }
+
+    // Send certificates to all participants
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const participant of participants) {
+      try {
+        await emailService.sendWorkshopCertificate({
+          user: participant,
+          workshopName: workshop.name,
+          workshopDate: workshop.endDate,
+        });
+        sentCount++;
+      } catch (error) {
+        console.error(
+          `Failed to send certificate to ${participant.email}:`,
+          error
+        );
+        failedCount++;
+      }
+    }
+
+    return {
+      success: true,
+      message: `Certificates sent successfully to ${sentCount} participant(s).${failedCount > 0 ? ` ${failedCount} failed.` : ""}`,
+      data: {
+        sentCount,
+        failedCount,
+      },
+    };
+  } catch (error) {
+    console.error("Error sending workshop certificates:", error);
+    return {
+      success: false,
+      message: "An error occurred while sending certificates.",
     };
   }
 }
