@@ -64,6 +64,7 @@ export interface IEvent extends IBaseModel {
   requestedEdits?: string; // Message from Event Office requesting edits to the workshop
   revenue: number;
   archived: boolean;
+  allowedRoles?: string[]; // User roles that are allowed to register for this event
   registeredUsers: string[]; // List of users
   vendors: string[]; // List of vendors
 }
@@ -109,6 +110,7 @@ const EventSchema = new Schema<IEvent>(
     requestedEdits: { type: String },
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
+    allowedRoles: [{ type: String }],
     registeredUsers: [{ type: String }],
     vendors: [{ type: String }],
   },
