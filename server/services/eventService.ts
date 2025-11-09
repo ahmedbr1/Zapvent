@@ -16,6 +16,7 @@ import vendorModel, {
   BazaarApplication,
 } from "../models/Vendor";
 import UserModel, { IUser, userRole } from "../models/User";
+import * as XLSX from "xlsx";
 
 function buildProfessorName(
   user: Pick<IUser, "firstName" | "lastName">
@@ -1977,6 +1978,109 @@ export async function setEventRoleRestrictions(
     return {
       success: false,
       message: "An error occurred while updating role restrictions.",
+    };
+  }
+}
+
+export async function exportEventRegistrations(eventId: string): Promise<{
+  success: boolean;
+  message: string;
+  buffer?: Buffer;
+  filename?: string;
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    // Conferences don't support user registrations export
+    if (event.eventType === EventType.CONFERENCE) {
+      return {
+        success: false,
+        message: "Conferences do not support registration exports.",
+      };
+    }
+
+    // Get registered user IDs
+    const registeredUserIds = event.registeredUsers ?? [];
+
+    if (registeredUserIds.length === 0) {
+      return {
+        success: false,
+        message: "No users registered for this event.",
+      };
+    }
+
+    // Fetch user details for all registered users
+    const users = await UserModel.find({
+      _id: { $in: registeredUserIds },
+    }).select("firstName lastName email role studentId staffId");
+
+    if (users.length === 0) {
+      return {
+        success: false,
+        message: "No valid user data found for registered users.",
+      };
+    }
+
+    // Prepare data for Excel
+    const excelData = users.map((user) => ({
+      "First Name": user.firstName,
+      "Last Name": user.lastName,
+      Email: user.email,
+      Role: user.role,
+      "Student ID": user.studentId || "N/A",
+      "Staff ID": user.staffId || "N/A",
+    }));
+
+    // Create workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths for better readability
+    worksheet["!cols"] = [
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
+      { wch: 30 }, // Email
+      { wch: 12 }, // Role
+      { wch: 15 }, // Student ID
+      { wch: 15 }, // Staff ID
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Registrations");
+
+    // Generate Excel file buffer
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+    // Create filename with event name and date
+    const sanitizedEventName = event.name.replace(/[^a-z0-9]/gi, "_");
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `${sanitizedEventName}_Registrations_${dateStr}.xlsx`;
+
+    return {
+      success: true,
+      message: "Registration export generated successfully.",
+      buffer: Buffer.from(buffer),
+      filename,
+    };
+  } catch (error) {
+    console.error("Error exporting event registrations:", error);
+    return {
+      success: false,
+      message: "An error occurred while exporting registrations.",
     };
   }
 }
