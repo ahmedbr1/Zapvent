@@ -17,6 +17,7 @@ import vendorModel, {
 } from "../models/Vendor";
 import UserModel, { IUser, userRole } from "../models/User";
 import * as XLSX from "xlsx";
+import * as qr from "qr-image";
 
 function buildProfessorName(
   user: Pick<IUser, "firstName" | "lastName">
@@ -2081,6 +2082,90 @@ export async function exportEventRegistrations(eventId: string): Promise<{
     return {
       success: false,
       message: "An error occurred while exporting registrations.",
+    };
+  }
+}
+
+export async function generateEventQRCode(eventId: string): Promise<{
+  success: boolean;
+  message: string;
+  buffer?: Buffer;
+  filename?: string;
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    // Only allow QR code generation for Bazaars and Career Fairs (Seminars)
+    if (
+      event.eventType !== EventType.BAZAAR &&
+      event.eventType !== EventType.SEMINAR
+    ) {
+      return {
+        success: false,
+        message:
+          "QR codes can only be generated for Bazaars and Career Fairs (Seminars).",
+      };
+    }
+
+    // Determine the QR code text based on event type
+    let qrText: string;
+    let eventTypeName: string;
+
+    if (event.eventType === EventType.BAZAAR) {
+      qrText = "Bazaar Ticket";
+      eventTypeName = "Bazaar";
+    } else {
+      // Seminar (Career Fair)
+      qrText = "Career Fair Ticket";
+      eventTypeName = "CareerFair";
+    }
+
+    // Generate QR code as PNG buffer
+    const qrBuffer = qr.imageSync(qrText, {
+      type: "png",
+      size: 10,
+      margin: 2,
+      ec_level: "H",
+    });
+
+    // Ensure we have a Buffer (imageSync with PNG type should return Buffer)
+    if (typeof qrBuffer === "string") {
+      return {
+        success: false,
+        message: "Failed to generate QR code buffer.",
+      };
+    }
+
+    // Create filename
+    const sanitizedEventName = event.name.replace(/[^a-z0-9]/gi, "_");
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `${sanitizedEventName}_${eventTypeName}_QR_${dateStr}.png`;
+
+    return {
+      success: true,
+      message: `QR code generated successfully for ${event.eventType}.`,
+      buffer: qrBuffer,
+      filename,
+    };
+  } catch (error) {
+    console.error("Error generating QR code:", error);
+    return {
+      success: false,
+      message: "An error occurred while generating the QR code.",
     };
   }
 }
