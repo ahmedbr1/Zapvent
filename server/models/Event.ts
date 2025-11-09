@@ -105,7 +105,6 @@ const EventSchema = new Schema<IEvent>(
     workshopStatus: {
       type: String,
       enum: Object.values(WorkshopStatus),
-      default: WorkshopStatus.PENDING,
     },
     requestedEdits: { type: String },
     revenue: { type: Number, default: 0 },
