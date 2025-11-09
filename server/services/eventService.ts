@@ -898,6 +898,17 @@ export async function registerUserForWorkshop(
       };
     }
 
+    // Check if event has role restrictions
+    if (event.allowedRoles && event.allowedRoles.length > 0) {
+      if (!event.allowedRoles.includes(user.role)) {
+        return {
+          success: false,
+          message: `This event is restricted to the following roles: ${event.allowedRoles.join(", ")}. Your role (${user.role}) is not allowed.`,
+          statusCode: 403,
+        };
+      }
+    }
+
     if (
       event.eventType !== EventType.WORKSHOP &&
       event.eventType !== EventType.TRIP
@@ -1893,6 +1904,79 @@ export async function archiveEvent(eventId: string): Promise<{
     return {
       success: false,
       message: "An error occurred while archiving the event.",
+    };
+  }
+}
+
+export async function setEventRoleRestrictions(
+  eventId: string,
+  allowedRoles: string[]
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: { id: string; name: string; allowedRoles: string[] };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    // Validate that allowedRoles is an array
+    if (!Array.isArray(allowedRoles)) {
+      return {
+        success: false,
+        message: "allowedRoles must be an array.",
+      };
+    }
+
+    // Valid roles from userRole enum
+    const validRoles = ["Student", "Staff", "Professor", "TA"];
+
+    // Filter out invalid roles
+    const filteredRoles = allowedRoles.filter((role) =>
+      validRoles.includes(role)
+    );
+
+    if (filteredRoles.length === 0 && allowedRoles.length > 0) {
+      return {
+        success: false,
+        message: `Invalid roles provided. Valid roles are: ${validRoles.join(", ")}`,
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    // Empty array means no restrictions (all roles allowed)
+    event.allowedRoles = filteredRoles.length > 0 ? filteredRoles : undefined;
+    await event.save();
+
+    return {
+      success: true,
+      message:
+        filteredRoles.length > 0
+          ? `Event restricted to roles: ${filteredRoles.join(", ")}`
+          : "Event is now open to all roles.",
+      data: {
+        id: event._id.toString(),
+        name: event.name,
+        allowedRoles: event.allowedRoles ?? [],
+      },
+    };
+  } catch (error) {
+    console.error("Error setting event role restrictions:", error);
+    return {
+      success: false,
+      message: "An error occurred while updating role restrictions.",
     };
   }
 }
