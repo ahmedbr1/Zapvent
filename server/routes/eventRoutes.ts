@@ -21,9 +21,16 @@ router.get(
 );
 router.get(
   "/reports/attendance",
+  loginRequired,
+  allowedRoles(["Admin", "EventOffice"]),
   eventController.getAttendanceReportController
 );
-router.get("/reports/sales", eventController.getSalesReportController);
+router.get(
+  "/reports/sales",
+  loginRequired,
+  allowedRoles(["Admin", "EventOffice"]),
+  eventController.getSalesReportController
+);
 router.get(
   "/:eventId/applications",
   loginRequired,

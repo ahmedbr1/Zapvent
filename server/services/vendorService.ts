@@ -649,6 +649,27 @@ export async function recordVendorPayment(options: {
       application.payment.transactionReference = transactionReference;
     }
 
+    const paymentAmount = Number(application.payment.amount ?? 0);
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      return {
+        success: false,
+        message:
+          "Payment amount is invalid; unable to record vendor payment at this time.",
+      };
+    }
+
+    const paymentCurrency = application.payment.currency ?? PAYMENT_CURRENCY;
+    if (paymentCurrency !== PAYMENT_CURRENCY) {
+      return {
+        success: false,
+        message: `Unsupported payment currency '${paymentCurrency}'. Expected ${PAYMENT_CURRENCY}.`,
+      };
+    }
+
+    event.revenue = (event.revenue ?? 0) + paymentAmount;
+    event.markModified("revenue");
+    await event.save();
+
     const attendeeList = (application.attendees ?? []) as VendorAttendee[];
     const qrCodes: VisitorQrCode[] = attendeeList.map((attendee) => ({
       visitorEmail: attendee.email,

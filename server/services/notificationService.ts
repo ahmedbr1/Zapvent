@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import EventModel, { IEvent } from "../models/Event";
 import UserModel, { userRole } from "../models/User";
 import AdminModel from "../models/Admin";
+import { formatDate } from "../../lib/date";
 
 const TARGET_USER_ROLES = [
   userRole.STUDENT,
@@ -14,18 +15,6 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const REMINDER_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const REMINDER_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-
-function formatDate(value: Date): string {
-  const date = value instanceof Date ? value : new Date(value);
-  return new Intl.DateTimeFormat("en-GB", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
-}
 
 async function pushNotificationsToUsers(
   userIds: Types.ObjectId[],
@@ -103,7 +92,7 @@ export async function notifyUsersOfNewEvent(
       ? event.startDate
       : new Date(event.startDate);
 
-    const message = `New event "${event.name}" (${event.eventType}) scheduled for ${formatDate(startDate)}.`;
+  const message = `New event "${event.name}" (${event.eventType}) scheduled for ${formatDate(startDate, "MMM D, YYYY HH:mm")}.`;
 
     await Promise.all([
       UserModel.updateMany(
@@ -148,7 +137,7 @@ async function sendReminderForEvent(
     return;
   }
 
-  const formattedDate = formatDate(startDate);
+  const formattedDate = formatDate(startDate, "MMM D, YYYY HH:mm");
   const messages: string[] = [];
 
   if (shouldSendDayReminder) {
@@ -182,7 +171,7 @@ export async function sendReminderNotifications(): Promise<void> {
     const upcomingEvents = await EventModel.find({
       archived: { $ne: true },
       startDate: { $gte: lowerBound, $lte: upperBound },
-      registeredUsers: { $exists: true, $not: { $size: 0 } },
+      registeredUsers: { $exists: true, $ne: [] },
     })
       .select(["name", "eventType", "startDate", "registeredUsers"])
       .lean<Array<
