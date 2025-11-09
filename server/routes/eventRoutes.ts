@@ -86,6 +86,12 @@ router.get(
 // Event Office route for generating QR codes
 router.get("/:id/generate-qr", eventController.generateEventQRCodeController);
 
+// Route for sending workshop certificates (Student, Staff, TA, Professor)
+router.post(
+  "/workshop/:id/send-certificates",
+  eventController.sendWorkshopCertificatesController
+);
+
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);
 
