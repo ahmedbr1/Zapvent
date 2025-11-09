@@ -16,6 +16,7 @@ import {
   getWorkshopStatus,
   archiveEvent,
   setEventRoleRestrictions,
+  exportEventRegistrations,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -909,6 +910,49 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Set event role restrictions controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async exportEventRegistrationsController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      const result = await exportEventRegistrations(id);
+
+      if (!result.success) {
+        const status = result.message === "Event not found." ? 404 : 400;
+        return res.status(status).json({
+          success: result.success,
+          message: result.message,
+        });
+      }
+
+      // Set headers for file download
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${result.filename}"`
+      );
+
+      // Send the Excel file buffer
+      return res.send(result.buffer);
+    } catch (error) {
+      console.error("Export event registrations controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
