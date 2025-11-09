@@ -9,6 +9,7 @@ import {
   updateConferenceById,
   getAcceptedUpcomingBazaars,
   getVendorApplicationsForBazaar,
+  getWorkshopParticipants,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -700,6 +701,37 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Create conference controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Professor"])
+  async getWorkshopParticipantsController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const result = await getWorkshopParticipants(id, userId);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get workshop participants controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

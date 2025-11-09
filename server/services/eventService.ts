@@ -222,7 +222,9 @@ export const getAllBazaars = async (): Promise<IGetAllBazaarsResponse> => {
   }
 };
 
-export const getBazaarById = async (eventId: string): Promise<IEvent | null> => {
+export const getBazaarById = async (
+  eventId: string
+): Promise<IEvent | null> => {
   try {
     return await EventModel.findById(eventId);
   } catch (error) {
@@ -1124,6 +1126,98 @@ export async function getWorkshopsByCreator(
     return {
       success: false,
       message: "An error occurred while fetching workshops.",
+    };
+  }
+}
+
+export async function getWorkshopParticipants(
+  workshopId: string,
+  userId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId).lean<
+      (IEvent & { _id: Types.ObjectId }) | null
+    >();
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    // Check if the user is the creator
+    if (workshop.createdBy !== userId) {
+      return {
+        success: false,
+        message: "You are not authorized to view this workshop's participants.",
+      };
+    }
+
+    const registeredUserIds = workshop.registeredUsers ?? [];
+    const capacity = workshop.capacity ?? 0;
+    const registeredCount = registeredUserIds.length;
+    const remainingSpots = capacity > 0 ? capacity - registeredCount : 0;
+
+    // Fetch participant details
+    const validUserIds = registeredUserIds
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+
+    const participants = await UserModel.find({
+      _id: { $in: validUserIds },
+    })
+      .select([
+        "firstName",
+        "lastName",
+        "email",
+        "role",
+        "studentId",
+        "staffId",
+      ])
+      .lean<Array<IUser & { _id: Types.ObjectId }>>();
+
+    const participantList = participants.map((user) => ({
+      id: user._id.toString(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      studentId: user.studentId,
+      staffId: user.staffId,
+    }));
+
+    return {
+      success: true,
+      message: "Workshop participants retrieved successfully.",
+      data: {
+        workshopId: workshop._id.toString(),
+        workshopName: workshop.name,
+        capacity,
+        registeredCount,
+        remainingSpots,
+        participants: participantList,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching workshop participants:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching workshop participants.",
     };
   }
 }

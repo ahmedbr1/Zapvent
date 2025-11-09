@@ -46,7 +46,14 @@ router.put("/trip/:id", eventController.updateTripDetails);
 // Professor (User) routes for workshops
 router.post("/workshop", eventController.createWorkshopController);
 router.put("/workshop/:id", eventController.editWorkshopController);
-router.post("/workshop/:id/register",eventController.registerForWorkshopController);
+router.post(
+  "/workshop/:id/register",
+  eventController.registerForWorkshopController
+);
+router.get(
+  "/workshop/:id/participants",
+  eventController.getWorkshopParticipantsController
+);
 router.get("/my-workshops", eventController.getMyWorkshopsController);
 
 // Events Office routes for conferences
