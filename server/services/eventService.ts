@@ -377,14 +377,18 @@ export async function getAllEvents(
     const currentDate = new Date();
 
     // Create the base query for events that haven't ended yet
-    // Only show approved workshops or non-workshop events
+    // Only show approved workshops (including legacy ones with null/missing status) or non-workshop events
     let query = EventModel.find({
       endDate: { $gte: currentDate },
       $or: [
         { eventType: { $ne: EventType.WORKSHOP } },
         {
           eventType: EventType.WORKSHOP,
-          workshopStatus: WorkshopStatus.APPROVED,
+          $or: [
+            { workshopStatus: WorkshopStatus.APPROVED },
+            { workshopStatus: null },
+            { workshopStatus: { $exists: false } },
+          ],
         },
       ],
     });
