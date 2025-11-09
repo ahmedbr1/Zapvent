@@ -61,6 +61,7 @@ export interface IEvent extends IBaseModel {
   extraRequiredResources?: string; // For workshops - additional resources needed
   createdBy?: string; // User ID of the creator (professor/admin)
   workshopStatus?: WorkshopStatus; // Status for workshop requests (Pending, Approved, Rejected)
+  requestedEdits?: string; // Message from Event Office requesting edits to the workshop
   revenue: number;
   archived: boolean;
   registeredUsers: string[]; // List of users
@@ -106,6 +107,7 @@ const EventSchema = new Schema<IEvent>(
       enum: Object.values(WorkshopStatus),
       default: WorkshopStatus.PENDING,
     },
+    requestedEdits: { type: String },
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
     registeredUsers: [{ type: String }],
