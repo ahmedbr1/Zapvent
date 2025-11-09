@@ -7,6 +7,7 @@ import EventModel, {
   FundingSource,
   Location,
   IEvent,
+  WorkshopStatus,
 } from "../models/Event";
 import AdminModel, { IAdmin } from "../models/Admin";
 import vendorModel, {
@@ -376,8 +377,16 @@ export async function getAllEvents(
     const currentDate = new Date();
 
     // Create the base query for events that haven't ended yet
+    // Only show approved workshops or non-workshop events
     let query = EventModel.find({
       endDate: { $gte: currentDate },
+      $or: [
+        { eventType: { $ne: EventType.WORKSHOP } },
+        {
+          eventType: EventType.WORKSHOP,
+          workshopStatus: WorkshopStatus.APPROVED,
+        },
+      ],
     });
 
     // Apply sorting if specified
@@ -621,6 +630,7 @@ export async function createWorkshop(
       fundingSource,
       extraRequiredResources: extraRequiredResources || "",
       createdBy,
+      workshopStatus: WorkshopStatus.PENDING,
     });
 
     const plainWorkshop = workshop.toObject({ virtuals: false }) as Pick<
@@ -1240,6 +1250,8 @@ export async function getWorkshopParticipants(
 
 export async function getAllWorkshops(): Promise<ICreateWorkshopResponse> {
   try {
+    // For Event Office/Admin: show all workshops regardless of status
+    // This function is called when Event Office/Admin views workshops
     const workshops = await EventModel.find({
       eventType: EventType.WORKSHOP,
       archived: false,
@@ -1535,6 +1547,120 @@ export async function getVendorApplicationsForBazaar(eventId: string): Promise<{
       message:
         "An error occurred while fetching vendor applications for bazaar.",
       statusCode: 500,
+    };
+  }
+}
+
+export async function approveWorkshop(
+  workshopId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.APPROVED) {
+      return {
+        success: false,
+        message: "Workshop is already approved.",
+      };
+    }
+
+    workshop.workshopStatus = WorkshopStatus.APPROVED;
+    await workshop.save();
+
+    return {
+      success: true,
+      message: "Workshop approved and published successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus,
+      },
+    };
+  } catch (error) {
+    console.error("Error approving workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while approving the workshop.",
+    };
+  }
+}
+
+export async function rejectWorkshop(
+  workshopId: string,
+  reason?: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.REJECTED) {
+      return {
+        success: false,
+        message: "Workshop is already rejected.",
+      };
+    }
+
+    workshop.workshopStatus = WorkshopStatus.REJECTED;
+    await workshop.save();
+
+    return {
+      success: true,
+      message: reason
+        ? `Workshop rejected. Reason: ${reason}`
+        : "Workshop rejected successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus,
+        reason,
+      },
+    };
+  } catch (error) {
+    console.error("Error rejecting workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while rejecting the workshop.",
     };
   }
 }
