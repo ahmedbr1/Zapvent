@@ -1727,3 +1727,60 @@ export async function requestWorkshopEdits(
     };
   }
 }
+
+export async function getWorkshopStatus(
+  workshopId: string,
+  userId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId).lean<
+      (IEvent & { _id: Types.ObjectId }) | null
+    >();
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    // Check if the user is the creator
+    if (workshop.createdBy !== userId) {
+      return {
+        success: false,
+        message: "You are not authorized to view this workshop's status.",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Workshop status retrieved successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus ?? WorkshopStatus.PENDING,
+        requestedEdits: workshop.requestedEdits ?? null,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching workshop status:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching workshop status.",
+    };
+  }
+}
