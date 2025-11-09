@@ -14,6 +14,7 @@ import {
   rejectWorkshop,
   requestWorkshopEdits,
   getWorkshopStatus,
+  archiveEvent,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -850,6 +851,30 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Get workshop status controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async archiveEventController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      const result = await archiveEvent(id);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Archive event controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
