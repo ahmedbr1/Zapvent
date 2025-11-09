@@ -15,6 +15,7 @@ import {
   requestWorkshopEdits,
   getWorkshopStatus,
   archiveEvent,
+  setEventRoleRestrictions,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -875,6 +876,39 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Archive event controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async setEventRoleRestrictionsController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { allowedRoles } = req.body;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      if (!allowedRoles) {
+        return res.status(400).json({
+          success: false,
+          message: "allowedRoles field is required.",
+        });
+      }
+
+      const result = await setEventRoleRestrictions(id, allowedRoles);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Set event role restrictions controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
