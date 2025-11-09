@@ -1,7 +1,4 @@
-import nodemailer, {
-  type Transporter,
-  type SendMailOptions,
-} from "nodemailer";
+import nodemailer, { type Transporter, type SendMailOptions } from "nodemailer";
 import { IUser } from "../models/User";
 
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -239,6 +236,66 @@ export class EmailService {
             }
             <p>If you believe this decision was made in error, please reach out to the Events Office.</p>
             <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+          </div>
+        `,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Email service error:", error);
+      throw error;
+    }
+  }
+
+  async sendWorkshopCertificate(options: {
+    user: IUser;
+    workshopName: string;
+    workshopDate: Date;
+  }) {
+    const { user, workshopName, workshopDate } = options;
+
+    const formattedDate = new Date(workshopDate).toLocaleString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    try {
+      const result = await sendEmail({
+        to: user.email,
+        subject: `Certificate of Attendance - ${workshopName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; font-size: 28px;">Certificate of Attendance</h1>
+              <p style="margin: 10px 0 0; opacity: 0.9;">Zapvent Events Platform</p>
+            </div>
+            <div style="padding: 40px 30px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+              <p style="font-size: 18px; text-align: center; color: #333; margin-bottom: 30px;">
+                This certifies that
+              </p>
+              <h2 style="text-align: center; color: #667eea; margin: 20px 0; font-size: 24px;">
+                ${user.firstName} ${user.lastName}
+              </h2>
+              <p style="font-size: 16px; text-align: center; color: #333; margin: 30px 0;">
+                has successfully attended the workshop
+              </p>
+              <h3 style="text-align: center; color: #333; margin: 20px 0; font-size: 20px;">
+                "${workshopName}"
+              </h3>
+              <p style="text-align: center; color: #666; margin: 30px 0;">
+                Held on ${formattedDate}
+              </p>
+              <div style="text-align: center; margin: 40px 0 20px;">
+                <p style="font-size: 18px; color: #667eea; font-weight: bold; margin: 0;">
+                  Thank you for attending!
+                </p>
+              </div>
+            </div>
+            <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
+              © ${new Date().getFullYear()} Zapvent. All rights reserved.
+            </p>
           </div>
         `,
       });
