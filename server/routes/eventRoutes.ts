@@ -77,6 +77,12 @@ router.patch(
   eventController.setEventRoleRestrictionsController
 );
 
+// Event Office route for exporting event registrations
+router.get(
+  "/:id/export-registrations",
+  eventController.exportEventRegistrationsController
+);
+
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);
 
