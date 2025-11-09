@@ -68,6 +68,9 @@ router.patch(
   eventController.requestWorkshopEditsController
 );
 
+// Event Office route for archiving events
+router.patch("/:id/archive", eventController.archiveEventController);
+
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);
 
