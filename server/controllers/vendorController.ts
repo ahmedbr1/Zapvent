@@ -3,7 +3,7 @@ import * as vendorService from "../services/vendorService";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
-import vendorModel, { VendorStatus, VendorAttendee } from "../models/Vendor";
+import { VendorStatus, VendorAttendee } from "../models/Vendor";
 import { BazaarBoothSize } from "../models/Event";
 interface UploadedFile {
   path?: string;
