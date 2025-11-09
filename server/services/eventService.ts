@@ -1835,3 +1835,64 @@ export async function getWorkshopStatus(
     };
   }
 }
+
+export async function archiveEvent(eventId: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: { id: string; name: string; archived: boolean };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    if (event.archived) {
+      return {
+        success: false,
+        message: "Event is already archived.",
+      };
+    }
+
+    // Check if the event has already passed (endDate is in the past)
+    const currentDate = new Date();
+    if (event.endDate > currentDate) {
+      return {
+        success: false,
+        message:
+          "Cannot archive an event that has not yet passed. Event ends on: " +
+          event.endDate.toISOString(),
+      };
+    }
+
+    event.archived = true;
+    await event.save();
+
+    return {
+      success: true,
+      message: "Event archived successfully.",
+      data: {
+        id: event._id.toString(),
+        name: event.name,
+        archived: event.archived,
+      },
+    };
+  } catch (error) {
+    console.error("Error archiving event:", error);
+    return {
+      success: false,
+      message: "An error occurred while archiving the event.",
+    };
+  }
+}
