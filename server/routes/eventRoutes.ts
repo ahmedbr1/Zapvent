@@ -71,6 +71,12 @@ router.patch(
 // Event Office route for archiving events
 router.patch("/:id/archive", eventController.archiveEventController);
 
+// Event Office route for setting role restrictions on events
+router.patch(
+  "/:id/role-restrictions",
+  eventController.setEventRoleRestrictionsController
+);
+
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);
 
