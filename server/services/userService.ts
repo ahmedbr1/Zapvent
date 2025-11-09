@@ -2,6 +2,7 @@ import UserModel, { IUser, userRole } from "../models/User";
 import { z } from "zod";
 import { Types } from "mongoose";
 import EventModel, { IEvent } from "../models/Event";
+import { issueStudentVerification } from "./emailVerificationService";
 
 export async function findAll() {
   return UserModel.find().lean();
@@ -120,16 +121,27 @@ export async function signup(userData: SignupData) {
   });
   await user.save();
 
+  if (user.role === userRole.STUDENT) {
+    await issueStudentVerification(user as IUser & { _id: Types.ObjectId });
+  }
+
   // Return user without password
   const userWithoutPassword = user.toObject();
   delete (userWithoutPassword as Partial<IUser>).password;
 
   // status message based on role
-  const message = [userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(
-    user.role
-  )
-    ? "Registration submitted successfully. Your account is pending admin approval."
-    : "Registration completed successfully. You can now log in.";
+  let message: string;
+  if (user.role === userRole.STUDENT) {
+    message =
+      "Registration submitted successfully. Please verify your email to continue.";
+  } else if (
+    [userRole.STAFF, userRole.PROFESSOR, userRole.TA].includes(user.role)
+  ) {
+    message =
+      "Registration submitted successfully. Your account is pending admin approval.";
+  } else {
+    message = "Registration completed successfully. You can now log in.";
+  }
 
   return { user: userWithoutPassword, message, needsApproval: !user.verified };
 }
@@ -232,4 +244,68 @@ export async function findRegisteredEvents(
       message: "An error occurred while fetching registered events.",
     };
   }
+}
+
+type FavoriteResponse = {
+  success: boolean;
+  message: string;
+  statusCode?: number;
+  data?: {
+    favorites: string[];
+  };
+};
+
+export async function addEventToFavorites(
+  userId: string,
+  eventId: string
+): Promise<FavoriteResponse> {
+  if (!Types.ObjectId.isValid(eventId)) {
+    return {
+      success: false,
+      message: "Invalid event identifier.",
+      statusCode: 400,
+    };
+  }
+
+  const user = await UserModel.findById(userId).lean<IUser | null>();
+
+  if (!user) {
+    return {
+      success: false,
+      message: "User not found.",
+      statusCode: 404,
+    };
+  }
+
+  const eventExists = await EventModel.exists({ _id: eventId });
+
+  if (!eventExists) {
+    return {
+      success: false,
+      message: "Event not found.",
+      statusCode: 404,
+    };
+  }
+
+  const alreadyFavorited = (user.favorites ?? []).includes(eventId);
+
+  if (alreadyFavorited) {
+    return {
+      success: true,
+      message: "Event already in favorites.",
+      data: { favorites: user.favorites ?? [] },
+    };
+  }
+
+  const updatedUser = await UserModel.findByIdAndUpdate(
+    userId,
+    { $addToSet: { favorites: eventId } },
+    { new: true }
+  ).lean<IUser | null>();
+
+  return {
+    success: true,
+    message: "Event added to favorites.",
+    data: { favorites: updatedUser?.favorites ?? [eventId] },
+  };
 }

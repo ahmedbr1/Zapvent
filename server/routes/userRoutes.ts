@@ -11,6 +11,10 @@ router.get(
   allowedRoles(["Student", "Professor", "Staff", "TA", "Admin", "EventOffice"]),
   userController.getProfessors.bind(userController)
 );
+router.post(
+  "/favorites/:eventId",
+  userController.addEventToFavorites.bind(userController)
+);
 router.get(
   "/:userId/registered-events",
   userController.getUserRegisteredEvents.bind(userController)
