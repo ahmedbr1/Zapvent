@@ -13,6 +13,7 @@ import {
   approveWorkshop,
   rejectWorkshop,
   requestWorkshopEdits,
+  getWorkshopStatus,
 } from "../services/eventService";
 import type { IEvent } from "../models/Event";
 import {
@@ -818,6 +819,37 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Request workshop edits controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Professor"])
+  async getWorkshopStatusController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const result = await getWorkshopStatus(id, userId);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get workshop status controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
