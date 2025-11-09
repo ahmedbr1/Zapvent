@@ -651,6 +651,11 @@ export async function createWorkshop(
       creatorDetails
     );
 
+    // Notify Event Office about the new workshop request
+    const creatorName = creatorDetails.get(createdBy)?.name || "A professor";
+    const notificationMessage = `${creatorName} has submitted a new workshop request: "${name}" scheduled for ${parsedStart.toLocaleDateString()}`;
+    await notifyEventOffice(notificationMessage);
+
     return {
       success: true,
       message: "Workshop created successfully.",
@@ -986,6 +991,17 @@ export async function registerUserForWorkshop(
 
 function buildAdminName(admin: Pick<IAdmin, "firstName" | "lastName">): string {
   return [admin.firstName, admin.lastName].filter(Boolean).join(" ").trim();
+}
+
+async function notifyEventOffice(message: string): Promise<void> {
+  try {
+    await AdminModel.updateMany(
+      { adminType: "EventOffice", status: "Active" },
+      { $push: { notifications: message } }
+    );
+  } catch (error) {
+    console.error("Error sending notification to Event Office:", error);
+  }
 }
 
 interface WorkshopCreatorDetails {
