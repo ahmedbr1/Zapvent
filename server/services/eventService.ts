@@ -15,6 +15,7 @@ import vendorModel, {
   BazaarApplication,
 } from "../models/Vendor";
 import UserModel, { IUser, userRole } from "../models/User";
+import { notifyUsersOfNewEvent } from "./notificationService";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -240,6 +241,7 @@ export const createTrip = async (
 ): Promise<IEvent> => {
   try {
     const newTrip = await EventModel.create(tripData);
+    await notifyUsersOfNewEvent(newTrip.toObject());
     return newTrip;
   } catch (error) {
     console.error("Error creating trip:", error);
@@ -500,6 +502,8 @@ export async function createBazaar(
       fundingSource: FundingSource.GUC,
     });
 
+    await notifyUsersOfNewEvent(bazaar.toObject());
+
     return {
       success: true,
       message: "Bazaar created successfully.",
@@ -624,6 +628,8 @@ export async function createWorkshop(
       extraRequiredResources: extraRequiredResources || "",
       createdBy,
     });
+
+    await notifyUsersOfNewEvent(workshop.toObject());
 
     const plainWorkshop = workshop.toObject({ virtuals: false }) as Pick<
       IEvent,
@@ -1233,6 +1239,8 @@ export async function createConference(
       fundingSource,
       extraRequiredResources: extraRequiredResources || "",
     });
+
+    await notifyUsersOfNewEvent(conference.toObject());
 
     return {
       success: true,
