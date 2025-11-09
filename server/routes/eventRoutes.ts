@@ -83,6 +83,9 @@ router.get(
   eventController.exportEventRegistrationsController
 );
 
+// Event Office route for generating QR codes
+router.get("/:id/generate-qr", eventController.generateEventQRCodeController);
+
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);
 
