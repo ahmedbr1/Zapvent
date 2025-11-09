@@ -54,6 +54,7 @@ router.get(
   "/workshop/:id/participants",
   eventController.getWorkshopParticipantsController
 );
+router.get("/workshop/:id/status", eventController.getWorkshopStatusController);
 router.get("/my-workshops", eventController.getMyWorkshopsController);
 
 // Event Office routes for workshop approval
