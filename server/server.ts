@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { connectDB } from "./db";
 import api from "./routes";
+import { startReminderScheduler } from "./services/notificationService";
 
 const app = express();
 const allowedOrigin =
@@ -30,6 +31,7 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
 async function start() {
   await connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/aclDB');
+  startReminderScheduler();
   app.listen(PORT, () => console.log(`✅ API listening on :${PORT}`));
 }
 

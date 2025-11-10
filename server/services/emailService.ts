@@ -3,6 +3,7 @@ import nodemailer, {
   type SendMailOptions,
 } from "nodemailer";
 import { IUser } from "../models/User";
+import { VendorStatus } from "../models/Vendor";
 
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 const smtpHost = process.env.SMTP_HOST;
@@ -97,6 +98,25 @@ async function sendEmail(options: SendMailOptions) {
   }
 
   return { messageId: info.messageId, previewUrl };
+}
+
+function formatCurrency(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-EG", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+function formatDateTime(value?: Date) {
+  if (!value) return "TBD";
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
 }
 
 export class EmailService {
@@ -248,6 +268,178 @@ export class EmailService {
       console.error("Email service error:", error);
       throw error;
     }
+  }
+
+  async sendVendorApplicationDecisionEmail(options: {
+    vendorEmail: string;
+    vendorCompany: string;
+    eventName: string;
+    status: VendorStatus;
+    payment?: {
+      amount: number;
+      currency: string;
+      dueDate?: Date;
+    } | null;
+    dueDate?: Date;
+    reason?: string;
+  }) {
+    const { vendorEmail, vendorCompany, eventName, status, payment, dueDate, reason } =
+      options;
+
+    const isApproved = status === VendorStatus.APPROVED;
+    const formattedDue = isApproved
+      ? formatDateTime(dueDate ?? payment?.dueDate)
+      : undefined;
+    const amountDisplay = payment
+      ? formatCurrency(payment.amount, payment.currency)
+      : undefined;
+
+    const subject = isApproved
+      ? `Zapvent Bazaar Application Approved - ${eventName}`
+      : `Zapvent Bazaar Application Update - ${eventName}`;
+
+    const statusBadge = isApproved
+      ? `<span style="color:#2e7d32;font-weight:bold;">Approved</span>`
+      : `<span style="color:#d32f2f;font-weight:bold;">Rejected</span>`;
+
+    const paymentSection = isApproved && amountDisplay
+      ? `
+        <p>Your participation fee is <strong>${amountDisplay}</strong>.</p>
+        <p>Please complete the payment no later than <strong>${formattedDue}</strong>.</p>
+        <p>You can settle the payment from your vendor dashboard in the Zapvent portal.</p>
+      `
+      : "";
+
+    const reasonSection = !isApproved && reason
+      ? `<p><strong>Reason provided:</strong> ${reason}</p>`
+      : "";
+
+    await sendEmail({
+      to: vendorEmail,
+      subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Bazaar Application Decision</h2>
+          <p>Hello ${vendorCompany},</p>
+          <p>Your application for <strong>${eventName}</strong> has been reviewed.</p>
+          <p>Status: ${statusBadge}</p>
+          ${paymentSection}
+          ${reasonSection}
+          <p>If you have any questions, please reach out to the Events Office team.</p>
+          <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendVendorPaymentReceipt(options: {
+    vendorEmail: string;
+    vendorCompany: string;
+    eventName: string;
+    amount: number;
+    currency: string;
+    receiptNumber: string;
+    paidAt: Date;
+    dueDate?: Date;
+    transactionReference?: string;
+  }) {
+    const {
+      vendorEmail,
+      vendorCompany,
+      eventName,
+      amount,
+      currency,
+      receiptNumber,
+      paidAt,
+      dueDate,
+      transactionReference,
+    } = options;
+
+    const formattedAmount = formatCurrency(amount, currency);
+    const paidAtDisplay = formatDateTime(paidAt);
+    const dueDateDisplay = formatDateTime(dueDate);
+
+    await sendEmail({
+      to: vendorEmail,
+      subject: `Payment Receipt - ${eventName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Payment Receipt</h2>
+          <p>Hello ${vendorCompany},</p>
+          <p>Thank you for completing your payment for <strong>${eventName}</strong>.</p>
+          <ul style="padding-left: 18px; color: #333;">
+            <li><strong>Receipt No:</strong> ${receiptNumber}</li>
+            <li><strong>Amount:</strong> ${formattedAmount}</li>
+            <li><strong>Paid on:</strong> ${paidAtDisplay}</li>
+            <li><strong>Original due date:</strong> ${dueDateDisplay}</li>
+            ${transactionReference ? `<li><strong>Reference:</strong> ${transactionReference}</li>` : ""}
+          </ul>
+          <p>Keep this email as proof of your payment.</p>
+          <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendVendorVisitorQrCodes(options: {
+    vendorEmail: string;
+    vendorCompany: string;
+    eventName: string;
+    eventStart?: Date;
+    qrCodes: Array<{
+      visitorEmail: string;
+      qrCodeUrl: string;
+      issuedAt: Date;
+    }>;
+  }) {
+    const { vendorEmail, vendorCompany, eventName, eventStart, qrCodes } = options;
+
+    if (!qrCodes.length) {
+      return;
+    }
+
+    const eventStartDisplay = formatDateTime(eventStart);
+    const issuedDisplay = formatDateTime(qrCodes[0]?.issuedAt);
+
+    const qrRows = qrCodes
+      .map(
+        (code) => `
+          <tr>
+            <td style="padding: 12px; border: 1px solid #ddd;">${code.visitorEmail}</td>
+            <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">
+              <img src="${code.qrCodeUrl}" alt="QR for ${code.visitorEmail}" width="160" height="160" />
+            </td>
+          </tr>
+        `
+      )
+      .join("");
+
+    await sendEmail({
+      to: vendorEmail,
+      subject: `Visitor QR Codes - ${eventName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Visitor Access QR Codes</h2>
+          <p>Hello ${vendorCompany},</p>
+          <p>Please find below the QR codes for your registered attendees for <strong>${eventName}</strong>.</p>
+          <p><strong>Event starts:</strong> ${eventStartDisplay}</p>
+          <p><strong>Issued:</strong> ${issuedDisplay}</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding: 12px; border: 1px solid #ddd;">Visitor Email</th>
+                <th style="text-align:center; padding: 12px; border: 1px solid #ddd;">QR Code</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${qrRows}
+            </tbody>
+          </table>
+          <p style="margin-top: 20px;">Share these QR codes with your attendees for entry scanning at the venue.</p>
+          <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+        </div>
+      `,
+    });
   }
 }
 
