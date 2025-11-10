@@ -86,9 +86,9 @@ const loyaltyProgramApplicationSchema = z.object({
     }),
 });
 
-type LoyaltyProgramApplicationData = z.infer<
-  typeof loyaltyProgramApplicationSchema
->;
+// type LoyaltyProgramApplicationData = z.infer<
+//   typeof loyaltyProgramApplicationSchema
+// >;
 
 type FieldErrors = Record<string, string[]>;
 
@@ -1358,8 +1358,7 @@ export async function applyToLoyaltyProgram(
     await existingVendor.save();
 
     const becameActive =
-      !previouslyActive &&
-      existingVendor.loyaltyProgram?.status === "active";
+      !previouslyActive && existingVendor.loyaltyProgram?.status === "active";
 
     if (becameActive && existingVendor.loyaltyProgram) {
       await notifyUsersOfNewLoyaltyPartner({
@@ -1373,9 +1372,7 @@ export async function applyToLoyaltyProgram(
       success: true,
       message: "Loyalty program application submitted successfully",
       data: {
-        loyaltyProgram: serializeLoyaltyProgram(
-          existingVendor.loyaltyProgram
-        ),
+        loyaltyProgram: serializeLoyaltyProgram(existingVendor.loyaltyProgram),
       },
     };
   } catch (error) {
