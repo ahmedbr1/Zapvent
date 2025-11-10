@@ -63,7 +63,7 @@ const loyaltyDiscountSchema = z.preprocess(
     return value;
   },
   z
-    .number({ invalid_type_error: "Discount rate must be a number." })
+    .number()
     .min(1, { message: "Discount rate must be at least 1%." })
     .max(100, { message: "Discount rate cannot exceed 100%." })
 );
@@ -71,12 +71,12 @@ const loyaltyDiscountSchema = z.preprocess(
 const loyaltyProgramApplicationSchema = z.object({
   discountRate: loyaltyDiscountSchema,
   promoCode: z
-    .string({ required_error: "Promo code is required." })
+    .string()
     .trim()
     .min(3, { message: "Promo code must be at least 3 characters." })
     .max(32, { message: "Promo code must be at most 32 characters." }),
   termsAndConditions: z
-    .string({ required_error: "Terms and conditions are required." })
+    .string()
     .trim()
     .min(20, {
       message: "Terms and conditions must be at least 20 characters long.",
