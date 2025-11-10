@@ -2,9 +2,126 @@ import type { Request, Response } from "express";
 import * as vendorService from "../services/vendorService";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/authMiddleware";
-import { applyToBazaar } from "../services/vendorService";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
-import vendorModel, { VendorStatus } from "../models/Vendor";
+import { VendorStatus, VendorAttendee } from "../models/Vendor";
+import { BazaarBoothSize } from "../models/Event";
+interface UploadedFile {
+  path?: string;
+}
+
+type MulterFilesField =
+  | UploadedFile[]
+  | Record<string, UploadedFile[]>
+  | undefined;
+
+function parseOptionalDate(value: unknown): Date | undefined {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+function parseAttendeesFromRequest(req: AuthRequest):
+  | { success: true; attendees: VendorAttendee[] }
+  | { success: false; message: string } {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const attendeesPayload = body.attendees;
+
+  const filesField = (req as AuthRequest & { files?: MulterFilesField }).files;
+  let idFiles: UploadedFile[] = [];
+
+  if (Array.isArray(filesField)) {
+    idFiles = filesField;
+  } else if (filesField && typeof filesField === "object") {
+  const fileRecord = filesField as Record<string, UploadedFile[]>;
+    if (Array.isArray(fileRecord.attendeeIds)) {
+      idFiles = fileRecord.attendeeIds;
+    }
+  }
+
+  let attendeesArray: unknown;
+  if (typeof attendeesPayload === "string") {
+    try {
+      attendeesArray = JSON.parse(attendeesPayload);
+    } catch {
+      return {
+        success: false,
+        message: "Attendees payload must be valid JSON.",
+      };
+    }
+  } else {
+    attendeesArray = attendeesPayload;
+  }
+
+  if (!Array.isArray(attendeesArray)) {
+    return {
+      success: false,
+      message: "Attendees must be provided as an array.",
+    };
+  }
+
+  if (attendeesArray.length === 0) {
+    return {
+      success: false,
+      message: "At least one attendee is required.",
+    };
+  }
+
+  if (attendeesArray.length > 5) {
+    return {
+      success: false,
+      message: "Maximum 5 attendees allowed per booth",
+    };
+  }
+
+  const normalizedAttendees: VendorAttendee[] = [];
+  for (let index = 0; index < attendeesArray.length; index++) {
+    const entry = attendeesArray[index];
+    if (!entry || typeof entry !== "object") {
+      return {
+        success: false,
+        message:
+          "Invalid attendees provided. Ensure each attendee includes name and email.",
+      };
+    }
+    const { name, email, idDocumentPath } = entry as {
+      name?: string;
+      email?: string;
+      idDocumentPath?: string;
+    };
+
+    const fallbackEmail = req.user?.email ?? "";
+    const attendeeEmail = (email ?? fallbackEmail).trim();
+    const assignedPath = idDocumentPath || idFiles[index]?.path;
+
+    if (!assignedPath) {
+      return {
+        success: false,
+        message: `Missing ID document for attendee #${index + 1}.`,
+      };
+    }
+
+    normalizedAttendees.push({
+      name:
+        typeof name === "string" && name.trim() ? name.trim() : "Attendee",
+      email: attendeeEmail,
+      idDocumentPath: assignedPath,
+    });
+  }
+
+  return {
+    success: true,
+    attendees: normalizedAttendees,
+  };
+}
 
 export class VendorController {
   async vendorSignup(req: Request, res: Response) {
@@ -77,8 +194,7 @@ export class VendorController {
         });
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body = (req as any).body;
+      const body = (req.body ?? {}) as Record<string, unknown>;
 
       console.log("=== Apply to Bazaar Request ===");
       console.log("Vendor ID:", vendorId);
@@ -86,25 +202,31 @@ export class VendorController {
 
       const {
         eventId,
-        attendees,
         boothSize,
         boothLocation,
         boothStartTime,
         boothEndTime,
-        vendorEmail,
-        companyName,
       } = body;
 
       // Validate input
-      if (!eventId || !attendees || !boothSize) {
+      if (!eventId || !boothSize) {
         console.log("Validation failed: missing required fields");
         return res.status(400).json({
           success: false,
-          message: "eventId, attendees, and boothSize are required",
+          message: "eventId and boothSize are required",
         });
       }
 
-      if (boothSize !== "2x2" && boothSize !== "4x4") {
+      if (typeof boothSize !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "boothSize must be provided as a string value.",
+        });
+      }
+
+      const normalizedBoothSize = boothSize.trim();
+
+      if (normalizedBoothSize !== "2x2" && normalizedBoothSize !== "4x4") {
         console.log("Validation failed: invalid booth size");
         return res.status(400).json({
           success: false,
@@ -112,46 +234,33 @@ export class VendorController {
         });
       }
 
-      // Validate attendees limit
-      if (attendees > 5) {
-        console.log("Validation failed: too many attendees");
+      const attendeeParseResult = parseAttendeesFromRequest(req);
+      if (!attendeeParseResult.success) {
         return res.status(400).json({
           success: false,
-          message: "Maximum 5 attendees allowed per booth",
+          message: attendeeParseResult.message,
         });
       }
 
-      if (!vendorId) {
-        console.log("Validation failed: no vendor ID");
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
-      }
+      const boothInfo = {
+        boothLocation:
+          typeof boothLocation === "string" && boothLocation.trim()
+            ? boothLocation.trim()
+            : undefined,
+        boothStartTime: parseOptionalDate(boothStartTime),
+        boothEndTime: parseOptionalDate(boothEndTime),
+      };
 
-      // Build attendees array with vendor info
-      const attendeesArray = [];
-      for (let i = 0; i < attendees; i++) {
-        attendeesArray.push({
-          name: companyName || "Vendor",
-          email: vendorEmail || req.user?.email || "",
-        });
-      }
+      const boothInfoPayload =
+        boothInfo.boothLocation || boothInfo.boothStartTime || boothInfo.boothEndTime
+          ? boothInfo
+          : undefined;
 
-      console.log(
-        "Built attendees array:",
-        JSON.stringify(attendeesArray, null, 2)
-      );
-
-      const result = await applyToBazaar(vendorId, {
-        eventId,
-        attendees: attendeesArray,
-        boothSize,
-        boothInfo: {
-          boothLocation,
-          boothStartTime,
-          boothEndTime,
-        },
+      const result = await vendorService.applyToBazaar(vendorId, {
+        eventId: eventId as string,
+        attendees: attendeeParseResult.attendees,
+        boothSize: normalizedBoothSize as BazaarBoothSize,
+        boothInfo: boothInfoPayload,
       });
 
       console.log("Service result:", JSON.stringify(result, null, 2));
@@ -201,7 +310,7 @@ export class VendorController {
   @AllowedRoles(["Admin"])
   async updateBazaarApplicationStatus(req: AuthRequest, res: Response) {
     try {
-      const { vendorId, eventId, status } = req.body;
+      const { vendorId, eventId, status, reason } = req.body;
 
       if (!vendorId || !eventId || !status) {
         return res.status(400).json({
@@ -217,50 +326,123 @@ export class VendorController {
         });
       }
 
-      const vendor = await vendorModel.findById(vendorId);
-      if (!vendor) {
-        return res.status(404).json({
-          success: false,
-          message: "Vendor not found",
-        });
-      }
-
-      interface VendorApplication {
-        eventId: string;
-        status: VendorStatus;
-        attendees?: number;
-        boothSize?: string;
-        // Add other fields as needed
-      }
-
-      interface VendorDocument {
-        applications?: VendorApplication[];
-        // Add other fields as needed
-        save: () => Promise<void>;
-      }
-
-      const vendorTyped = vendor as VendorDocument;
-
-      const application: VendorApplication | undefined =
-        vendorTyped.applications?.find(
-          (app: VendorApplication) => app.eventId.toString() === eventId
-        );
-      if (!application) {
-        return res.status(404).json({
-          success: false,
-          message: "Application not found",
-        });
-      }
-
-      application.status = status;
-      await vendor.save();
-
-      return res.json({
-        success: true,
-        message: `Application status updated to '${status}'`,
+      const result = await vendorService.updateBazaarApplicationStatus({
+        vendorId,
+        eventId,
+        status,
+        reason,
       });
+
+      const statusCode = result.success
+        ? 200
+        : result.message.includes("not found")
+          ? 404
+          : 400;
+
+      return res.status(statusCode).json(result);
     } catch (error) {
       console.error("Update bazaar application status error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async uploadApplicationAttendees(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = req.user?.id;
+      const eventId = (req.params?.eventId ?? req.body?.eventId) as
+        | string
+        | undefined;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required",
+        });
+      }
+
+      if (!eventId) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required",
+        });
+      }
+
+      const attendeeParseResult = parseAttendeesFromRequest(req);
+      if (!attendeeParseResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: attendeeParseResult.message,
+        });
+      }
+
+      const result = await vendorService.updateApplicationAttendees({
+        vendorId,
+        eventId,
+        attendees: attendeeParseResult.attendees,
+      });
+
+      const statusCode = result.success ? 200 : 400;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Upload application attendees error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async payForApplication(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = req.user?.id;
+      const eventId = (req.params?.eventId ?? req.body?.eventId) as
+        | string
+        | undefined;
+      const amountPaid = Number(req.body?.amountPaid);
+      const transactionReference =
+        typeof req.body?.transactionReference === "string"
+          ? req.body.transactionReference
+          : undefined;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required",
+        });
+      }
+
+      if (!eventId) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required",
+        });
+      }
+
+      if (!Number.isFinite(amountPaid) || amountPaid <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid payment amount is required",
+        });
+      }
+
+      const result = await vendorService.recordVendorPayment({
+        vendorId,
+        eventId,
+        amountPaid,
+        transactionReference,
+      });
+
+      const statusCode = result.success ? 200 : 400;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Record vendor payment error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

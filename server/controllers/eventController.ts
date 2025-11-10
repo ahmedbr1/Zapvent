@@ -9,6 +9,8 @@ import {
   updateConferenceById,
   getAcceptedUpcomingBazaars,
   getVendorApplicationsForBazaar,
+  getEventAttendanceReport,
+  getEventSalesReport,
   getWorkshopParticipants,
   approveWorkshop,
   rejectWorkshop,
@@ -20,7 +22,7 @@ import {
   generateEventQRCode,
   sendWorkshopCertificates,
 } from "../services/eventService";
-import type { IEvent } from "../models/Event";
+import { IEvent, EventType } from "../models/Event";
 import {
   editBazaarDetails,
   createTrip,
@@ -44,6 +46,56 @@ function extractUserId(user: unknown): string | undefined {
   const u = user as Record<string, unknown>;
   if (typeof u.id === "string") return u.id;
   if (typeof u._id === "string") return u._id;
+  return undefined;
+}
+
+function extractQueryString(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    const entry = value.find(
+      (item) => typeof item === "string" && item.trim().length > 0
+    );
+    if (typeof entry === "string") {
+      return entry.trim();
+    }
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : undefined;
+  }
+
+  return undefined;
+}
+
+function parseEventType(value?: string): EventType | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  return (Object.values(EventType) as string[]).find(
+    (type) => type.toLowerCase() === normalized
+  ) as EventType | undefined;
+}
+
+function parseDate(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed;
+}
+
+type RevenueSortOrder = "asc" | "desc";
+
+function parseSortOrder(value?: string): RevenueSortOrder | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["asc", "ascending", "1"].includes(normalized)) {
+    return "asc";
+  }
+  if (["desc", "descending", "-1"].includes(normalized)) {
+    return "desc";
+  }
   return undefined;
 }
 export class EventController {
@@ -92,6 +144,147 @@ export class EventController {
       }
       console.error(err);
       return res.status(500).json({ message: "Failed to delete event" });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventOffice"])
+  async getAttendanceReportController(req: AuthRequest, res: Response) {
+    try {
+      const name = extractQueryString(req.query.name);
+      const eventTypeRaw = extractQueryString(req.query.eventType);
+      const eventType = parseEventType(eventTypeRaw);
+
+      if (eventTypeRaw && !eventType) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid event type provided.",
+        });
+      }
+
+      const dateRaw = extractQueryString(req.query.date);
+      const startDateRaw = extractQueryString(req.query.startDate);
+      const endDateRaw = extractQueryString(req.query.endDate);
+
+      const date = parseDate(dateRaw);
+      if (dateRaw && !date) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format for 'date'.",
+        });
+      }
+
+      const startDate = parseDate(startDateRaw);
+      if (startDateRaw && !startDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format for 'startDate'.",
+        });
+      }
+
+      const endDate = parseDate(endDateRaw);
+      if (endDateRaw && !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format for 'endDate'.",
+        });
+      }
+
+      const result = await getEventAttendanceReport({
+        name,
+        eventType,
+        date,
+        startDate,
+        endDate,
+      });
+
+      if (!result.success) {
+        return res.status(500).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Get attendance report controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Admin", "EventOffice"])
+  async getSalesReportController(req: AuthRequest, res: Response) {
+    try {
+      const eventTypeRaw = extractQueryString(req.query.eventType);
+      const eventType = parseEventType(eventTypeRaw);
+
+      if (eventTypeRaw && !eventType) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid event type provided.",
+        });
+      }
+
+      const dateRaw = extractQueryString(req.query.date);
+      const startDateRaw = extractQueryString(req.query.startDate);
+      const endDateRaw = extractQueryString(req.query.endDate);
+
+      const date = parseDate(dateRaw);
+      if (dateRaw && !date) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format for 'date'.",
+        });
+      }
+
+      const startDate = parseDate(startDateRaw);
+      if (startDateRaw && !startDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format for 'startDate'.",
+        });
+      }
+
+      const endDate = parseDate(endDateRaw);
+      if (endDateRaw && !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format for 'endDate'.",
+        });
+      }
+
+      const sortRaw = extractQueryString(req.query.sortOrder ?? req.query.sort);
+      const sortOrder = parseSortOrder(sortRaw);
+
+      if (sortRaw && !sortOrder) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid sort order. Use 'asc' or 'desc'.",
+        });
+      }
+
+      const result = await getEventSalesReport(
+        {
+          eventType,
+          date,
+          startDate,
+          endDate,
+        },
+        sortOrder ?? "desc"
+      );
+
+      if (!result.success) {
+        return res.status(500).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Get sales report controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
     }
   }
   @LoginRequired()

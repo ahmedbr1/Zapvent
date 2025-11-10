@@ -3,10 +3,22 @@ import vendorModel, {
   VendorStatus,
   BoothInfo,
   BazaarApplication,
+  VendorAttendee,
+  ApplicationPayment,
+  PaymentStatus,
+  VisitorQrCode,
 } from "../models/Vendor";
 import { z } from "zod";
-import EventModel, { BazaarBoothSize, EventType } from "../models/Event";
+import EventModel, {
+  BazaarBoothSize,
+  EventType,
+  Location,
+  IEvent,
+} from "../models/Event";
 import { Types } from "mongoose";
+import type { HydratedDocument } from "mongoose";
+import { emailService } from "./emailService";
+import crypto from "node:crypto";
 
 // Zod schema for vendor signup validation
 export const vendorSignupSchema = z.object({
@@ -38,6 +50,99 @@ export type vendorSignupData = z.infer<typeof vendorSignupSchema>;
 
 export async function findAll() {
   return vendorModel.find().lean();
+}
+
+type VendorDocument = HydratedDocument<IVendor>;
+
+type BazaarApplicationSubdoc = BazaarApplication & {
+  eventId: Types.ObjectId;
+  attendees: VendorAttendee[];
+};
+
+function getVendorApplicationsArray(
+  vendor: VendorDocument
+): BazaarApplicationSubdoc[] {
+  return (vendor.applications ?? []) as unknown as BazaarApplicationSubdoc[];
+}
+
+const BAZAAR_FEE_TABLE: Record<Location, Record<BazaarBoothSize, number>> = {
+  [Location.GUCCAIRO]: {
+    [BazaarBoothSize.SMALL]: 2500,
+    [BazaarBoothSize.LARGE]: 3800,
+  },
+  [Location.GUCCBERLIN]: {
+    [BazaarBoothSize.SMALL]: 2200,
+    [BazaarBoothSize.LARGE]: 3400,
+  },
+};
+
+const BOOTH_HOURLY_RATES: Record<Location, number> = {
+  [Location.GUCCAIRO]: 320,
+  [Location.GUCCBERLIN]: 280,
+};
+
+const PAYMENT_CURRENCY = "EGP";
+
+function generateReceiptNumber(): string {
+  const random = crypto.randomBytes(4).toString("hex").toUpperCase();
+  const timestamp = Date.now().toString(36).toUpperCase();
+  return `ZPV-${timestamp}-${random}`;
+}
+
+function buildQrCodeUrl(data: Record<string, unknown>): string {
+  const payload = Buffer.from(JSON.stringify(data)).toString("base64url");
+  const encoded = encodeURIComponent(payload);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encoded}`;
+}
+
+function hoursBetween(start: Date, end: Date): number {
+  const diffMs = end.getTime() - start.getTime();
+  return Math.max(diffMs / (1000 * 60 * 60), 0);
+}
+
+function calculateBazaarFee(
+  event: Pick<IEvent, "location">,
+  boothSize: BazaarBoothSize
+): number {
+  const byLocation = BAZAAR_FEE_TABLE[event.location];
+  if (!byLocation) {
+    return 3000;
+  }
+  return byLocation[boothSize] ?? 3000;
+}
+
+function calculateBoothFee(
+  event: Pick<IEvent, "location">,
+  boothInfo?: BoothInfo
+): number {
+  if (!boothInfo?.boothStartTime || !boothInfo?.boothEndTime) {
+    return calculateBazaarFee(event, BazaarBoothSize.SMALL);
+  }
+
+  const rate = BOOTH_HOURLY_RATES[event.location] ?? 300;
+  const hours = hoursBetween(
+    new Date(boothInfo.boothStartTime),
+    new Date(boothInfo.boothEndTime)
+  );
+
+  return Math.max(Math.round(hours * rate), rate);
+}
+
+function buildPaymentRecord(
+  event: IEvent,
+  application: BazaarApplication
+): ApplicationPayment {
+  const baseAmount = calculateBazaarFee(event, application.boothSize);
+  const boothAdjustment = calculateBoothFee(event, application.boothInfo);
+  const amount = Math.max(baseAmount, boothAdjustment);
+  const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+  return {
+    amount,
+    currency: PAYMENT_CURRENCY,
+    status: "pending",
+    dueDate,
+  };
 }
 
 export interface AdminVendorApplication {
@@ -105,7 +210,7 @@ export async function applyToBazaar(
   vendorId: string,
   applicationData: {
     eventId: string;
-    attendees: { name: string; email: string }[];
+    attendees: VendorAttendee[];
     boothSize: BazaarBoothSize;
     boothInfo?: {
       boothLocation?: string;
@@ -147,6 +252,41 @@ export async function applyToBazaar(
     // Validate attendees count (max 5)
     if (applicationData.attendees.length > 5) {
       return { success: false, message: "Maximum 5 attendees allowed" };
+    }
+
+    const invalidAttendee = applicationData.attendees.find((attendee) => {
+      if (!attendee || typeof attendee !== "object") {
+        return true;
+      }
+      const { name, email, idDocumentPath } = attendee;
+      if (!name || !email) {
+        return true;
+      }
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(email)) {
+        return true;
+      }
+      return !idDocumentPath;
+    });
+
+    if (invalidAttendee) {
+      return {
+        success: false,
+        message:
+          "Each attendee must include a valid name, email, and uploaded ID document.",
+      };
+    }
+
+    const seenEmails = new Set<string>();
+    for (const attendee of applicationData.attendees) {
+      const email = attendee.email.toLowerCase();
+      if (seenEmails.has(email)) {
+        return {
+          success: false,
+          message: "Duplicate attendee email addresses are not allowed.",
+        };
+      }
+      seenEmails.add(email);
     }
     // Validate booth size
     if (!Object.values(BazaarBoothSize).includes(applicationData.boothSize)) {
@@ -291,6 +431,7 @@ export async function getVendorApplications(vendorId: string) {
           location?: string;
           eventType?: EventType;
         }>();
+        const resolvedPaymentStatus = resolvePaymentStatus(app.payment);
         return {
           eventId: app.eventId.toString(),
           eventName: event?.name || "Unknown Event",
@@ -300,10 +441,23 @@ export async function getVendorApplications(vendorId: string) {
           applicationDate: app.applicationDate,
           status: app.status,
           attendees: app.attendees.length,
+          attendeeDetails: app.attendees,
           boothSize: app.boothSize,
           boothLocation: app.boothInfo?.boothLocation,
           boothStartTime: app.boothInfo?.boothStartTime,
           boothEndTime: app.boothInfo?.boothEndTime,
+          payment: app.payment
+            ? {
+                amount: app.payment.amount,
+                currency: app.payment.currency,
+                status: resolvedPaymentStatus,
+                dueDate: app.payment.dueDate,
+                paidAt: app.payment.paidAt,
+                receiptNumber: app.payment.receiptNumber,
+                transactionReference: app.payment.transactionReference,
+              }
+            : undefined,
+          qrCodes: app.qrCodes ?? [],
         };
       })
     );
@@ -318,6 +472,373 @@ export async function getVendorApplications(vendorId: string) {
     return {
       success: false,
       message: "An error occurred while retrieving applications",
+    };
+  }
+}
+
+function resolvePaymentStatus(payment?: ApplicationPayment): PaymentStatus | undefined {
+  if (!payment) {
+    return undefined;
+  }
+
+  if (payment.status === "paid") {
+    return "paid";
+  }
+
+  if (payment.dueDate && payment.dueDate.getTime() < Date.now()) {
+    return "overdue";
+  }
+
+  return "pending";
+}
+
+export async function updateBazaarApplicationStatus(options: {
+  vendorId: string;
+  eventId: string;
+  status: VendorStatus;
+  reason?: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    const { vendorId, eventId, status, reason } = options;
+
+    if (!Types.ObjectId.isValid(vendorId) || !Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid vendor or event identifier provided.",
+      };
+    }
+
+    const [vendor, event] = await Promise.all([
+      vendorModel.findById(vendorId),
+      EventModel.findById(eventId),
+    ]);
+
+    if (!vendor) {
+      return { success: false, message: "Vendor not found" };
+    }
+
+    if (!event) {
+      return { success: false, message: "Event not found" };
+    }
+
+    const application = getVendorApplicationsArray(vendor).find(
+      (app) => app.eventId.toString() === eventId
+    );
+
+    if (!application) {
+      return { success: false, message: "Application not found" };
+    }
+
+    application.status = status;
+    application.decisionDate = new Date();
+
+    if (status === VendorStatus.APPROVED) {
+      application.payment = buildPaymentRecord(event, application);
+      await EventModel.findByIdAndUpdate(eventId, {
+        $addToSet: { vendors: vendorId },
+      });
+    } else {
+      application.payment = undefined;
+      application.qrCodes = [];
+      await EventModel.findByIdAndUpdate(eventId, {
+        $pull: { vendors: vendorId },
+      });
+    }
+
+    vendor.markModified("applications");
+    await vendor.save();
+
+    await emailService.sendVendorApplicationDecisionEmail({
+      vendorEmail: vendor.email,
+      vendorCompany: vendor.companyName,
+      eventName: event.name,
+      status,
+      payment: application.payment,
+      dueDate: application.payment?.dueDate,
+      reason,
+    });
+
+    return {
+      success: true,
+      message: `Application status updated to '${status}'.`,
+    };
+  } catch (error) {
+    console.error("Error updating application status:", error);
+    return {
+      success: false,
+      message: "Failed to update application status",
+    };
+  }
+}
+
+export async function recordVendorPayment(options: {
+  vendorId: string;
+  eventId: string;
+  amountPaid: number;
+  transactionReference?: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    const { vendorId, eventId, amountPaid, transactionReference } = options;
+
+    if (!Types.ObjectId.isValid(vendorId) || !Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid vendor or event identifier provided.",
+      };
+    }
+
+    const [vendor, event] = await Promise.all([
+      vendorModel.findById(vendorId),
+      EventModel.findById(eventId),
+    ]);
+
+    if (!vendor) {
+      return { success: false, message: "Vendor not found" };
+    }
+
+    if (!event) {
+      return { success: false, message: "Event not found" };
+    }
+
+    const application = getVendorApplicationsArray(vendor).find(
+      (app) => app.eventId.toString() === eventId
+    );
+
+    if (!application) {
+      return { success: false, message: "Application not found" };
+    }
+
+    if (application.status !== VendorStatus.APPROVED) {
+      return {
+        success: false,
+        message: "Payment is only allowed for approved applications.",
+      };
+    }
+
+    if (!application.payment) {
+      application.payment = buildPaymentRecord(event, application);
+    }
+
+    if (application.payment.status === "paid") {
+      return {
+        success: false,
+        message: "Payment has already been recorded for this application.",
+      };
+    }
+
+    if (amountPaid < application.payment.amount) {
+      return {
+        success: false,
+        message: "Amount paid is less than the required participation fee.",
+      };
+    }
+
+    const receiptNumber = generateReceiptNumber();
+    const paidAt = new Date();
+
+    application.payment.status = "paid";
+    application.payment.paidAt = paidAt;
+    application.payment.receiptNumber = receiptNumber;
+    if (transactionReference) {
+      application.payment.transactionReference = transactionReference;
+    }
+
+    const paymentAmount = Number(application.payment.amount ?? 0);
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      return {
+        success: false,
+        message:
+          "Payment amount is invalid; unable to record vendor payment at this time.",
+      };
+    }
+
+    const paymentCurrency = application.payment.currency ?? PAYMENT_CURRENCY;
+    if (paymentCurrency !== PAYMENT_CURRENCY) {
+      return {
+        success: false,
+        message: `Unsupported payment currency '${paymentCurrency}'. Expected ${PAYMENT_CURRENCY}.`,
+      };
+    }
+
+    event.revenue = (event.revenue ?? 0) + paymentAmount;
+    event.markModified("revenue");
+    await event.save();
+
+    const attendeeList = (application.attendees ?? []) as VendorAttendee[];
+    const qrCodes: VisitorQrCode[] = attendeeList.map((attendee) => ({
+      visitorEmail: attendee.email,
+      qrCodeUrl: buildQrCodeUrl({
+        eventId,
+        vendorId,
+        email: attendee.email,
+        timestamp: paidAt.toISOString(),
+      }),
+      issuedAt: paidAt,
+    }));
+
+    application.qrCodes = qrCodes;
+
+    vendor.markModified("applications");
+    await vendor.save();
+
+    await Promise.all([
+      emailService.sendVendorPaymentReceipt({
+        vendorEmail: vendor.email,
+        vendorCompany: vendor.companyName,
+        eventName: event.name,
+        amount: application.payment.amount,
+        currency: application.payment.currency,
+        receiptNumber,
+        paidAt,
+        dueDate: application.payment.dueDate,
+        transactionReference,
+      }),
+      emailService.sendVendorVisitorQrCodes({
+        vendorEmail: vendor.email,
+        vendorCompany: vendor.companyName,
+        eventName: event.name,
+        eventStart: event.startDate,
+        qrCodes,
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: "Payment recorded successfully and receipt emailed.",
+    };
+  } catch (error) {
+    console.error("Error recording vendor payment:", error);
+    return {
+      success: false,
+      message: "Failed to record payment",
+    };
+  }
+}
+
+export async function updateApplicationAttendees(options: {
+  vendorId: string;
+  eventId: string;
+  attendees: VendorAttendee[];
+}): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    const { vendorId, eventId, attendees } = options;
+
+    if (!Array.isArray(attendees) || attendees.length === 0) {
+      return {
+        success: false,
+        message: "At least one attendee is required.",
+      };
+    }
+
+    if (attendees.length > 5) {
+      return {
+        success: false,
+        message: "Maximum of 5 attendees is allowed per application.",
+      };
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const seenEmails = new Set<string>();
+
+    for (const attendee of attendees) {
+      if (!attendee.name || !attendee.email || !attendee.idDocumentPath) {
+        return {
+          success: false,
+          message:
+            "Each attendee must include a name, email, and uploaded ID document.",
+        };
+      }
+      if (!emailPattern.test(attendee.email)) {
+        return {
+          success: false,
+          message: `Invalid attendee email: ${attendee.email}`,
+        };
+      }
+      const normalized = attendee.email.toLowerCase();
+      if (seenEmails.has(normalized)) {
+        return {
+          success: false,
+          message: "Duplicate attendee email addresses are not allowed.",
+        };
+      }
+      seenEmails.add(normalized);
+    }
+
+    const vendor = await vendorModel.findById(vendorId);
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    const application = getVendorApplicationsArray(vendor).find(
+      (app) => app.eventId.toString() === eventId
+    );
+
+    if (!application) {
+      return {
+        success: false,
+        message: "Application not found",
+      };
+    }
+
+    application.attendees = attendees;
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found",
+      };
+    }
+
+    if (application.payment?.status === "paid") {
+      const issuedAt = new Date();
+      const qrCodes: VisitorQrCode[] = attendees.map((attendee) => ({
+        visitorEmail: attendee.email,
+        qrCodeUrl: buildQrCodeUrl({
+          eventId,
+          vendorId,
+          email: attendee.email,
+          timestamp: issuedAt.toISOString(),
+        }),
+        issuedAt,
+      }));
+      application.qrCodes = qrCodes;
+
+      await emailService.sendVendorVisitorQrCodes({
+        vendorEmail: vendor.email,
+        vendorCompany: vendor.companyName,
+        eventName: event.name,
+        eventStart: event.startDate,
+        qrCodes,
+      });
+    }
+
+    vendor.markModified("applications");
+    await vendor.save();
+
+    return {
+      success: true,
+      message: "Attendee list updated successfully.",
+    };
+  } catch (error) {
+    console.error("Error updating attendees:", error);
+    return {
+      success: false,
+      message: "Failed to update attendees",
     };
   }
 }
@@ -342,6 +863,10 @@ export async function findAllForAdmin(): Promise<{
               .select("name")
               .lean<{ name: string }>();
 
+            const resolvedPaymentStatus = resolvePaymentStatus(
+              application.payment
+            );
+
             return {
               eventId: application.eventId.toString(),
               eventName: event?.name || "Unknown Event",
@@ -352,6 +877,19 @@ export async function findAllForAdmin(): Promise<{
               boothLocation: application.boothInfo?.boothLocation,
               boothStartTime: application.boothInfo?.boothStartTime,
               boothEndTime: application.boothInfo?.boothEndTime,
+              payment: application.payment
+                ? {
+                    amount: application.payment.amount,
+                    currency: application.payment.currency,
+                    status: resolvedPaymentStatus,
+                    dueDate: application.payment.dueDate,
+                    paidAt: application.payment.paidAt,
+                    receiptNumber: application.payment.receiptNumber,
+                    transactionReference:
+                      application.payment.transactionReference,
+                  }
+                : undefined,
+              qrCodes: application.qrCodes ?? [],
             };
           })
         );

@@ -1,5 +1,5 @@
 // server/services/eventService.ts
-import { Types } from "mongoose";
+import { FilterQuery, Types } from "mongoose";
 import Comment from "../models/Comment";
 import Rating from "../models/Rating";
 import EventModel, {
@@ -19,6 +19,11 @@ import UserModel, { IUser, userRole } from "../models/User";
 import * as XLSX from "xlsx";
 import * as qr from "qr-image";
 import { emailService } from "./emailService";
+import { notifyUsersOfNewEvent } from "./notificationService";
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function buildProfessorName(
   user: Pick<IUser, "firstName" | "lastName">
@@ -242,6 +247,7 @@ export const createTrip = async (
 ): Promise<IEvent> => {
   try {
     const newTrip = await EventModel.create(tripData);
+    await notifyUsersOfNewEvent(newTrip.toObject());
     return newTrip;
   } catch (error) {
     console.error("Error creating trip:", error);
@@ -514,6 +520,8 @@ export async function createBazaar(
       fundingSource: FundingSource.GUC,
     });
 
+    await notifyUsersOfNewEvent(bazaar.toObject());
+
     return {
       success: true,
       message: "Bazaar created successfully.",
@@ -639,6 +647,8 @@ export async function createWorkshop(
       createdBy,
       workshopStatus: WorkshopStatus.PENDING,
     });
+
+    await notifyUsersOfNewEvent(workshop.toObject());
 
     const plainWorkshop = workshop.toObject({ virtuals: false }) as Pick<
       IEvent,
@@ -1397,6 +1407,8 @@ export async function createConference(
       fundingSource,
       extraRequiredResources: extraRequiredResources || "",
     });
+
+    await notifyUsersOfNewEvent(conference.toObject());
 
     return {
       success: true,
@@ -2272,6 +2284,221 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
     return {
       success: false,
       message: "An error occurred while sending certificates.",
+    };
+  }
+}
+
+type EventReportFiltersBase = {
+  eventType?: EventType;
+  date?: Date;
+  startDate?: Date;
+  endDate?: Date;
+};
+
+export type AttendanceReportFilters = EventReportFiltersBase & {
+  name?: string;
+};
+
+export interface AttendanceReportItem {
+  eventId: string;
+  name: string;
+  eventType: EventType;
+  startDate: Date;
+  endDate: Date;
+  totalAttendees: number;
+}
+
+export interface AttendanceReportData {
+  events: AttendanceReportItem[];
+  totalAttendees: number;
+}
+
+export interface AttendanceReportResponse {
+  success: boolean;
+  data?: AttendanceReportData;
+  message?: string;
+}
+
+function buildAttendanceReportMatch(
+  filters: AttendanceReportFilters
+): FilterQuery<IEvent> {
+  const match: FilterQuery<IEvent> = {};
+
+  if (filters.eventType) {
+    match.eventType = filters.eventType;
+  }
+
+  if (filters.name) {
+    match.name = {
+      $regex: escapeRegex(filters.name),
+      $options: "i",
+    } as unknown as string;
+  }
+
+  const startDateConditions: Record<string, Date> = {};
+  const endDateConditions: Record<string, Date> = {};
+
+  if (filters.date) {
+    startDateConditions.$lte = filters.date;
+    endDateConditions.$gte = filters.date;
+  }
+
+  if (filters.startDate) {
+    startDateConditions.$gte = filters.startDate;
+  }
+
+  if (filters.endDate) {
+    endDateConditions.$lte = filters.endDate;
+  }
+
+  if (Object.keys(startDateConditions).length) {
+    match.startDate = startDateConditions as never;
+  }
+
+  if (Object.keys(endDateConditions).length) {
+    match.endDate = endDateConditions as never;
+  }
+
+  return match;
+}
+
+export async function getEventAttendanceReport(
+  filters: AttendanceReportFilters
+): Promise<AttendanceReportResponse> {
+  try {
+    const match = buildAttendanceReportMatch(filters);
+
+    const events = await EventModel.find(match)
+      .select(["name", "eventType", "startDate", "endDate", "registeredUsers"])
+      .sort({ startDate: 1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    const items: AttendanceReportItem[] = events.map((event) => ({
+      eventId: event._id.toString(),
+      name: event.name,
+      eventType: event.eventType,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      totalAttendees: event.registeredUsers?.length ?? 0,
+    }));
+
+    const totalAttendees = items.reduce(
+      (sum, item) => sum + item.totalAttendees,
+      0
+    );
+
+    return {
+      success: true,
+      data: {
+        events: items,
+        totalAttendees,
+      },
+    };
+  } catch (error) {
+    console.error("Error building attendance report:", error);
+    return {
+      success: false,
+      message: "Failed to build attendance report.",
+    };
+  }
+}
+
+export type SalesReportFilters = EventReportFiltersBase;
+
+export interface SalesReportItem {
+  eventId: string;
+  name: string;
+  eventType: EventType;
+  startDate: Date;
+  endDate: Date;
+  revenue: number;
+}
+
+export interface SalesReportData {
+  events: SalesReportItem[];
+  totalRevenue: number;
+}
+
+export interface SalesReportResponse {
+  success: boolean;
+  data?: SalesReportData;
+  message?: string;
+}
+
+type SalesSortOrder = "asc" | "desc";
+
+function buildSalesReportMatch(
+  filters: SalesReportFilters
+): FilterQuery<IEvent> {
+  const match: FilterQuery<IEvent> = {};
+
+  if (filters.eventType) {
+    match.eventType = filters.eventType;
+  }
+
+  const startDateConditions: Record<string, Date> = {};
+  const endDateConditions: Record<string, Date> = {};
+
+  if (filters.date) {
+    startDateConditions.$lte = filters.date;
+    endDateConditions.$gte = filters.date;
+  }
+
+  if (filters.startDate) {
+    startDateConditions.$gte = filters.startDate;
+  }
+
+  if (filters.endDate) {
+    endDateConditions.$lte = filters.endDate;
+  }
+
+  if (Object.keys(startDateConditions).length) {
+    match.startDate = startDateConditions as never;
+  }
+
+  if (Object.keys(endDateConditions).length) {
+    match.endDate = endDateConditions as never;
+  }
+
+  return match;
+}
+
+export async function getEventSalesReport(
+  filters: SalesReportFilters,
+  sortOrder: SalesSortOrder = "desc"
+): Promise<SalesReportResponse> {
+  try {
+    const match = buildSalesReportMatch(filters);
+    const sortDirection = sortOrder === "asc" ? 1 : -1;
+
+    const events = await EventModel.find(match)
+      .select(["name", "eventType", "startDate", "endDate", "revenue"])
+      .sort({ revenue: sortDirection, name: 1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    const items: SalesReportItem[] = events.map((event) => ({
+      eventId: event._id.toString(),
+      name: event.name,
+      eventType: event.eventType,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      revenue: typeof event.revenue === "number" ? event.revenue : 0,
+    }));
+
+    const totalRevenue = items.reduce((sum, item) => sum + item.revenue, 0);
+
+    return {
+      success: true,
+      data: {
+        events: items,
+        totalRevenue,
+      },
+    };
+  } catch (error) {
+    console.error("Error building sales report:", error);
+    return {
+      success: false,
+      message: "Failed to build sales report.",
     };
   }
 }
