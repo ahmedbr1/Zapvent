@@ -251,7 +251,7 @@ export interface LoyaltyVendorSummary {
   companyName: string;
   email: string;
   logo?: string;
-  loyaltyProgram: SerializedLoyaltyProgram;
+  loyaltyProgram: NonNullable<SerializedLoyaltyProgram>;
 }
 
 export async function create(data: Partial<IVendor>) {
