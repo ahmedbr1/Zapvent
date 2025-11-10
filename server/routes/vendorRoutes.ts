@@ -20,8 +20,24 @@ router.post(
 router.post(
   "/apply-bazaar",
   loginRequired,
-  // allowedRoles(["Vendor"]),
+  allowedRoles(["Vendor"]),
+  upload.fields([{ name: "attendeeIds", maxCount: 5 }]),
   vendorController.applyToBazaar.bind(vendorController)
+);
+
+router.post(
+  "/applications/:eventId/attendees",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  upload.fields([{ name: "attendeeIds", maxCount: 5 }]),
+  vendorController.uploadApplicationAttendees.bind(vendorController)
+);
+
+router.post(
+  "/applications/:eventId/payment",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.payForApplication.bind(vendorController)
 );
 
 // Get vendor's own applications

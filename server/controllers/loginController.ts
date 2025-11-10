@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { loginUser, loginAdmin, loginVendor } from "../services/loginService";
+import { verifyEmailByToken } from "../services/emailVerificationService";
 
 const TOKEN_EXPIRY = (() => {
   const raw = process.env.JWT_EXPIRES_IN;
@@ -10,6 +11,8 @@ const TOKEN_EXPIRY = (() => {
   }
   return value * 1000;
 })();
+
+const frontendLoginUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/login/user`;
 
 export default class LoginController {
   async userLoginController(req: Request, res: Response) {
@@ -106,6 +109,30 @@ export default class LoginController {
         success: false,
         message: "Internal server error",
       });
+    }
+  }
+
+  async verifyEmailLink(req: Request, res: Response) {
+    try {
+      const tokenParam = typeof req.query.token === "string" ? req.query.token : undefined;
+      const result = await verifyEmailByToken(tokenParam);
+
+      const redirectTarget = new URL(frontendLoginUrl);
+      redirectTarget.searchParams.set(
+        "verification",
+        result.success ? "success" : "failed"
+      );
+      if (!result.success) {
+        redirectTarget.searchParams.set("reason", result.reason);
+      }
+
+      return res.redirect(redirectTarget.toString());
+    } catch (error) {
+      console.error("Email verification error:", error);
+      const fallback = new URL(frontendLoginUrl);
+      fallback.searchParams.set("verification", "failed");
+      fallback.searchParams.set("reason", "server-error");
+      return res.redirect(fallback.toString());
     }
   }
 }

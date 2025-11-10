@@ -34,6 +34,12 @@ export enum BazaarBoothSize {
   LARGE = "4x4",
 }
 
+export enum WorkshopStatus {
+  PENDING = "Pending",
+  APPROVED = "Approved",
+  REJECTED = "Rejected",
+}
+
 export interface IEvent extends IBaseModel {
   // Event type? workshop, seminar, etc. Not decided yet
   name: string;
@@ -54,8 +60,11 @@ export interface IEvent extends IBaseModel {
   websiteLink?: string; // Only for conferences
   extraRequiredResources?: string; // For workshops - additional resources needed
   createdBy?: string; // User ID of the creator (professor/admin)
+  workshopStatus?: WorkshopStatus; // Status for workshop requests (Pending, Approved, Rejected)
+  requestedEdits?: string; // Message from Event Office requesting edits to the workshop
   revenue: number;
   archived: boolean;
+  allowedRoles?: string[]; // User roles that are allowed to register for this event
   registeredUsers: string[]; // List of users
   vendors: string[]; // List of vendors
 }
@@ -94,8 +103,14 @@ const EventSchema = new Schema<IEvent>(
     websiteLink: { type: String }, // URL
     extraRequiredResources: { type: String },
     createdBy: { type: String },
+    workshopStatus: {
+      type: String,
+      enum: Object.values(WorkshopStatus),
+    },
+    requestedEdits: { type: String },
     revenue: { type: Number, default: 0 },
     archived: { type: Boolean, default: false },
+    allowedRoles: [{ type: String }],
     registeredUsers: [{ type: String }],
     vendors: [{ type: String }],
   },
