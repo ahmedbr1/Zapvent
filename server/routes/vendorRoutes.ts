@@ -69,15 +69,15 @@ router.patch(
 
 router.post(
   "/loyalty/apply",
-  // loginRequired,
-  // allowedRoles(["Vendor"]),
+  loginRequired,
+  allowedRoles(["Vendor"]),
   vendorController.applyToLoyaltyProgram.bind(vendorController)
 );
 
 router.post(
   "/loyalty/cancel",
-  // loginRequired,
-  // allowedRoles(["Vendor"]),
+  loginRequired,
+  allowedRoles(["Vendor"]),
   vendorController.cancelLoyaltyProgram.bind(vendorController)
 );
 
@@ -90,8 +90,8 @@ router.get(
 
 router.get(
   "/loyalty",
-  // loginRequired,
-  // allowedRoles(["Student", "Staff", "TA", "Professor", "EventOffice", "Admin"]),
+  loginRequired,
+  allowedRoles(["Student", "Staff", "TA", "Professor", "EventOffice", "Admin"]),
   vendorController.listLoyaltyVendors.bind(vendorController)
 );
 

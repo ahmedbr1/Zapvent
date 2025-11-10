@@ -20,6 +20,7 @@ import EventModel, {
 import { Types } from "mongoose";
 import type { HydratedDocument } from "mongoose";
 import { emailService } from "./emailService";
+import { notifyUsersOfNewLoyaltyPartner } from "./notificationService";
 import crypto from "node:crypto";
 
 // Zod schema for vendor signup validation
@@ -1330,39 +1331,51 @@ export async function applyToLoyaltyProgram(
   }
 
   try {
-    const normalizedPromo = sanitizePromoCode(parsed.data.promoCode);
-    const normalizedTerms = parsed.data.termsAndConditions.trim();
+    const existingVendor = await vendorModel
+      .findById(vendorId)
+      .select("companyName loyaltyProgram");
 
-    const updatedVendor = await vendorModel
-      .findByIdAndUpdate(
-        vendorId,
-        {
-          $set: {
-            loyaltyProgram: {
-              discountRate: parsed.data.discountRate,
-              promoCode: normalizedPromo,
-              termsAndConditions: normalizedTerms,
-              status: "active" as LoyaltyProgramStatus,
-              appliedAt: new Date(),
-            },
-          },
-        },
-        { new: true, runValidators: true }
-      )
-      .select("loyaltyProgram companyName");
-
-    if (!updatedVendor) {
+    if (!existingVendor) {
       return {
         success: false,
         message: "Vendor not found",
       };
     }
 
+    const previouslyActive = existingVendor.loyaltyProgram?.status === "active";
+
+    const normalizedPromo = sanitizePromoCode(parsed.data.promoCode);
+    const normalizedTerms = parsed.data.termsAndConditions.trim();
+
+    existingVendor.loyaltyProgram = {
+      discountRate: parsed.data.discountRate,
+      promoCode: normalizedPromo,
+      termsAndConditions: normalizedTerms,
+      status: "active" as LoyaltyProgramStatus,
+      appliedAt: new Date(),
+    };
+
+    await existingVendor.save();
+
+    const becameActive =
+      !previouslyActive &&
+      existingVendor.loyaltyProgram?.status === "active";
+
+    if (becameActive && existingVendor.loyaltyProgram) {
+      await notifyUsersOfNewLoyaltyPartner({
+        companyName: existingVendor.companyName,
+        discountRate: existingVendor.loyaltyProgram.discountRate,
+        promoCode: existingVendor.loyaltyProgram.promoCode,
+      });
+    }
+
     return {
       success: true,
       message: "Loyalty program application submitted successfully",
       data: {
-        loyaltyProgram: serializeLoyaltyProgram(updatedVendor.loyaltyProgram),
+        loyaltyProgram: serializeLoyaltyProgram(
+          existingVendor.loyaltyProgram
+        ),
       },
     };
   } catch (error) {

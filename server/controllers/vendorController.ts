@@ -653,12 +653,12 @@ export class VendorController {
     }
   }
 
-  // @LoginRequired()
-  // @AllowedRoles(["Vendor"])
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
   async applyToLoyaltyProgram(req: AuthRequest, res: Response) {
     try {
-      const vendorId = "690d1f16c11accb382a0fd06"; // for testing without authentication
-      //const vendorId = req.user?.id;
+      //const vendorId = "690d1f16c11accb382a0fd06"; // for testing without authentication
+      const vendorId = req.user?.id;
       if (!vendorId) {
         return res.status(401).json({
           success: false,
@@ -682,12 +682,12 @@ export class VendorController {
     }
   }
 
-  // @LoginRequired()
-  // @AllowedRoles(["Vendor"])
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
   async cancelLoyaltyProgram(req: AuthRequest, res: Response) {
     try {
-      const vendorId = "690d1f16c11accb382a0fd06"; // for testing without authentication
-      // const vendorId = req.user?.id;
+      // const vendorId = "690d1f16c11accb382a0fd06"; // for testing without authentication
+      const vendorId = req.user?.id;
 
       if (!vendorId) {
         return res.status(401).json({
@@ -739,8 +739,8 @@ export class VendorController {
     }
   }
 
-  // @LoginRequired()
-  // @AllowedRoles(["Student", "Staff", "TA", "Professor", "EventOffice", "Admin"])
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor", "EventOffice", "Admin"])
   async listLoyaltyVendors(_req: AuthRequest, res: Response) {
     try {
       const result = await vendorService.listLoyaltyVendors();
