@@ -7,6 +7,8 @@ import vendorModel, {
   ApplicationPayment,
   PaymentStatus,
   VisitorQrCode,
+  LoyaltyProgramDetails,
+  LoyaltyProgramStatus,
 } from "../models/Vendor";
 import { z } from "zod";
 import EventModel, {
@@ -47,6 +49,72 @@ export const vendorSignupSchema = z.object({
 });
 
 export type vendorSignupData = z.infer<typeof vendorSignupSchema>;
+
+const loyaltyDiscountSchema = z.preprocess(
+  (value) => {
+    if (typeof value === "number") {
+      return value;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? value : parsed;
+    }
+    return value;
+  },
+  z
+    .number({ invalid_type_error: "Discount rate must be a number." })
+    .min(1, { message: "Discount rate must be at least 1%." })
+    .max(100, { message: "Discount rate cannot exceed 100%." })
+);
+
+const loyaltyProgramApplicationSchema = z.object({
+  discountRate: loyaltyDiscountSchema,
+  promoCode: z
+    .string({ required_error: "Promo code is required." })
+    .trim()
+    .min(3, { message: "Promo code must be at least 3 characters." })
+    .max(32, { message: "Promo code must be at most 32 characters." }),
+  termsAndConditions: z
+    .string({ required_error: "Terms and conditions are required." })
+    .trim()
+    .min(20, {
+      message: "Terms and conditions must be at least 20 characters long.",
+    })
+    .max(2000, {
+      message: "Terms and conditions cannot exceed 2000 characters.",
+    }),
+});
+
+type LoyaltyProgramApplicationData = z.infer<
+  typeof loyaltyProgramApplicationSchema
+>;
+
+type FieldErrors = Record<string, string[]>;
+
+function sanitizePromoCode(value: string): string {
+  return value.trim().replace(/\s+/g, "-").toUpperCase();
+}
+
+function serializeLoyaltyProgram(loyalty?: LoyaltyProgramDetails | null):
+  | (Omit<LoyaltyProgramDetails, "appliedAt" | "cancelledAt"> & {
+      appliedAt?: Date;
+      cancelledAt?: Date;
+    })
+  | undefined {
+  if (!loyalty) {
+    return undefined;
+  }
+  return {
+    discountRate: loyalty.discountRate,
+    promoCode: loyalty.promoCode,
+    termsAndConditions: loyalty.termsAndConditions,
+    status: loyalty.status,
+    appliedAt: loyalty.appliedAt,
+    cancelledAt: loyalty.cancelledAt,
+  };
+}
+
+type SerializedLoyaltyProgram = ReturnType<typeof serializeLoyaltyProgram>;
 
 export async function findAll() {
   return vendorModel.find().lean();
@@ -165,6 +233,7 @@ export interface AdminVendorResponse {
   verified: boolean;
   verificationStatus: VendorStatus;
   loyaltyForum?: string;
+  loyaltyProgram?: SerializedLoyaltyProgram;
   logo?: string;
   taxCard?: string;
   documents?: string;
@@ -174,6 +243,14 @@ export interface AdminVendorResponse {
   rejectedApplications: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface LoyaltyVendorSummary {
+  id: string;
+  companyName: string;
+  email: string;
+  logo?: string;
+  loyaltyProgram: SerializedLoyaltyProgram;
 }
 
 export async function create(data: Partial<IVendor>) {
@@ -440,7 +517,8 @@ export async function cancelBazaarApplication(
     if (application.hasPaid) {
       return {
         success: false,
-        message: "Cannot cancel an application after payment has been completed",
+        message:
+          "Cannot cancel an application after payment has been completed",
       };
     }
 
@@ -537,7 +615,9 @@ export async function getVendorApplications(vendorId: string) {
   }
 }
 
-function resolvePaymentStatus(payment?: ApplicationPayment): PaymentStatus | undefined {
+function resolvePaymentStatus(
+  payment?: ApplicationPayment
+): PaymentStatus | undefined {
   if (!payment) {
     return undefined;
   }
@@ -973,6 +1053,7 @@ export async function findAllForAdmin(): Promise<{
           verified: vendor.verified ?? false,
           verificationStatus: vendor.verificationStatus ?? VendorStatus.PENDING,
           loyaltyForum: vendor.loyaltyForum || undefined,
+          loyaltyProgram: serializeLoyaltyProgram(vendor.loyaltyProgram),
           logo: vendor.logo || undefined,
           taxCard: vendor.taxCard || undefined,
           documents: vendor.documents || undefined,
@@ -1143,6 +1224,7 @@ export async function getVendorProfile(vendorId: string): Promise<{
         email: vendor.email,
         companyName: vendor.companyName,
         loyaltyForum: vendor.loyaltyForum,
+        loyaltyProgram: serializeLoyaltyProgram(vendor.loyaltyProgram),
         logo: vendor.logo,
         taxCard: vendor.taxCard,
         documents: vendor.documents,
@@ -1211,6 +1293,7 @@ export async function updateVendorProfile(
         email: vendor.email,
         companyName: vendor.companyName,
         loyaltyForum: vendor.loyaltyForum,
+        loyaltyProgram: serializeLoyaltyProgram(vendor.loyaltyProgram),
         logo: vendor.logo,
         taxCard: vendor.taxCard,
         documents: vendor.documents,
@@ -1221,6 +1304,195 @@ export async function updateVendorProfile(
     return {
       success: false,
       message: "An error occurred while updating profile",
+    };
+  }
+}
+
+interface LoyaltyProgramServiceResponse {
+  success: boolean;
+  message: string;
+  data?: { loyaltyProgram?: SerializedLoyaltyProgram };
+  issues?: FieldErrors;
+}
+
+export async function applyToLoyaltyProgram(
+  vendorId: string,
+  payload: unknown
+): Promise<LoyaltyProgramServiceResponse> {
+  const parsed = loyaltyProgramApplicationSchema.safeParse(payload);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: "Invalid loyalty program submission",
+      issues: parsed.error.flatten().fieldErrors as FieldErrors,
+    };
+  }
+
+  try {
+    const normalizedPromo = sanitizePromoCode(parsed.data.promoCode);
+    const normalizedTerms = parsed.data.termsAndConditions.trim();
+
+    const updatedVendor = await vendorModel
+      .findByIdAndUpdate(
+        vendorId,
+        {
+          $set: {
+            loyaltyProgram: {
+              discountRate: parsed.data.discountRate,
+              promoCode: normalizedPromo,
+              termsAndConditions: normalizedTerms,
+              status: "active" as LoyaltyProgramStatus,
+              appliedAt: new Date(),
+            },
+          },
+        },
+        { new: true, runValidators: true }
+      )
+      .select("loyaltyProgram companyName");
+
+    if (!updatedVendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Loyalty program application submitted successfully",
+      data: {
+        loyaltyProgram: serializeLoyaltyProgram(updatedVendor.loyaltyProgram),
+      },
+    };
+  } catch (error) {
+    console.error("Error applying to loyalty program:", error);
+    return {
+      success: false,
+      message: "Failed to submit loyalty program application",
+    };
+  }
+}
+
+export async function cancelLoyaltyProgram(
+  vendorId: string
+): Promise<LoyaltyProgramServiceResponse> {
+  try {
+    const vendor = await vendorModel
+      .findById(vendorId)
+      .select("loyaltyProgram");
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    if (!vendor.loyaltyProgram || vendor.loyaltyProgram.status !== "active") {
+      return {
+        success: false,
+        message: "No active loyalty program participation to cancel",
+      };
+    }
+
+    vendor.loyaltyProgram.status = "cancelled";
+    vendor.loyaltyProgram.cancelledAt = new Date();
+    vendor.markModified("loyaltyProgram");
+    await vendor.save();
+
+    return {
+      success: true,
+      message: "Loyalty program participation cancelled",
+      data: {
+        loyaltyProgram: serializeLoyaltyProgram(vendor.loyaltyProgram),
+      },
+    };
+  } catch (error) {
+    console.error("Error cancelling loyalty program participation:", error);
+    return {
+      success: false,
+      message: "Failed to cancel loyalty program participation",
+    };
+  }
+}
+
+export async function getVendorLoyaltyProgram(
+  vendorId: string
+): Promise<LoyaltyProgramServiceResponse> {
+  try {
+    const vendor = await vendorModel
+      .findById(vendorId)
+      .select("loyaltyProgram");
+
+    if (!vendor) {
+      return {
+        success: false,
+        message: "Vendor not found",
+      };
+    }
+
+    return {
+      success: true,
+      message: vendor.loyaltyProgram
+        ? "Loyalty program details retrieved"
+        : "Vendor has not joined the loyalty program",
+      data: {
+        loyaltyProgram: serializeLoyaltyProgram(vendor.loyaltyProgram),
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching loyalty program data:", error);
+    return {
+      success: false,
+      message: "Failed to load loyalty program data",
+    };
+  }
+}
+
+export async function listLoyaltyVendors(): Promise<{
+  success: boolean;
+  message: string;
+  vendors: LoyaltyVendorSummary[];
+}> {
+  try {
+    const vendors = await vendorModel
+      .find({ "loyaltyProgram.status": "active" })
+      .select("companyName email logo loyaltyProgram")
+      .sort({ companyName: 1 })
+      .lean<Array<IVendor & { _id: Types.ObjectId }>>();
+
+    const normalized = vendors
+      .map((vendor) => {
+        const loyalty = serializeLoyaltyProgram(vendor.loyaltyProgram);
+
+        if (!loyalty) {
+          return null;
+        }
+
+        return {
+          id: vendor._id.toString(),
+          companyName: vendor.companyName,
+          email: vendor.email,
+          logo: vendor.logo,
+          loyaltyProgram: loyalty,
+        };
+      })
+      .filter(Boolean) as LoyaltyVendorSummary[];
+
+    return {
+      success: true,
+      message: normalized.length
+        ? "Active loyalty vendors retrieved"
+        : "No vendors are currently enrolled in the loyalty program",
+      vendors: normalized,
+    };
+  } catch (error) {
+    console.error("Error listing loyalty vendors:", error);
+    return {
+      success: false,
+      message: "Failed to load loyalty vendors",
+      vendors: [],
     };
   }
 }

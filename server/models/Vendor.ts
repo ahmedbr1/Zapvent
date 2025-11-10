@@ -22,6 +22,17 @@ export interface VendorAttendee {
   idDocumentPath?: string;
 }
 
+export type LoyaltyProgramStatus = "active" | "cancelled";
+
+export interface LoyaltyProgramDetails {
+  discountRate: number;
+  promoCode: string;
+  termsAndConditions: string;
+  status: LoyaltyProgramStatus;
+  appliedAt?: Date;
+  cancelledAt?: Date;
+}
+
 export type PaymentStatus = "pending" | "paid" | "overdue";
 
 export interface ApplicationPayment {
@@ -65,6 +76,7 @@ export interface IVendor extends IBaseModel {
   applications?: BazaarApplication[];
   loyaltyForum?: string; // URL containing the forum link
   isVerified?: boolean;
+  loyaltyProgram?: LoyaltyProgramDetails;
 }
 const vendorSchema = new Schema<IVendor>(
   {
@@ -157,6 +169,18 @@ const vendorSchema = new Schema<IVendor>(
       default: [],
     },
     loyaltyForum: { type: String }, // URL
+    loyaltyProgram: {
+      discountRate: { type: Number, min: 1, max: 100 },
+      promoCode: { type: String, trim: true },
+      termsAndConditions: { type: String },
+      status: {
+        type: String,
+        enum: ["active", "cancelled"],
+        default: "active",
+      },
+      appliedAt: { type: Date },
+      cancelledAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

@@ -38,7 +38,7 @@
     "react-hook-form": "^7.65.0",
     "reflect-metadata": "^0.2.2",
     "xlsx": "^0.18.5",
-    "zod": "^4.1.12"
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
