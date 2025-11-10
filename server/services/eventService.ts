@@ -1,5 +1,5 @@
 // server/services/eventService.ts
-import { Types } from "mongoose";
+import { FilterQuery, Types } from "mongoose";
 import Comment from "../models/Comment";
 import Rating from "../models/Rating";
 import EventModel, {
@@ -7,6 +7,7 @@ import EventModel, {
   FundingSource,
   Location,
   IEvent,
+  WorkshopStatus,
 } from "../models/Event";
 import AdminModel, { IAdmin } from "../models/Admin";
 import vendorModel, {
@@ -15,6 +16,14 @@ import vendorModel, {
   BazaarApplication,
 } from "../models/Vendor";
 import UserModel, { IUser, userRole } from "../models/User";
+import * as XLSX from "xlsx";
+import * as qr from "qr-image";
+import { emailService } from "./emailService";
+import { notifyUsersOfNewEvent } from "./notificationService";
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function buildProfessorName(
   user: Pick<IUser, "firstName" | "lastName">
@@ -222,7 +231,9 @@ export const getAllBazaars = async (): Promise<IGetAllBazaarsResponse> => {
   }
 };
 
-export const getBazaarById = async (eventId: string): Promise<IEvent | null> => {
+export const getBazaarById = async (
+  eventId: string
+): Promise<IEvent | null> => {
   try {
     return await EventModel.findById(eventId);
   } catch (error) {
@@ -236,6 +247,7 @@ export const createTrip = async (
 ): Promise<IEvent> => {
   try {
     const newTrip = await EventModel.create(tripData);
+    await notifyUsersOfNewEvent(newTrip.toObject());
     return newTrip;
   } catch (error) {
     console.error("Error creating trip:", error);
@@ -374,8 +386,20 @@ export async function getAllEvents(
     const currentDate = new Date();
 
     // Create the base query for events that haven't ended yet
+    // Only show approved workshops (including legacy ones with null/missing status) or non-workshop events
     let query = EventModel.find({
       endDate: { $gte: currentDate },
+      $or: [
+        { eventType: { $ne: EventType.WORKSHOP } },
+        {
+          eventType: EventType.WORKSHOP,
+          $or: [
+            { workshopStatus: WorkshopStatus.APPROVED },
+            { workshopStatus: null },
+            { workshopStatus: { $exists: false } },
+          ],
+        },
+      ],
     });
 
     // Apply sorting if specified
@@ -495,6 +519,8 @@ export async function createBazaar(
       location,
       fundingSource: FundingSource.GUC,
     });
+
+    await notifyUsersOfNewEvent(bazaar.toObject());
 
     return {
       success: true,
@@ -619,7 +645,10 @@ export async function createWorkshop(
       fundingSource,
       extraRequiredResources: extraRequiredResources || "",
       createdBy,
+      workshopStatus: WorkshopStatus.PENDING,
     });
+
+    await notifyUsersOfNewEvent(workshop.toObject());
 
     const plainWorkshop = workshop.toObject({ virtuals: false }) as Pick<
       IEvent,
@@ -648,6 +677,11 @@ export async function createWorkshop(
       },
       creatorDetails
     );
+
+    // Notify Event Office about the new workshop request
+    const creatorName = creatorDetails.get(createdBy)?.name || "A professor";
+    const notificationMessage = `${creatorName} has submitted a new workshop request: "${name}" scheduled for ${parsedStart.toLocaleDateString()}`;
+    await notifyEventOffice(notificationMessage);
 
     return {
       success: true,
@@ -877,6 +911,17 @@ export async function registerUserForWorkshop(
       };
     }
 
+    // Check if event has role restrictions
+    if (event.allowedRoles && event.allowedRoles.length > 0) {
+      if (!event.allowedRoles.includes(user.role)) {
+        return {
+          success: false,
+          message: `This event is restricted to the following roles: ${event.allowedRoles.join(", ")}. Your role (${user.role}) is not allowed.`,
+          statusCode: 403,
+        };
+      }
+    }
+
     if (
       event.eventType !== EventType.WORKSHOP &&
       event.eventType !== EventType.TRIP
@@ -984,6 +1029,45 @@ export async function registerUserForWorkshop(
 
 function buildAdminName(admin: Pick<IAdmin, "firstName" | "lastName">): string {
   return [admin.firstName, admin.lastName].filter(Boolean).join(" ").trim();
+}
+
+async function notifyEventOffice(message: string): Promise<void> {
+  try {
+    await AdminModel.updateMany(
+      { adminType: "EventOffice", status: "Active" },
+      { $push: { notifications: message } }
+    );
+  } catch (error) {
+    console.error("Error sending notification to Event Office:", error);
+  }
+}
+
+async function notifyProfessorWorkshopStatus(
+  professorId: string,
+  workshopName: string,
+  status: "approved" | "rejected",
+  reason?: string
+): Promise<void> {
+  try {
+    if (!Types.ObjectId.isValid(professorId)) {
+      return;
+    }
+
+    let message: string;
+    if (status === "approved") {
+      message = `Your workshop "${workshopName}" has been approved and published by the Event Office.`;
+    } else {
+      message = reason
+        ? `Your workshop "${workshopName}" has been rejected by the Event Office. Reason: ${reason}`
+        : `Your workshop "${workshopName}" has been rejected by the Event Office.`;
+    }
+
+    await UserModel.findByIdAndUpdate(professorId, {
+      $push: { notifications: message },
+    });
+  } catch (error) {
+    console.error("Error sending notification to professor:", error);
+  }
 }
 
 interface WorkshopCreatorDetails {
@@ -1128,8 +1212,102 @@ export async function getWorkshopsByCreator(
   }
 }
 
+export async function getWorkshopParticipants(
+  workshopId: string,
+  userId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId).lean<
+      (IEvent & { _id: Types.ObjectId }) | null
+    >();
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    // Check if the user is the creator
+    if (workshop.createdBy !== userId) {
+      return {
+        success: false,
+        message: "You are not authorized to view this workshop's participants.",
+      };
+    }
+
+    const registeredUserIds = workshop.registeredUsers ?? [];
+    const capacity = workshop.capacity ?? 0;
+    const registeredCount = registeredUserIds.length;
+    const remainingSpots = capacity > 0 ? capacity - registeredCount : 0;
+
+    // Fetch participant details
+    const validUserIds = registeredUserIds
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+
+    const participants = await UserModel.find({
+      _id: { $in: validUserIds },
+    })
+      .select([
+        "firstName",
+        "lastName",
+        "email",
+        "role",
+        "studentId",
+        "staffId",
+      ])
+      .lean<Array<IUser & { _id: Types.ObjectId }>>();
+
+    const participantList = participants.map((user) => ({
+      id: user._id.toString(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      studentId: user.studentId,
+      staffId: user.staffId,
+    }));
+
+    return {
+      success: true,
+      message: "Workshop participants retrieved successfully.",
+      data: {
+        workshopId: workshop._id.toString(),
+        workshopName: workshop.name,
+        capacity,
+        registeredCount,
+        remainingSpots,
+        participants: participantList,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching workshop participants:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching workshop participants.",
+    };
+  }
+}
+
 export async function getAllWorkshops(): Promise<ICreateWorkshopResponse> {
   try {
+    // For Event Office/Admin: show all workshops regardless of status
+    // This function is called when Event Office/Admin views workshops
     const workshops = await EventModel.find({
       eventType: EventType.WORKSHOP,
       archived: false,
@@ -1229,6 +1407,8 @@ export async function createConference(
       fundingSource,
       extraRequiredResources: extraRequiredResources || "",
     });
+
+    await notifyUsersOfNewEvent(conference.toObject());
 
     return {
       success: true,
@@ -1425,6 +1605,900 @@ export async function getVendorApplicationsForBazaar(eventId: string): Promise<{
       message:
         "An error occurred while fetching vendor applications for bazaar.",
       statusCode: 500,
+    };
+  }
+}
+
+export async function approveWorkshop(
+  workshopId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.APPROVED) {
+      return {
+        success: false,
+        message: "Workshop is already approved.",
+      };
+    }
+
+    workshop.workshopStatus = WorkshopStatus.APPROVED;
+    await workshop.save();
+
+    // Notify the professor about approval
+    if (workshop.createdBy) {
+      await notifyProfessorWorkshopStatus(
+        workshop.createdBy,
+        workshop.name,
+        "approved"
+      );
+    }
+
+    return {
+      success: true,
+      message: "Workshop approved and published successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus,
+      },
+    };
+  } catch (error) {
+    console.error("Error approving workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while approving the workshop.",
+    };
+  }
+}
+
+export async function rejectWorkshop(
+  workshopId: string,
+  reason?: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.REJECTED) {
+      return {
+        success: false,
+        message: "Workshop is already rejected.",
+      };
+    }
+
+    workshop.workshopStatus = WorkshopStatus.REJECTED;
+    await workshop.save();
+
+    // Notify the professor about rejection
+    if (workshop.createdBy) {
+      await notifyProfessorWorkshopStatus(
+        workshop.createdBy,
+        workshop.name,
+        "rejected",
+        reason
+      );
+    }
+
+    return {
+      success: true,
+      message: reason
+        ? `Workshop rejected. Reason: ${reason}`
+        : "Workshop rejected successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus,
+        reason,
+      },
+    };
+  } catch (error) {
+    console.error("Error rejecting workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while rejecting the workshop.",
+    };
+  }
+}
+
+export async function requestWorkshopEdits(
+  workshopId: string,
+  message: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    if (!message || message.trim().length === 0) {
+      return {
+        success: false,
+        message: "Edit request message is required.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.APPROVED) {
+      return {
+        success: false,
+        message: "Cannot request edits for an already approved workshop.",
+      };
+    }
+
+    workshop.requestedEdits = message.trim();
+    await workshop.save();
+
+    return {
+      success: true,
+      message: "Edit request sent to professor successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        requestedEdits: workshop.requestedEdits,
+      },
+    };
+  } catch (error) {
+    console.error("Error requesting workshop edits:", error);
+    return {
+      success: false,
+      message: "An error occurred while requesting workshop edits.",
+    };
+  }
+}
+
+export async function getWorkshopStatus(
+  workshopId: string,
+  userId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId).lean<
+      (IEvent & { _id: Types.ObjectId }) | null
+    >();
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    // Check if the user is the creator
+    if (workshop.createdBy !== userId) {
+      return {
+        success: false,
+        message: "You are not authorized to view this workshop's status.",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Workshop status retrieved successfully.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus ?? WorkshopStatus.PENDING,
+        requestedEdits: workshop.requestedEdits ?? null,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching workshop status:", error);
+    return {
+      success: false,
+      message: "An error occurred while fetching workshop status.",
+    };
+  }
+}
+
+export async function archiveEvent(eventId: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: { id: string; name: string; archived: boolean };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    if (event.archived) {
+      return {
+        success: false,
+        message: "Event is already archived.",
+      };
+    }
+
+    // Check if the event has already passed (endDate is in the past)
+    const currentDate = new Date();
+    if (event.endDate > currentDate) {
+      return {
+        success: false,
+        message:
+          "Cannot archive an event that has not yet passed. Event ends on: " +
+          event.endDate.toISOString(),
+      };
+    }
+
+    event.archived = true;
+    await event.save();
+
+    return {
+      success: true,
+      message: "Event archived successfully.",
+      data: {
+        id: event._id.toString(),
+        name: event.name,
+        archived: event.archived,
+      },
+    };
+  } catch (error) {
+    console.error("Error archiving event:", error);
+    return {
+      success: false,
+      message: "An error occurred while archiving the event.",
+    };
+  }
+}
+
+export async function setEventRoleRestrictions(
+  eventId: string,
+  allowedRoles: string[]
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: { id: string; name: string; allowedRoles: string[] };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    // Validate that allowedRoles is an array
+    if (!Array.isArray(allowedRoles)) {
+      return {
+        success: false,
+        message: "allowedRoles must be an array.",
+      };
+    }
+
+    // Valid roles from userRole enum
+    const validRoles = ["Student", "Staff", "Professor", "TA"];
+
+    // Filter out invalid roles
+    const filteredRoles = allowedRoles.filter((role) =>
+      validRoles.includes(role)
+    );
+
+    if (filteredRoles.length === 0 && allowedRoles.length > 0) {
+      return {
+        success: false,
+        message: `Invalid roles provided. Valid roles are: ${validRoles.join(", ")}`,
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    // Empty array means no restrictions (all roles allowed)
+    event.allowedRoles = filteredRoles.length > 0 ? filteredRoles : undefined;
+    await event.save();
+
+    return {
+      success: true,
+      message:
+        filteredRoles.length > 0
+          ? `Event restricted to roles: ${filteredRoles.join(", ")}`
+          : "Event is now open to all roles.",
+      data: {
+        id: event._id.toString(),
+        name: event.name,
+        allowedRoles: event.allowedRoles ?? [],
+      },
+    };
+  } catch (error) {
+    console.error("Error setting event role restrictions:", error);
+    return {
+      success: false,
+      message: "An error occurred while updating role restrictions.",
+    };
+  }
+}
+
+export async function exportEventRegistrations(eventId: string): Promise<{
+  success: boolean;
+  message: string;
+  buffer?: Buffer;
+  filename?: string;
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    // Conferences don't support user registrations export
+    if (event.eventType === EventType.CONFERENCE) {
+      return {
+        success: false,
+        message: "Conferences do not support registration exports.",
+      };
+    }
+
+    // Get registered user IDs
+    const registeredUserIds = event.registeredUsers ?? [];
+
+    if (registeredUserIds.length === 0) {
+      return {
+        success: false,
+        message: "No users registered for this event.",
+      };
+    }
+
+    // Fetch user details for all registered users
+    const users = await UserModel.find({
+      _id: { $in: registeredUserIds },
+    }).select("firstName lastName email role studentId staffId");
+
+    if (users.length === 0) {
+      return {
+        success: false,
+        message: "No valid user data found for registered users.",
+      };
+    }
+
+    // Prepare data for Excel
+    const excelData = users.map((user) => ({
+      "First Name": user.firstName,
+      "Last Name": user.lastName,
+      Email: user.email,
+      Role: user.role,
+      "Student ID": user.studentId || "N/A",
+      "Staff ID": user.staffId || "N/A",
+    }));
+
+    // Create workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths for better readability
+    worksheet["!cols"] = [
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
+      { wch: 30 }, // Email
+      { wch: 12 }, // Role
+      { wch: 15 }, // Student ID
+      { wch: 15 }, // Staff ID
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Registrations");
+
+    // Generate Excel file buffer
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+    // Create filename with event name and date
+    const sanitizedEventName = event.name.replace(/[^a-z0-9]/gi, "_");
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `${sanitizedEventName}_Registrations_${dateStr}.xlsx`;
+
+    return {
+      success: true,
+      message: "Registration export generated successfully.",
+      buffer: Buffer.from(buffer),
+      filename,
+    };
+  } catch (error) {
+    console.error("Error exporting event registrations:", error);
+    return {
+      success: false,
+      message: "An error occurred while exporting registrations.",
+    };
+  }
+}
+
+export async function generateEventQRCode(eventId: string): Promise<{
+  success: boolean;
+  message: string;
+  buffer?: Buffer;
+  filename?: string;
+}> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event ID.",
+      };
+    }
+
+    const event = await EventModel.findById(eventId);
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+      };
+    }
+
+    // Only allow QR code generation for Bazaars and Career Fairs (Seminars)
+    if (
+      event.eventType !== EventType.BAZAAR &&
+      event.eventType !== EventType.SEMINAR
+    ) {
+      return {
+        success: false,
+        message:
+          "QR codes can only be generated for Bazaars and Career Fairs (Seminars).",
+      };
+    }
+
+    // Determine the QR code text based on event type
+    let qrText: string;
+    let eventTypeName: string;
+
+    if (event.eventType === EventType.BAZAAR) {
+      qrText = "Bazaar Ticket";
+      eventTypeName = "Bazaar";
+    } else {
+      // Seminar (Career Fair)
+      qrText = "Career Fair Ticket";
+      eventTypeName = "CareerFair";
+    }
+
+    // Generate QR code as PNG buffer
+    const qrBuffer = qr.imageSync(qrText, {
+      type: "png",
+      size: 10,
+      margin: 2,
+      ec_level: "H",
+    });
+
+    // Ensure we have a Buffer (imageSync with PNG type should return Buffer)
+    if (typeof qrBuffer === "string") {
+      return {
+        success: false,
+        message: "Failed to generate QR code buffer.",
+      };
+    }
+
+    // Create filename
+    const sanitizedEventName = event.name.replace(/[^a-z0-9]/gi, "_");
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `${sanitizedEventName}_${eventTypeName}_QR_${dateStr}.png`;
+
+    return {
+      success: true,
+      message: `QR code generated successfully for ${event.eventType}.`,
+      buffer: qrBuffer,
+      filename,
+    };
+  } catch (error) {
+    console.error("Error generating QR code:", error);
+    return {
+      success: false,
+      message: "An error occurred while generating the QR code.",
+    };
+  }
+}
+
+export async function sendWorkshopCertificates(workshopId: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: { sentCount: number; failedCount: number };
+}> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    // Only workshops support certificates
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Certificates can only be issued for workshops.",
+      };
+    }
+
+    // Check if workshop has ended
+    const currentDate = new Date();
+    if (workshop.endDate > currentDate) {
+      return {
+        success: false,
+        message: `Workshop has not ended yet. It ends on ${workshop.endDate.toISOString()}.`,
+      };
+    }
+
+    // Collect all participants: registered users + creator (professor)
+    const participantIds: string[] = [...(workshop.registeredUsers ?? [])];
+    if (workshop.createdBy) {
+      participantIds.push(workshop.createdBy);
+    }
+
+    // Remove duplicates (in case creator is also in registered users)
+    const uniqueParticipantIds = [...new Set(participantIds)];
+
+    if (uniqueParticipantIds.length === 0) {
+      return {
+        success: false,
+        message: "No participants found for this workshop.",
+      };
+    }
+
+    // Fetch all participants
+    const participants = await UserModel.find({
+      _id: { $in: uniqueParticipantIds },
+    }).select("firstName lastName email role");
+
+    if (participants.length === 0) {
+      return {
+        success: false,
+        message: "No valid participant data found.",
+      };
+    }
+
+    // Send certificates to all participants
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const participant of participants) {
+      try {
+        await emailService.sendWorkshopCertificate({
+          user: participant,
+          workshopName: workshop.name,
+          workshopDate: workshop.endDate,
+        });
+        sentCount++;
+      } catch (error) {
+        console.error(
+          `Failed to send certificate to ${participant.email}:`,
+          error
+        );
+        failedCount++;
+      }
+    }
+
+    return {
+      success: true,
+      message: `Certificates sent successfully to ${sentCount} participant(s).${failedCount > 0 ? ` ${failedCount} failed.` : ""}`,
+      data: {
+        sentCount,
+        failedCount,
+      },
+    };
+  } catch (error) {
+    console.error("Error sending workshop certificates:", error);
+    return {
+      success: false,
+      message: "An error occurred while sending certificates.",
+    };
+  }
+}
+
+type EventReportFiltersBase = {
+  eventType?: EventType;
+  date?: Date;
+  startDate?: Date;
+  endDate?: Date;
+};
+
+export type AttendanceReportFilters = EventReportFiltersBase & {
+  name?: string;
+};
+
+export interface AttendanceReportItem {
+  eventId: string;
+  name: string;
+  eventType: EventType;
+  startDate: Date;
+  endDate: Date;
+  totalAttendees: number;
+}
+
+export interface AttendanceReportData {
+  events: AttendanceReportItem[];
+  totalAttendees: number;
+}
+
+export interface AttendanceReportResponse {
+  success: boolean;
+  data?: AttendanceReportData;
+  message?: string;
+}
+
+function buildAttendanceReportMatch(
+  filters: AttendanceReportFilters
+): FilterQuery<IEvent> {
+  const match: FilterQuery<IEvent> = {};
+
+  if (filters.eventType) {
+    match.eventType = filters.eventType;
+  }
+
+  if (filters.name) {
+    match.name = {
+      $regex: escapeRegex(filters.name),
+      $options: "i",
+    } as unknown as string;
+  }
+
+  const startDateConditions: Record<string, Date> = {};
+  const endDateConditions: Record<string, Date> = {};
+
+  if (filters.date) {
+    startDateConditions.$lte = filters.date;
+    endDateConditions.$gte = filters.date;
+  }
+
+  if (filters.startDate) {
+    startDateConditions.$gte = filters.startDate;
+  }
+
+  if (filters.endDate) {
+    endDateConditions.$lte = filters.endDate;
+  }
+
+  if (Object.keys(startDateConditions).length) {
+    match.startDate = startDateConditions as never;
+  }
+
+  if (Object.keys(endDateConditions).length) {
+    match.endDate = endDateConditions as never;
+  }
+
+  return match;
+}
+
+export async function getEventAttendanceReport(
+  filters: AttendanceReportFilters
+): Promise<AttendanceReportResponse> {
+  try {
+    const match = buildAttendanceReportMatch(filters);
+
+    const events = await EventModel.find(match)
+      .select(["name", "eventType", "startDate", "endDate", "registeredUsers"])
+      .sort({ startDate: 1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    const items: AttendanceReportItem[] = events.map((event) => ({
+      eventId: event._id.toString(),
+      name: event.name,
+      eventType: event.eventType,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      totalAttendees: event.registeredUsers?.length ?? 0,
+    }));
+
+    const totalAttendees = items.reduce(
+      (sum, item) => sum + item.totalAttendees,
+      0
+    );
+
+    return {
+      success: true,
+      data: {
+        events: items,
+        totalAttendees,
+      },
+    };
+  } catch (error) {
+    console.error("Error building attendance report:", error);
+    return {
+      success: false,
+      message: "Failed to build attendance report.",
+    };
+  }
+}
+
+export type SalesReportFilters = EventReportFiltersBase;
+
+export interface SalesReportItem {
+  eventId: string;
+  name: string;
+  eventType: EventType;
+  startDate: Date;
+  endDate: Date;
+  revenue: number;
+}
+
+export interface SalesReportData {
+  events: SalesReportItem[];
+  totalRevenue: number;
+}
+
+export interface SalesReportResponse {
+  success: boolean;
+  data?: SalesReportData;
+  message?: string;
+}
+
+type SalesSortOrder = "asc" | "desc";
+
+function buildSalesReportMatch(
+  filters: SalesReportFilters
+): FilterQuery<IEvent> {
+  const match: FilterQuery<IEvent> = {};
+
+  if (filters.eventType) {
+    match.eventType = filters.eventType;
+  }
+
+  const startDateConditions: Record<string, Date> = {};
+  const endDateConditions: Record<string, Date> = {};
+
+  if (filters.date) {
+    startDateConditions.$lte = filters.date;
+    endDateConditions.$gte = filters.date;
+  }
+
+  if (filters.startDate) {
+    startDateConditions.$gte = filters.startDate;
+  }
+
+  if (filters.endDate) {
+    endDateConditions.$lte = filters.endDate;
+  }
+
+  if (Object.keys(startDateConditions).length) {
+    match.startDate = startDateConditions as never;
+  }
+
+  if (Object.keys(endDateConditions).length) {
+    match.endDate = endDateConditions as never;
+  }
+
+  return match;
+}
+
+export async function getEventSalesReport(
+  filters: SalesReportFilters,
+  sortOrder: SalesSortOrder = "desc"
+): Promise<SalesReportResponse> {
+  try {
+    const match = buildSalesReportMatch(filters);
+    const sortDirection = sortOrder === "asc" ? 1 : -1;
+
+    const events = await EventModel.find(match)
+      .select(["name", "eventType", "startDate", "endDate", "revenue"])
+      .sort({ revenue: sortDirection, name: 1 })
+      .lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+    const items: SalesReportItem[] = events.map((event) => ({
+      eventId: event._id.toString(),
+      name: event.name,
+      eventType: event.eventType,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      revenue: typeof event.revenue === "number" ? event.revenue : 0,
+    }));
+
+    const totalRevenue = items.reduce((sum, item) => sum + item.revenue, 0);
+
+    return {
+      success: true,
+      data: {
+        events: items,
+        totalRevenue,
+      },
+    };
+  } catch (error) {
+    console.error("Error building sales report:", error);
+    return {
+      success: false,
+      message: "Failed to build sales report.",
     };
   }
 }

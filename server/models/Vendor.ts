@@ -16,17 +16,41 @@ export interface BoothInfo {
   boothEndTime?: Date;
 }
 
+export interface VendorAttendee {
+  name: string;
+  email: string;
+  idDocumentPath?: string;
+}
+
+export type PaymentStatus = "pending" | "paid" | "overdue";
+
+export interface ApplicationPayment {
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  dueDate: Date;
+  paidAt?: Date;
+  receiptNumber?: string;
+  transactionReference?: string;
+}
+
+export interface VisitorQrCode {
+  visitorEmail: string;
+  qrCodeUrl: string;
+  issuedAt: Date;
+}
+
 export interface BazaarApplication {
   eventId: Types.ObjectId;
   status: VendorStatus;
   applicationDate?: Date;
-  attendees: {
-    name: string;
-    email: string;
-  }[];
+  attendees: VendorAttendee[];
   boothSize: BazaarBoothSize;
   hasPaid?: boolean;
   boothInfo?: BoothInfo; // Only filled after approval
+  payment?: ApplicationPayment;
+  decisionDate?: Date;
+  qrCodes?: VisitorQrCode[];
 }
 
 export interface IVendor extends IBaseModel {
@@ -82,6 +106,7 @@ const vendorSchema = new Schema<IVendor>(
                   lowercase: true,
                   match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
                 },
+                idDocumentPath: { type: String },
               },
             ],
             validate: {
@@ -103,6 +128,29 @@ const vendorSchema = new Schema<IVendor>(
             boothLocation: { type: String },
             boothStartTime: { type: Date },
             boothEndTime: { type: Date },
+          },
+          payment: {
+            amount: { type: Number },
+            currency: { type: String, default: "EGP" },
+            status: {
+              type: String,
+              enum: ["pending", "paid", "overdue"],
+            },
+            dueDate: { type: Date },
+            paidAt: { type: Date },
+            receiptNumber: { type: String },
+            transactionReference: { type: String },
+          },
+          decisionDate: { type: Date },
+          qrCodes: {
+            type: [
+              {
+                visitorEmail: { type: String, required: true },
+                qrCodeUrl: { type: String, required: true },
+                issuedAt: { type: Date, required: true },
+              },
+            ],
+            default: [],
           },
         },
       ],

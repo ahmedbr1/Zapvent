@@ -1,7 +1,9 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import * as userService from "../services/userService";
 import { SignupConflictError } from "../services/userService";
 import { z } from "zod";
+import type { AuthRequest } from "../middleware/authMiddleware";
+import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 
 export class UserController {
   async signup(req: Request, res: Response) {
@@ -87,6 +89,63 @@ export class UserController {
       return res.status(500).json({
         success: false,
         message: "An error occurred while fetching professors.",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async addEventToFavorites(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { eventId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const result = await userService.addEventToFavorites(userId, eventId);
+      const status = result.success ? 200 : (result.statusCode ?? 400);
+
+      return res.status(status).json({
+        success: result.success,
+        message: result.message,
+        data: result.data,
+      });
+    } catch (error) {
+      console.error("Add event to favorites error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update favorites.",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Professor"])
+  async getMyNotifications(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const result = await userService.getProfessorNotifications(userId);
+      const status = result.success ? 200 : 400;
+
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get professor notifications error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve notifications.",
       });
     }
   }
