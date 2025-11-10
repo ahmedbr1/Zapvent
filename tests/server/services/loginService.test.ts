@@ -18,6 +18,7 @@ let mongoServer: MongoMemoryServer;
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
+// Mock console.error to suppress error logs during testing
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
@@ -27,6 +28,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await mongoose.disconnect();
   await mongoServer.stop();
+  // Restore console.error
+  jest.restoreAllMocks();
 });
 
 afterEach(async () => {
@@ -160,9 +163,9 @@ describe("loginUser", () => {
     const user = new UserModel(validUserData);
     await user.save();
 
-    jest.spyOn(bcrypt, "compare").mockRejectedValueOnce(async () => {
-      throw new Error("Bcrypt error");
-    });
+    jest
+      .spyOn(bcrypt, "compare")
+      .mockRejectedValueOnce(new Error("Bcrypt error") as never);
 
     const result = await loginUser(validUserData.email, validUserData.password);
 

@@ -58,8 +58,51 @@ router.put("/trip/:id", eventController.updateTripDetails);
 // Professor (User) routes for workshops
 router.post("/workshop", eventController.createWorkshopController);
 router.put("/workshop/:id", eventController.editWorkshopController);
-router.post("/workshop/:id/register",eventController.registerForWorkshopController);
+router.post(
+  "/workshop/:id/register",
+  eventController.registerForWorkshopController
+);
+router.get(
+  "/workshop/:id/participants",
+  eventController.getWorkshopParticipantsController
+);
+router.get("/workshop/:id/status", eventController.getWorkshopStatusController);
 router.get("/my-workshops", eventController.getMyWorkshopsController);
+
+// Event Office routes for workshop approval
+router.patch(
+  "/workshop/:id/approve",
+  eventController.approveWorkshopController
+);
+router.patch("/workshop/:id/reject", eventController.rejectWorkshopController);
+router.patch(
+  "/workshop/:id/request-edits",
+  eventController.requestWorkshopEditsController
+);
+
+// Event Office route for archiving events
+router.patch("/:id/archive", eventController.archiveEventController);
+
+// Event Office route for setting role restrictions on events
+router.patch(
+  "/:id/role-restrictions",
+  eventController.setEventRoleRestrictionsController
+);
+
+// Event Office route for exporting event registrations
+router.get(
+  "/:id/export-registrations",
+  eventController.exportEventRegistrationsController
+);
+
+// Event Office route for generating QR codes
+router.get("/:id/generate-qr", eventController.generateEventQRCodeController);
+
+// Route for sending workshop certificates (Student, Staff, TA, Professor)
+router.post(
+  "/workshop/:id/send-certificates",
+  eventController.sendWorkshopCertificatesController
+);
 
 // Events Office routes for conferences
 router.post("/conference", eventController.createConferenceController);

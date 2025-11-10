@@ -108,7 +108,7 @@ export class UserController {
       }
 
       const result = await userService.addEventToFavorites(userId, eventId);
-      const status = result.success ? 200 : result.statusCode ?? 400;
+      const status = result.success ? 200 : (result.statusCode ?? 400);
 
       return res.status(status).json({
         success: result.success,
@@ -120,6 +120,32 @@ export class UserController {
       return res.status(500).json({
         success: false,
         message: "Failed to update favorites.",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Professor"])
+  async getMyNotifications(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const result = await userService.getProfessorNotifications(userId);
+      const status = result.success ? 200 : 400;
+
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get professor notifications error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve notifications.",
       });
     }
   }

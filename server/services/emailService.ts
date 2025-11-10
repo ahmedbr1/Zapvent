@@ -1,7 +1,4 @@
-import nodemailer, {
-  type Transporter,
-  type SendMailOptions,
-} from "nodemailer";
+import nodemailer, { type Transporter, type SendMailOptions } from "nodemailer";
 import { IUser } from "../models/User";
 import { VendorStatus } from "../models/Vendor";
 
@@ -270,6 +267,66 @@ export class EmailService {
     }
   }
 
+  async sendWorkshopCertificate(options: {
+    user: IUser;
+    workshopName: string;
+    workshopDate: Date;
+  }) {
+    const { user, workshopName, workshopDate } = options;
+
+    const formattedDate = new Date(workshopDate).toLocaleString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    try {
+      const result = await sendEmail({
+        to: user.email,
+        subject: `Certificate of Attendance - ${workshopName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; font-size: 28px;">Certificate of Attendance</h1>
+              <p style="margin: 10px 0 0; opacity: 0.9;">Zapvent Events Platform</p>
+            </div>
+            <div style="padding: 40px 30px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+              <p style="font-size: 18px; text-align: center; color: #333; margin-bottom: 30px;">
+                This certifies that
+              </p>
+              <h2 style="text-align: center; color: #667eea; margin: 20px 0; font-size: 24px;">
+                ${user.firstName} ${user.lastName}
+              </h2>
+              <p style="font-size: 16px; text-align: center; color: #333; margin: 30px 0;">
+                has successfully attended the workshop
+              </p>
+              <h3 style="text-align: center; color: #333; margin: 20px 0; font-size: 20px;">
+                "${workshopName}"
+              </h3>
+              <p style="text-align: center; color: #666; margin: 30px 0;">
+                Held on ${formattedDate}
+              </p>
+              <div style="text-align: center; margin: 40px 0 20px;">
+                <p style="font-size: 18px; color: #667eea; font-weight: bold; margin: 0;">
+                  Thank you for attending!
+                </p>
+              </div>
+            </div>
+            <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
+              © ${new Date().getFullYear()} Zapvent. All rights reserved.
+            </p>
+          </div>
+        `,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Email service error:", error);
+      throw error;
+    }
+  }
+
   async sendVendorApplicationDecisionEmail(options: {
     vendorEmail: string;
     vendorCompany: string;
@@ -283,8 +340,15 @@ export class EmailService {
     dueDate?: Date;
     reason?: string;
   }) {
-    const { vendorEmail, vendorCompany, eventName, status, payment, dueDate, reason } =
-      options;
+    const {
+      vendorEmail,
+      vendorCompany,
+      eventName,
+      status,
+      payment,
+      dueDate,
+      reason,
+    } = options;
 
     const isApproved = status === VendorStatus.APPROVED;
     const formattedDue = isApproved
@@ -302,17 +366,19 @@ export class EmailService {
       ? `<span style="color:#2e7d32;font-weight:bold;">Approved</span>`
       : `<span style="color:#d32f2f;font-weight:bold;">Rejected</span>`;
 
-    const paymentSection = isApproved && amountDisplay
-      ? `
+    const paymentSection =
+      isApproved && amountDisplay
+        ? `
         <p>Your participation fee is <strong>${amountDisplay}</strong>.</p>
         <p>Please complete the payment no later than <strong>${formattedDue}</strong>.</p>
         <p>You can settle the payment from your vendor dashboard in the Zapvent portal.</p>
       `
-      : "";
+        : "";
 
-    const reasonSection = !isApproved && reason
-      ? `<p><strong>Reason provided:</strong> ${reason}</p>`
-      : "";
+    const reasonSection =
+      !isApproved && reason
+        ? `<p><strong>Reason provided:</strong> ${reason}</p>`
+        : "";
 
     await sendEmail({
       to: vendorEmail,
@@ -392,7 +458,8 @@ export class EmailService {
       issuedAt: Date;
     }>;
   }) {
-    const { vendorEmail, vendorCompany, eventName, eventStart, qrCodes } = options;
+    const { vendorEmail, vendorCompany, eventName, eventStart, qrCodes } =
+      options;
 
     if (!qrCodes.length) {
       return;

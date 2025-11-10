@@ -11,6 +11,16 @@ import {
   getVendorApplicationsForBazaar,
   getEventAttendanceReport,
   getEventSalesReport,
+  getWorkshopParticipants,
+  approveWorkshop,
+  rejectWorkshop,
+  requestWorkshopEdits,
+  getWorkshopStatus,
+  archiveEvent,
+  setEventRoleRestrictions,
+  exportEventRegistrations,
+  generateEventQRCode,
+  sendWorkshopCertificates,
 } from "../services/eventService";
 import { IEvent, EventType } from "../models/Event";
 import {
@@ -143,7 +153,7 @@ export class EventController {
     try {
       const name = extractQueryString(req.query.name);
       const eventTypeRaw = extractQueryString(req.query.eventType);
-  const eventType = parseEventType(eventTypeRaw);
+      const eventType = parseEventType(eventTypeRaw);
 
       if (eventTypeRaw && !eventType) {
         return res.status(400).json({
@@ -156,7 +166,7 @@ export class EventController {
       const startDateRaw = extractQueryString(req.query.startDate);
       const endDateRaw = extractQueryString(req.query.endDate);
 
-  const date = parseDate(dateRaw);
+      const date = parseDate(dateRaw);
       if (dateRaw && !date) {
         return res.status(400).json({
           success: false,
@@ -164,7 +174,7 @@ export class EventController {
         });
       }
 
-  const startDate = parseDate(startDateRaw);
+      const startDate = parseDate(startDateRaw);
       if (startDateRaw && !startDate) {
         return res.status(400).json({
           success: false,
@@ -172,7 +182,7 @@ export class EventController {
         });
       }
 
-  const endDate = parseDate(endDateRaw);
+      const endDate = parseDate(endDateRaw);
       if (endDateRaw && !endDate) {
         return res.status(400).json({
           success: false,
@@ -207,7 +217,7 @@ export class EventController {
   async getSalesReportController(req: AuthRequest, res: Response) {
     try {
       const eventTypeRaw = extractQueryString(req.query.eventType);
-  const eventType = parseEventType(eventTypeRaw);
+      const eventType = parseEventType(eventTypeRaw);
 
       if (eventTypeRaw && !eventType) {
         return res.status(400).json({
@@ -220,7 +230,7 @@ export class EventController {
       const startDateRaw = extractQueryString(req.query.startDate);
       const endDateRaw = extractQueryString(req.query.endDate);
 
-  const date = parseDate(dateRaw);
+      const date = parseDate(dateRaw);
       if (dateRaw && !date) {
         return res.status(400).json({
           success: false,
@@ -228,7 +238,7 @@ export class EventController {
         });
       }
 
-  const startDate = parseDate(startDateRaw);
+      const startDate = parseDate(startDateRaw);
       if (startDateRaw && !startDate) {
         return res.status(400).json({
           success: false,
@@ -236,7 +246,7 @@ export class EventController {
         });
       }
 
-  const endDate = parseDate(endDateRaw);
+      const endDate = parseDate(endDateRaw);
       if (endDateRaw && !endDate) {
         return res.status(400).json({
           success: false,
@@ -244,10 +254,8 @@ export class EventController {
         });
       }
 
-      const sortRaw = extractQueryString(
-        req.query.sortOrder ?? req.query.sort
-      );
-  const sortOrder = parseSortOrder(sortRaw);
+      const sortRaw = extractQueryString(req.query.sortOrder ?? req.query.sort);
+      const sortOrder = parseSortOrder(sortRaw);
 
       if (sortRaw && !sortOrder) {
         return res.status(400).json({
@@ -895,6 +903,315 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Create conference controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Professor"])
+  async getWorkshopParticipantsController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const result = await getWorkshopParticipants(id, userId);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get workshop participants controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async approveWorkshopController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const result = await approveWorkshop(id);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Approve workshop controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice", "Admin"])
+  async rejectWorkshopController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const result = await rejectWorkshop(id, reason);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Reject workshop controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async requestWorkshopEditsController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { message } = req.body;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      if (!message) {
+        return res.status(400).json({
+          success: false,
+          message: "Edit request message is required.",
+        });
+      }
+
+      const result = await requestWorkshopEdits(id, message);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Request workshop edits controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Professor"])
+  async getWorkshopStatusController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const result = await getWorkshopStatus(id, userId);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get workshop status controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async archiveEventController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      const result = await archiveEvent(id);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Archive event controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async setEventRoleRestrictionsController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { allowedRoles } = req.body;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      if (!allowedRoles) {
+        return res.status(400).json({
+          success: false,
+          message: "allowedRoles field is required.",
+        });
+      }
+
+      const result = await setEventRoleRestrictions(id, allowedRoles);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Set event role restrictions controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async exportEventRegistrationsController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      const result = await exportEventRegistrations(id);
+
+      if (!result.success) {
+        const status = result.message === "Event not found." ? 404 : 400;
+        return res.status(status).json({
+          success: result.success,
+          message: result.message,
+        });
+      }
+
+      // Set headers for file download
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${result.filename}"`
+      );
+
+      // Send the Excel file buffer
+      return res.send(result.buffer);
+    } catch (error) {
+      console.error("Export event registrations controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async generateEventQRCodeController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      const result = await generateEventQRCode(id);
+
+      if (!result.success) {
+        const status = result.message === "Event not found." ? 404 : 400;
+        return res.status(status).json({
+          success: result.success,
+          message: result.message,
+        });
+      }
+
+      // Set headers for image download
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${result.filename}"`
+      );
+
+      // Send the QR code image buffer
+      return res.send(result.buffer);
+    } catch (error) {
+      console.error("Generate event QR code controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async sendWorkshopCertificatesController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const result = await sendWorkshopCertificates(id);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Send workshop certificates controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

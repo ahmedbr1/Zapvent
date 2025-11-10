@@ -532,3 +532,37 @@ export async function unblockAdminAccount(
     return { success: false, message: "Failed to unblock admin" };
   }
 }
+
+export async function getEventOfficeNotifications(
+  adminId: string
+): Promise<{ success: boolean; notifications?: string[]; message?: string }> {
+  try {
+    if (!isValidObjectId(adminId)) {
+      return { success: false, message: "Invalid admin ID" };
+    }
+
+    const admin = (await AdminModel.findById(adminId).lean()) as IAdmin | null;
+
+    if (!admin) {
+      return { success: false, message: "Admin not found" };
+    }
+
+    if (admin.adminType !== "EventOffice") {
+      return {
+        success: false,
+        message: "Only Event Office admins can access notifications",
+      };
+    }
+
+    return {
+      success: true,
+      notifications: admin.notifications ?? [],
+    };
+  } catch (error) {
+    console.error("Error fetching Event Office notifications:", error);
+    return {
+      success: false,
+      message: "Failed to fetch notifications",
+    };
+  }
+}

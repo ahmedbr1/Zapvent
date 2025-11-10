@@ -16,6 +16,10 @@ router.post(
   userController.addEventToFavorites.bind(userController)
 );
 router.get(
+  "/professor-notifications",
+  userController.getMyNotifications.bind(userController)
+);
+router.get(
   "/:userId/registered-events",
   userController.getUserRegisteredEvents.bind(userController)
 );

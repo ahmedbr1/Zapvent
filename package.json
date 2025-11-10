@@ -32,10 +32,12 @@
     "next": "15.5.4",
     "nodemailer": "^6.10.1",
     "notistack": "^3.0.2",
+    "qr-image": "^3.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.65.0",
     "reflect-metadata": "^0.2.2",
+    "xlsx": "^0.18.5",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -49,8 +51,10 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^20.19.19",
     "@types/nodemailer": "^7.0.2",
+    "@types/qr-image": "^3.2.9",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
+    "@types/xlsx": "^0.0.35",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
     "concurrently": "^9.2.1",

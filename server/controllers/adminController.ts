@@ -1,6 +1,10 @@
 import type { Response } from "express";
 import * as adminService from "../services/adminService";
-import { AdminRequired } from "../middleware/authDecorators";
+import {
+  AdminRequired,
+  LoginRequired,
+  AllowedRoles,
+} from "../middleware/authDecorators";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { ValidateBody } from "../middleware/validationDecorators";
 
@@ -448,6 +452,41 @@ export class AdminController {
       success: true,
       message: "Events Office account deleted successfully",
     });
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async getMyNotifications(req: AuthRequest, res: Response) {
+    try {
+      const adminId = req.user?.id;
+
+      if (!adminId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const result = await adminService.getEventOfficeNotifications(adminId);
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        notifications: result.notifications,
+      });
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch notifications",
+      });
+    }
   }
 }
 
