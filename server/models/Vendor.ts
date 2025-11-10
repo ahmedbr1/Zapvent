@@ -196,6 +196,8 @@ vendorSchema.pre("save", async function (next) {
   }
 });
 
+vendorSchema.index({ "loyaltyProgram.status": 1 });
+
 const vendorModel =
   mongoose.models.Vendor || mongoose.model<IVendor>("Vendor", vendorSchema);
 
