@@ -48,6 +48,13 @@ router.get(
   vendorController.getMyApplications.bind(vendorController)
 );
 
+router.delete(
+  "/my-applications/:eventId",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.cancelMyApplication.bind(vendorController)
+);
+
 // Profile routes - protected with decorators in controller
 router.get("/profile", vendorController.getProfile.bind(vendorController));
 router.patch(

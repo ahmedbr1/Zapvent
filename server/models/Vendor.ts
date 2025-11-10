@@ -46,6 +46,7 @@ export interface BazaarApplication {
   applicationDate?: Date;
   attendees: VendorAttendee[];
   boothSize: BazaarBoothSize;
+  hasPaid?: boolean;
   boothInfo?: BoothInfo; // Only filled after approval
   payment?: ApplicationPayment;
   decisionDate?: Date;
@@ -118,6 +119,10 @@ const vendorSchema = new Schema<IVendor>(
             type: String,
             enum: Object.values(BazaarBoothSize),
             required: true,
+          },
+          hasPaid: {
+            type: Boolean,
+            default: false,
           },
           boothInfo: {
             boothLocation: { type: String },
