@@ -201,12 +201,7 @@ export class VendorController {
   @AllowedRoles(["Vendor"])
   async cancelMyApplication(req: AuthRequest, res: Response) {
     try {
-      const vendorId =
-        req.user?.id ??
-        (typeof req.body === "object" && req.body
-          ? (req.body as { vendorId?: string }).vendorId
-          : undefined) ??
-        "690d1f16c11accb382a0fd06";
+      const vendorId = req.user?.id;
       const { eventId } = req.params;
 
       if (!vendorId) {
