@@ -60,8 +60,8 @@ export class VendorController {
     }
   }
 
-  // @LoginRequired()
-  // @AllowedRoles(["Vendor"])
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
   async applyToBazaar(req: AuthRequest, res: Response) {
     try {
       console.log("=== Apply to Bazaar Controller Entry ===");
@@ -170,8 +170,8 @@ export class VendorController {
     }
   }
 
-  // @LoginRequired()
-  // @AllowedRoles(["Vendor"])
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
   async getMyApplications(req: AuthRequest, res: Response) {
     try {
       const vendorId = req.user?.id;
@@ -197,8 +197,8 @@ export class VendorController {
     }
   }
 
-  // @LoginRequired()
-  // @AllowedRoles(["Vendor"])
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
   async cancelMyApplication(req: AuthRequest, res: Response) {
     try {
       const vendorId =

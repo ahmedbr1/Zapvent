@@ -34,8 +34,8 @@ router.get(
 
 router.delete(
   "/my-applications/:eventId",
-  // loginRequired,
-  // allowedRoles(["Vendor"]),
+  loginRequired,
+  allowedRoles(["Vendor"]),
   vendorController.cancelMyApplication.bind(vendorController)
 );
 
