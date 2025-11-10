@@ -20,7 +20,6 @@ const JWT_SECRET =
 
 // Mock console.error to suppress error logs during testing
 beforeAll(async () => {
-  jest.spyOn(console, "error").mockImplementation(() => {});
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
