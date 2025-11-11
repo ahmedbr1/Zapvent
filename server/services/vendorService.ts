@@ -20,7 +20,10 @@ import EventModel, {
 import { Types } from "mongoose";
 import type { HydratedDocument } from "mongoose";
 import { emailService } from "./emailService";
-import { notifyUsersOfNewLoyaltyPartner } from "./notificationService";
+import {
+  notifyUsersOfNewLoyaltyPartner,
+  notifyAdminsOfPendingVendors,
+} from "./notificationService";
 import crypto from "node:crypto";
 
 // Zod schema for vendor signup validation
@@ -119,6 +122,15 @@ type SerializedLoyaltyProgram = ReturnType<typeof serializeLoyaltyProgram>;
 
 export async function findAll() {
   return vendorModel.find().lean();
+}
+
+async function notifyAdminsAboutPendingTotal() {
+  const pendingCount = await vendorModel.countDocuments({
+    verificationStatus: VendorStatus.PENDING,
+  });
+  if (pendingCount > 0) {
+    await notifyAdminsOfPendingVendors(pendingCount);
+  }
 }
 
 type VendorDocument = HydratedDocument<IVendor>;
@@ -278,6 +290,10 @@ export async function signup(vendorData: vendorSignupData) {
 
   const vendor = new vendorModel(vendorDataWithDefaults);
   await vendor.save();
+
+  if (vendor.verificationStatus === VendorStatus.PENDING) {
+    await notifyAdminsAboutPendingTotal();
+  }
 
   // Return vendor without password
   const vendorWithoutPassword = vendor.toObject();
@@ -701,6 +717,7 @@ export async function updateBazaarApplicationStatus(options: {
       };
     }
 
+    const previousStatus = application.status;
     application.status = status;
     application.decisionDate = new Date();
 
