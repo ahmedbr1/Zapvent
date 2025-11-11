@@ -85,9 +85,7 @@ function formatSessionChangeValue(
       });
     }
     case "time":
-      return typeof value === "string" && value.trim()
-        ? value
-        : "TBD";
+      return typeof value === "string" && value.trim() ? value : "TBD";
     case "duration":
       return typeof value === "number" && !Number.isNaN(value)
         ? `${value} minutes`
@@ -162,7 +160,9 @@ async function fetchRegisteredParticipants(
 
 async function sendParticipantEmails(
   participants: Array<Pick<IUser, "email" | "firstName" | "lastName" | "role">>,
-  sender: (user: Pick<IUser, "email" | "firstName" | "lastName" | "role">) => Promise<unknown>,
+  sender: (
+    user: Pick<IUser, "email" | "firstName" | "lastName" | "role">
+  ) => Promise<unknown>,
   context: string
 ): Promise<void> {
   if (!participants.length) {
@@ -226,10 +226,7 @@ async function notifyGymSessionUpdate(
       "gym session update"
     );
   } catch (error) {
-    console.error(
-      "Failed to process gym session update notifications:",
-      error
-    );
+    console.error("Failed to process gym session update notifications:", error);
   }
 }
 
@@ -244,7 +241,8 @@ export async function cancelGymSession(sessionId: string) {
       };
     }
 
-    const sessionSnapshot = deletedSession.toObject() as GymSessionNotificationSession;
+    const sessionSnapshot =
+      deletedSession.toObject() as GymSessionNotificationSession;
     void notifyGymSessionCancellation(sessionSnapshot);
 
     return {
@@ -317,7 +315,9 @@ export async function editGymSession(
     const updatedSnapshot =
       updatedGymSession.toObject() as GymSessionNotificationSession;
     const changes = detectGymSessionChanges(previousSnapshot, updatedSnapshot);
-    void notifyGymSessionUpdate(updatedSnapshot, changes);
+    if (changes.length > 0) {
+      void notifyGymSessionUpdate(updatedSnapshot, changes);
+    }
     return {
       success: true,
       message: "Gym session successfully updated.",
@@ -411,7 +411,8 @@ export async function registerForGymSession(
     if (!REGISTERABLE_ROLES.has(user.role)) {
       return {
         success: false,
-        message: "Only students, staff, professors, and TAs can register for sessions",
+        message:
+          "Only students, staff, professors, and TAs can register for sessions",
         statusCode: 403,
       };
     }
@@ -433,14 +434,17 @@ export async function registerForGymSession(
       };
     }
 
-    if (session.registeredUsers?.some((registeredId: string) => registeredId === userId)) {
+    if (
+      session.registeredUsers?.some(
+        (registeredId: string) => registeredId === userId
+      )
+    ) {
       return {
         success: false,
         message: "You are already registered for this session",
         statusCode: 409,
       };
     }
-    
 
     const currentCount = session.registeredUsers?.length ?? 0;
     if (currentCount >= session.maxParticipants) {
@@ -464,7 +468,8 @@ export async function registerForGymSession(
       message: "Successfully registered for the gym session",
       statusCode: 200,
       data: {
-        remainingSlots: session.maxParticipants - session.registeredUsers.length,
+        remainingSlots:
+          session.maxParticipants - session.registeredUsers.length,
         session,
       },
     };
