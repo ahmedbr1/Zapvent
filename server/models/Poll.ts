@@ -11,10 +11,16 @@ export interface IVendorVote {
   votes: number;
 }
 
+export interface IUserVendorVote {
+  user: mongoose.Types.ObjectId;
+  vendor: mongoose.Types.ObjectId;
+}
+
 export interface IPoll extends IBaseModel {
   boothName: string;
-  durations: IDurationRange[];       
+  durations: IDurationRange[];
   vendorsWithVotes: IVendorVote[];
+  votesByUser: IUserVendorVote[];
 }
 
 const DurationRangeSchema = new Schema<IDurationRange>({
@@ -27,11 +33,17 @@ const VendorVoteSchema = new Schema<IVendorVote>({
   votes: { type: Number, default: 0 },
 });
 
+const UserVendorVoteSchema = new Schema<IUserVendorVote>({
+  user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  vendor: { type: Schema.Types.ObjectId, ref: "Vendor", required: true },
+});
+
 const PollSchema = new Schema<IPoll>(
   {
     boothName: { type: String, required: true, trim: true },
     durations: { type: [DurationRangeSchema], default: [] },
     vendorsWithVotes: { type: [VendorVoteSchema], default: [] },
+    votesByUser: { type: [UserVendorVoteSchema], default: [] },
   },
   { timestamps: true }
 );
