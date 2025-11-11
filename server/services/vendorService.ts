@@ -691,7 +691,10 @@ export async function updateBazaarApplicationStatus(options: {
     console.log("Found vendor:", !!vendor, "Found event:", !!event);
 
     if (!vendor) {
-      return { success: false, message: `Vendor not found with ID: ${vendorId}` };
+      return {
+        success: false,
+        message: `Vendor not found with ID: ${vendorId}`,
+      };
     }
 
     if (!event) {
@@ -700,7 +703,7 @@ export async function updateBazaarApplicationStatus(options: {
 
     const applications = getVendorApplicationsArray(vendor);
     console.log("Vendor applications count:", applications.length);
-    
+
     const application = applications.find(
       (app) => app.eventId.toString() === eventId
     );
@@ -717,7 +720,7 @@ export async function updateBazaarApplicationStatus(options: {
       };
     }
 
-    const previousStatus = application.status;
+    // const previousStatus = application.status;
     application.status = status;
     application.decisionDate = new Date();
 
@@ -750,7 +753,10 @@ export async function updateBazaarApplicationStatus(options: {
       });
     } catch (emailError) {
       // Log email error but don't fail the operation
-      console.error("Failed to send vendor application decision email:", emailError);
+      console.error(
+        "Failed to send vendor application decision email:",
+        emailError
+      );
     }
 
     return {
