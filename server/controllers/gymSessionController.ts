@@ -203,7 +203,6 @@ export async function registerForGymSessionController(
     }
 
     const result = await registerForGymSession(id, req.user.id);
-    return res.status(result.statusCode ?? (result.success ? 200 : 400)).json(result);
     return res
       .status(result.statusCode ?? (result.success ? 200 : 400))
       .json(result);
