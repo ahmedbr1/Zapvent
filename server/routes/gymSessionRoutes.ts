@@ -4,9 +4,8 @@ import {
   createGymSessionController,
   viewGymScheduleByMonthController,
   editGymSessionController,
-  registerForGymSessionController,
 } from "../controllers/gymSessionController";
-import { allowedRoles, loginRequired } from "../middleware/authMiddleware";
+import { allowedRoles } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
@@ -32,12 +31,5 @@ router.put(
   "/:id",
   allowedRoles(["EventOffice", "Admin"]),
   editGymSessionController
-);
-
-router.post(
-  "/:id/register",
-  loginRequired,
-  allowedRoles(["Student", "Staff", "Professor", "TA"]),
-  registerForGymSessionController
 );
 export default router;

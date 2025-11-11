@@ -5,7 +5,6 @@ import {
   createGymSession,
   getGymSessionsByMonth,
   editGymSession,
-  registerForGymSession,
 } from "../services/gymSessionService";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import type { IGymSession } from "../models/GymSession";
@@ -160,38 +159,6 @@ export async function viewGymScheduleByMonthController(
     return res.status(200).json(result);
   } catch (error) {
     console.error("View gym schedule controller error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
-  }
-}
-
-export async function registerForGymSessionController(
-  req: AuthRequest,
-  res: Response
-) {
-  try {
-    const { id } = req.params;
-
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: "Gym session id is required",
-      });
-    }
-
-    if (!req.user?.id) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
-    }
-
-    const result = await registerForGymSession(id, req.user.id);
-    return res.status(result.statusCode ?? (result.success ? 200 : 400)).json(result);
-  } catch (error) {
-    console.error("Register for gym session controller error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error.",
