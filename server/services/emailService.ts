@@ -608,6 +608,67 @@ export class EmailService {
     });
   }
 
+  async sendUserEventPaymentReceipt(options: {
+    recipientEmail: string;
+    recipientName: string;
+    eventName: string;
+    eventType: string;
+    amount: number;
+    currency: string;
+    walletPortion: number;
+    cardPortion: number;
+    method: string;
+    receiptNumber: string;
+    paidAt: Date;
+  }) {
+    const {
+      recipientEmail,
+      recipientName,
+      eventName,
+      eventType,
+      amount,
+      currency,
+      walletPortion,
+      cardPortion,
+      method,
+      receiptNumber,
+      paidAt,
+    } = options;
+
+    const formattedAmount = formatCurrency(amount, currency);
+    const paidAtDisplay = formatDateTime(paidAt);
+    const walletDisplay =
+      walletPortion > 0
+        ? `<li><strong>Wallet:</strong> ${formatCurrency(walletPortion, currency)}</li>`
+        : "";
+    const cardDisplay =
+      cardPortion > 0
+        ? `<li><strong>Card:</strong> ${formatCurrency(cardPortion, currency)}</li>`
+        : "";
+
+    await sendEmail({
+      to: recipientEmail,
+      subject: `Payment Receipt - ${eventName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Zapvent Payment Receipt</h2>
+          <p>Hello ${recipientName || "there"},</p>
+          <p>Thank you for paying for the ${eventType.toLowerCase()} <strong>${eventName}</strong>.</p>
+          <ul style="padding-left: 18px; color: #333;">
+            <li><strong>Receipt No:</strong> ${receiptNumber}</li>
+            <li><strong>Total Amount:</strong> ${formattedAmount}</li>
+            ${walletDisplay}
+            ${cardDisplay}
+            <li><strong>Payment Method:</strong> ${method}</li>
+            <li><strong>Paid on:</strong> ${paidAtDisplay}</li>
+          </ul>
+          <p>Please keep this email for your records.</p>
+          <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+        </div>
+      `,
+    });
+  }
+
   async sendVendorVisitorQrCodes(options: {
     vendorEmail: string;
     vendorCompany: string;

@@ -4,6 +4,7 @@ import { SignupConflictError } from "../services/userService";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
+import { getWalletRefundSummary as getWalletRefundSummaryService } from "../services/paymentService";
 
 export class UserController {
   async signup(req: Request, res: Response) {
@@ -146,6 +147,56 @@ export class UserController {
       return res.status(500).json({
         success: false,
         message: "Failed to retrieve notifications.",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async getFavoritesList(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const result = await userService.getFavoriteEvents(userId);
+      const status = result.statusCode ?? (result.success ? 200 : 400);
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get favorites list error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve favorites.",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async getWalletRefundSummary(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const result = await getWalletRefundSummaryService(userId);
+      const status = result.statusCode ?? (result.success ? 200 : 400);
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Get wallet summary error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve wallet summary.",
       });
     }
   }

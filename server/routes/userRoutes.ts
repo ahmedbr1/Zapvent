@@ -16,8 +16,16 @@ router.post(
   userController.addEventToFavorites.bind(userController)
 );
 router.get(
+  "/favorites",
+  userController.getFavoritesList.bind(userController)
+);
+router.get(
   "/professor-notifications",
   userController.getMyNotifications.bind(userController)
+);
+router.get(
+  "/wallet/refunds",
+  userController.getWalletRefundSummary.bind(userController)
 );
 router.get(
   "/:userId/registered-events",
