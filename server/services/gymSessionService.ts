@@ -188,13 +188,14 @@ export async function registerForGymSession(
       };
     }
 
-    if (session.registeredUsers?.some((registeredId: any) => registeredId.toString() === userId)) {
+    if (session.registeredUsers?.some((registeredId: string) => registeredId === userId)) {
       return {
         success: false,
         message: "You are already registered for this session",
         statusCode: 409,
       };
     }
+    
 
     const currentCount = session.registeredUsers?.length ?? 0;
     if (currentCount >= session.maxParticipants) {
