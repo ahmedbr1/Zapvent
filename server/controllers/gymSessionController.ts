@@ -67,7 +67,7 @@ export async function editGymSessionController(
       req.user?.role === "EventOffice" ||
       (req.user?.role === "Admin" && req.user?.adminType === "EventOffice");
 
-    if (true) {
+    if (isEventOffice) {
       const disallowedFields = Object.keys(updates).filter(
         (field) => !EVENT_OFFICE_EDITABLE_FIELDS.has(field)
       );
