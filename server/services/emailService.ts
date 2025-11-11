@@ -372,7 +372,7 @@ export class EmailService {
   }
 
   async sendGymSessionCancellationEmail(options: {
-    user: IUser;
+    user: Pick<IUser, "email" | "firstName" | "lastName" | "role">;
     session: Pick<IGymSession, "type" | "date" | "time" | "duration">;
   }) {
     const { user, session } = options;
@@ -410,7 +410,7 @@ export class EmailService {
   }
 
   async sendGymSessionUpdateEmail(options: {
-    user: IUser;
+    user: Pick<IUser, "email" | "firstName" | "lastName" | "role">;
     session: Pick<IGymSession, "type" | "date" | "time" | "duration">;
     changes?: Array<{ label: string; previous: string; current: string }>;
   }) {
