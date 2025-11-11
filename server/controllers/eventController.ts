@@ -40,6 +40,11 @@ import {
   registerUserForWorkshop,
 } from "../services/eventService";
 import { userRole } from "../models/User";
+import {
+  payByWallet as payByWalletService,
+  cancelRegistrationAndRefund as cancelRegistrationAndRefundService,
+  PayByWalletInput,
+} from "../services/paymentService";
 
 function extractUserId(user: unknown): string | undefined {
   if (!user || typeof user !== "object") return undefined;
@@ -855,6 +860,76 @@ export class EventController {
   }
 
   @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async payByWalletController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const payload = (req.body ?? {}) as PayByWalletInput;
+      const result = await payByWalletService(id, userId, payload);
+      const status = result.statusCode ?? (result.success ? 200 : 400);
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("payByWallet controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to process payment.",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async cancelRegistrationAndRefundController(
+    req: AuthRequest,
+    res: Response
+  ) {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const result = await cancelRegistrationAndRefundService(id, userId);
+      const status = result.statusCode ?? (result.success ? 200 : 400);
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("cancel registration controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to cancel registration.",
+      });
+    }
+  }
+
+  @LoginRequired()
   @AllowedRoles(["EventOffice"])
   async createConferenceController(req: AuthRequest, res: Response) {
     try {
@@ -1234,5 +1309,9 @@ export const updateTripDetails =
   eventController.updateTripDetails.bind(eventController);
 export const registerForWorkshopController =
   eventController.registerForWorkshopController.bind(eventController);
+export const payByWalletController =
+  eventController.payByWalletController.bind(eventController);
+export const cancelRegistrationAndRefundController =
+  eventController.cancelRegistrationAndRefundController.bind(eventController);
 
 export default eventController;

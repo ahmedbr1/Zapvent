@@ -4,3 +4,4 @@ export { default as CourtReservation } from "./CourtReservation";
 export { default as Comment } from "./Comment";
 export { default as Rating } from "./Rating";
 export { default as EmailVerificationToken } from "./EmailVerificationToken";
+export { default as UserPayment } from "./UserPayment";

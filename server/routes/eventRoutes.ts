@@ -62,6 +62,11 @@ router.post(
   "/workshop/:id/register",
   eventController.registerForWorkshopController
 );
+router.post("/:id/pay-by-wallet", eventController.payByWalletController);
+router.post(
+  "/:id/cancel-registration",
+  eventController.cancelRegistrationAndRefundController
+);
 router.get(
   "/workshop/:id/participants",
   eventController.getWorkshopParticipantsController

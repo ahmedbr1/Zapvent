@@ -257,6 +257,24 @@ type FavoriteResponse = {
   };
 };
 
+export type FavoriteEventItem = {
+  id: string;
+  name: string;
+  description: string;
+  eventType: string;
+  location: string;
+  startDate: Date;
+  endDate: Date;
+  price?: number;
+};
+
+export type FavoriteEventsResponse = {
+  success: boolean;
+  message: string;
+  statusCode?: number;
+  data?: FavoriteEventItem[];
+};
+
 export async function addEventToFavorites(
   userId: string,
   eventId: string
@@ -309,6 +327,68 @@ export async function addEventToFavorites(
     success: true,
     message: "Event added to favorites.",
     data: { favorites: updatedUser?.favorites ?? [eventId] },
+  };
+}
+
+export async function getFavoriteEvents(
+  userId: string
+): Promise<FavoriteEventsResponse> {
+  if (!Types.ObjectId.isValid(userId)) {
+    return {
+      success: false,
+      message: "Invalid user identifier.",
+      statusCode: 400,
+    };
+  }
+
+  const user = await UserModel.findById(userId)
+    .select("favorites")
+    .lean<IUser | null>();
+
+  if (!user) {
+    return {
+      success: false,
+      message: "User not found.",
+      statusCode: 404,
+    };
+  }
+
+  const favorites = user.favorites ?? [];
+
+  if (!favorites.length) {
+    return {
+      success: true,
+      message: "Favorites retrieved successfully.",
+      data: [],
+    };
+  }
+
+  const events = await EventModel.find({
+    _id: { $in: favorites },
+  }).lean<Array<IEvent & { _id: Types.ObjectId }>>();
+
+  const eventMap = new Map(events.map((event) => [event._id.toString(), event]));
+
+  const ordered: FavoriteEventItem[] = favorites
+    .map((id) => eventMap.get(id))
+    .filter(
+      (event): event is IEvent & { _id: Types.ObjectId } => Boolean(event)
+    )
+    .map((event) => ({
+      id: event._id.toString(),
+      name: event.name,
+      description: event.description,
+      eventType: event.eventType,
+      location: event.location,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      price: event.price,
+    }));
+
+  return {
+    success: true,
+    message: "Favorites retrieved successfully.",
+    data: ordered,
   };
 }
 
