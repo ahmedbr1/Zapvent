@@ -188,7 +188,7 @@ export async function registerForGymSession(
       };
     }
 
-    if (session.registeredUsers?.some((registeredId: string) => registeredId === userId)) {
+    if (session.registeredUsers?.some((registeredId: any) => registeredId.toString() === userId)) {
       return {
         success: false,
         message: "You are already registered for this session",
