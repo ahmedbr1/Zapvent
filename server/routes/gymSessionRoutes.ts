@@ -20,7 +20,7 @@ router.post(
 // DELETE /api/gym-sessions/:id - Delete a gym session (EventsOffice or Admin only)
 router.delete(
   "/:id",
-  allowedRoles(["EventOffice", "Admin"]),
+  // allowedRoles(["EventOffice", "Admin"]),
   cancelGymSessionController
 );
 
@@ -30,7 +30,7 @@ router.get("/schedule", viewGymScheduleByMonthController);
 // PUT /api/gym-sessions/:id - Update a gym session (EventsOffice or Admin only)
 router.put(
   "/:id",
-  allowedRoles(["EventOffice", "Admin"]),
+  // allowedRoles(["EventOffice", "Admin"]),
   editGymSessionController
 );
 
