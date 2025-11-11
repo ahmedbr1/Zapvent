@@ -1,6 +1,7 @@
 import nodemailer, { type Transporter, type SendMailOptions } from "nodemailer";
 import { IUser } from "../models/User";
 import { VendorStatus } from "../models/Vendor";
+import type { IGymSession } from "../models/GymSession";
 
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 const smtpHost = process.env.SMTP_HOST;
@@ -114,6 +115,60 @@ function formatDateTime(value?: Date) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(value);
+}
+
+function escapeHtml(value?: string | number | null): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function getGymSessionStartDate(session: Pick<IGymSession, "date" | "time">): Date | null {
+  if (!session?.date) {
+    return null;
+  }
+
+  const baseDate =
+    session.date instanceof Date ? new Date(session.date.getTime()) : new Date(session.date);
+
+  if (Number.isNaN(baseDate.getTime())) {
+    return null;
+  }
+
+  if (typeof session.time === "string") {
+    const [hoursStr, minutesStr] = session.time.split(":");
+    const hours = Number.parseInt(hoursStr ?? "", 10);
+    const minutes = Number.parseInt(minutesStr ?? "", 10);
+
+    if (!Number.isNaN(hours)) {
+      baseDate.setHours(hours, Number.isNaN(minutes) ? 0 : minutes, 0, 0);
+    }
+  }
+
+  return baseDate;
+}
+
+function formatGymSessionSchedule(session: Pick<IGymSession, "date" | "time">): string {
+  const startDate = getGymSessionStartDate(session);
+  return startDate ? formatDateTime(startDate) : "TBD";
+}
+
+function formatGymSessionDuration(duration?: number): string {
+  if (typeof duration !== "number" || Number.isNaN(duration) || duration <= 0) {
+    return "Unknown duration";
+  }
+
+  if (duration % 60 === 0) {
+    const hours = duration / 60;
+    return hours === 1 ? "1 hour" : `${hours} hours`;
+  }
+
+  return `${duration} minutes`;
 }
 
 export class EmailService {
@@ -233,9 +288,6 @@ export class EmailService {
         })
       : "the event";
 
-    const escapeHtml = (value: string) =>
-      value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
     try {
       const result = await sendEmail({
         to: user.email,
@@ -323,6 +375,115 @@ export class EmailService {
       return result;
     } catch (error) {
       console.error("Email service error:", error);
+      throw error;
+    }
+  }
+
+  async sendGymSessionCancellationEmail(options: {
+    user: Pick<IUser, "email" | "firstName" | "lastName" | "role">;
+    session: Pick<IGymSession, "type" | "date" | "time" | "duration">;
+  }) {
+    const { user, session } = options;
+    const scheduleDisplay = formatGymSessionSchedule(session);
+    const durationDisplay = formatGymSessionDuration(session.duration);
+    const sessionType = session.type ?? "Gym session";
+    const firstNameDisplay =
+      user.firstName && user.firstName.trim() ? user.firstName : "there";
+    const safeFirstName = escapeHtml(firstNameDisplay);
+    const safeSessionType = escapeHtml(sessionType);
+    const safeScheduleDisplay = escapeHtml(scheduleDisplay);
+    const safeDurationDisplay = escapeHtml(durationDisplay);
+
+    try {
+      const result = await sendEmail({
+        to: user.email,
+        subject: `Gym session cancelled: ${safeSessionType}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #d32f2f;">Session Cancelled</h2>
+            <p>Hello ${safeFirstName},</p>
+            <p>The <strong>${safeSessionType}</strong> session you registered for has been cancelled.</p>
+            <p><strong>Scheduled for:</strong> ${safeScheduleDisplay}</p>
+            <p><strong>Duration:</strong> ${safeDurationDisplay}</p>
+            <p>We apologize for the inconvenience. You can explore other sessions in the gym schedule and reserve a spot that suits you.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${frontendUrl}/gym" style="background-color: #007cba; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                View Gym Schedule
+              </a>
+            </div>
+            <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+          </div>
+        `,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Email service error (gym session cancellation):", error);
+      throw error;
+    }
+  }
+
+  async sendGymSessionUpdateEmail(options: {
+    user: Pick<IUser, "email" | "firstName" | "lastName" | "role">;
+    session: Pick<IGymSession, "type" | "date" | "time" | "duration">;
+    changes?: Array<{ label: string; previous: string; current: string }>;
+  }) {
+    const { user, session, changes = [] } = options;
+    const scheduleDisplay = formatGymSessionSchedule(session);
+    const durationDisplay = formatGymSessionDuration(session.duration);
+    const sessionType = session.type ?? "Gym session";
+    const firstNameDisplay =
+      user.firstName && user.firstName.trim() ? user.firstName : "there";
+    const safeFirstName = escapeHtml(firstNameDisplay);
+    const safeSessionType = escapeHtml(sessionType);
+    const safeScheduleDisplay = escapeHtml(scheduleDisplay);
+    const safeDurationDisplay = escapeHtml(durationDisplay);
+    const sanitizedChanges = changes.map((change) => ({
+      label: change.label,
+      previous: escapeHtml(change.previous),
+      current: escapeHtml(change.current),
+    }));
+
+    const changeList = sanitizedChanges.length
+      ? `
+        <p>Here is what changed:</p>
+        <ul style="padding-left: 18px; color: #333;">
+          ${sanitizedChanges
+            .map(
+              (change) =>
+                `<li><strong>${change.label}:</strong> ${change.previous} &rarr; ${change.current}</li>`
+            )
+            .join("")}
+        </ul>
+      `
+      : `<p>Event staff made updates to this session's details.</p>`;
+
+    try {
+      const result = await sendEmail({
+        to: user.email,
+        subject: `Gym session updated: ${safeSessionType}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #f57c00;">Session Updated</h2>
+            <p>Hello ${safeFirstName},</p>
+            <p>The <strong>${safeSessionType}</strong> session you registered for has been updated.</p>
+            ${changeList}
+            <p><strong>Current schedule:</strong> ${safeScheduleDisplay}</p>
+            <p><strong>Duration:</strong> ${safeDurationDisplay}</p>
+            <p>If the new time no longer works for you, please cancel your reservation so someone else can take the slot.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${frontendUrl}/gym" style="background-color: #007cba; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                Manage My Reservation
+              </a>
+            </div>
+            <p style="color: #999; font-size: 12px; margin-top: 32px;">© ${new Date().getFullYear()} Zapvent. All rights reserved.</p>
+          </div>
+        `,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Email service error (gym session update):", error);
       throw error;
     }
   }
