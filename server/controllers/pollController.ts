@@ -18,7 +18,7 @@ class PollController {
 
   async voteForVendor(req: AuthRequest, res: Response) {
     const { pollId } = req.params;
-    const { vendorId, userId: overrideUserId } = req.body ?? {};
+    const { vendorId } = req.body ?? {};
 
     if (!vendorId) {
       return res.status(400).json({
@@ -27,20 +27,14 @@ class PollController {
       });
     }
 
-    const actingUserId =
-      req.user?.id ||
-      (typeof overrideUserId === "string" && overrideUserId.length > 0
-        ? overrideUserId
-        : undefined);
-
-    if (!actingUserId) {
+    if (!req.user?.id) {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
       });
     }
 
-    const result = await voteForVendor(pollId, actingUserId, vendorId);
+    const result = await voteForVendor(pollId, req.user.id, vendorId);
     return res
       .status(result.statusCode ?? (result.success ? 200 : 400))
       .json(result);
