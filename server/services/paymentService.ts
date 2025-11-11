@@ -61,6 +61,9 @@ function isValidObjectId(id: string) {
   return Types.ObjectId.isValid(id);
 }
 
+type EventWithId = IEvent & { _id: Types.ObjectId };
+type UserWithId = IUser & { _id: Types.ObjectId };
+
 function normalizeCardType(
   value?: string
 ): "CreditCard" | "DebitCard" | undefined {
@@ -76,12 +79,21 @@ function generateReference(prefix: string): string {
   return `${prefix}-${Date.now().toString(36).toUpperCase()}-${random}`;
 }
 
+function isDuplicateKeyError(
+  error: unknown
+): error is { code: number; keyValue?: Record<string, unknown> } {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  return (error as { code?: unknown }).code === 11000;
+}
+
 async function ensureEventAndUser(
   eventId: string,
   userId: string
 ): Promise<
   | { success: false; message: string; statusCode: number }
-  | { success: true; event: IEvent; user: IUser }
+  | { success: true; event: EventWithId; user: UserWithId }
 > {
   if (!isValidObjectId(eventId) || !isValidObjectId(userId)) {
     return {
@@ -92,8 +104,8 @@ async function ensureEventAndUser(
   }
 
   const [event, user] = await Promise.all([
-    EventModel.findById(eventId),
-    UserModel.findById(userId),
+    EventModel.findById(eventId).lean<EventWithId | null>(),
+    UserModel.findById(userId).lean<UserWithId | null>(),
   ]);
 
   if (!event) {
@@ -147,20 +159,6 @@ export async function payByWallet(
       };
     }
 
-    const existingPayment = await UserPaymentModel.findOne({
-      userId,
-      eventId,
-      status: "Paid",
-    });
-
-    if (existingPayment) {
-      return {
-        success: false,
-        message: "Payment already recorded for this event.",
-        statusCode: 409,
-      };
-    }
-
     const priceRaw =
       typeof event.price === "number" && !Number.isNaN(event.price)
         ? event.price
@@ -195,6 +193,8 @@ export async function payByWallet(
           ? "Mixed"
           : cardType ?? "CreditCard";
 
+    const resolvedEventId = event._id.toString();
+
     const receiptNumber = generateReference("EVT");
     const transactionReference = generateReference("PAY");
     const paidAt = new Date();
@@ -218,15 +218,26 @@ export async function payByWallet(
       transactionReference,
     });
 
-    await paymentDoc.save();
+    try {
+      await paymentDoc.save();
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        return {
+          success: false,
+          message: "Payment already recorded for this event.",
+          statusCode: 409,
+        };
+      }
+      throw error;
+    }
 
-    let updatedUser = user;
+    let updatedUser: UserWithId | null = user;
     if (walletPortion > 0) {
-      updatedUser = (await UserModel.findByIdAndUpdate(
+      updatedUser = await UserModel.findByIdAndUpdate(
         userId,
         { $inc: { balance: -walletPortion } },
         { new: true }
-      )) as IUser;
+      ).lean<UserWithId | null>();
     }
 
     if (price > 0) {
@@ -263,9 +274,9 @@ export async function payByWallet(
         cardPortion: remaining,
         amount: price,
         currency: DEFAULT_CURRENCY,
-        eventId: event._id.toString(),
+        eventId: resolvedEventId,
         eventName: event.name,
-        balance: updatedUser.balance ?? 0,
+        balance: updatedUser?.balance ?? 0,
         transactionReference,
       },
     };
@@ -306,7 +317,7 @@ export async function cancelRegistrationAndRefund(
       };
     }
 
-    const event = await EventModel.findById(eventId);
+    const event = await EventModel.findById(eventId).lean<EventWithId | null>();
     if (!event) {
       return {
         success: false,
@@ -334,7 +345,7 @@ export async function cancelRegistrationAndRefund(
       pullOps.workshops = eventId;
     }
 
-    const updatedUser = (await UserModel.findByIdAndUpdate(
+    const updatedUser = await UserModel.findByIdAndUpdate(
       userId,
       {
         $pull: pullOps,
@@ -345,7 +356,7 @@ export async function cancelRegistrationAndRefund(
           : {}),
       },
       { new: true }
-    )) as IUser | null;
+    ).lean<UserWithId | null>();
 
     payment.status = "Refunded";
     payment.refundAmount = refundAmount;

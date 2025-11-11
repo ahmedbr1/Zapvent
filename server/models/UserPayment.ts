@@ -67,7 +67,13 @@ const UserPaymentSchema = new Schema<IUserPayment>(
   { timestamps: true }
 );
 
-UserPaymentSchema.index({ userId: 1, eventId: 1, status: 1 }, { unique: false });
+UserPaymentSchema.index(
+  { userId: 1, eventId: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: "Paid" },
+  }
+);
 UserPaymentSchema.index({ receiptNumber: 1 }, { unique: true });
 
 const UserPaymentModel =

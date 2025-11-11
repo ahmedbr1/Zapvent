@@ -62,9 +62,16 @@ router.post(
   "/workshop/:id/register",
   eventController.registerForWorkshopController
 );
-router.post("/:id/pay-by-wallet", eventController.payByWalletController);
+router.post(
+  "/:id/pay-by-wallet",
+  loginRequired,
+  allowedRoles(["Student", "Staff", "Professor", "TA"]),
+  eventController.payByWalletController
+);
 router.post(
   "/:id/cancel-registration",
+  loginRequired,
+  allowedRoles(["Student", "Staff", "Professor", "TA"]),
   eventController.cancelRegistrationAndRefundController
 );
 router.get(
