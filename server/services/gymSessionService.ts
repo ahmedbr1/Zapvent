@@ -196,7 +196,6 @@ export async function registerForGymSession(
       };
     }
     
-
     const currentCount = session.registeredUsers?.length ?? 0;
     if (currentCount >= session.maxParticipants) {
       return {

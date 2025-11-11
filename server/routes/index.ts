@@ -8,6 +8,7 @@ import gymSessionRoutes from "./gymSessionRoutes";
 import adminRoutes from "./adminRoutes";
 import commentRoutes from "./commentRoutes";
 import ratingRoutes from "./ratingRoutes";
+import pollRoutes from "./pollRoutes";
 
 const api = Router();
 api.use("/users", userRoutes);
@@ -20,5 +21,6 @@ api.use("/gym-sessions", gymSessionRoutes);
 api.use("/admin", adminRoutes);
 api.use("/comments", commentRoutes);
 api.use("/ratings", ratingRoutes);
+api.use("/polls", pollRoutes);
 
 export default api;
