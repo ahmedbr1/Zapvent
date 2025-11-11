@@ -146,7 +146,9 @@ export async function updateVendorApplicationStatus(
     );
 
     if (!response.success) {
-      throw new Error(response.message ?? "Failed to update application status");
+      throw new Error(
+        response.message ?? "Failed to update application status"
+      );
     }
 
     return response;
@@ -154,10 +156,11 @@ export async function updateVendorApplicationStatus(
     // Handle ApiError objects thrown by apiFetch
     if (error && typeof error === "object" && "message" in error) {
       const apiError = error as { message: string; status?: number };
-      const errorMessage = apiError.message ?? "Failed to update application status";
+      const errorMessage =
+        apiError.message ?? "Failed to update application status";
       console.error("API Error:", {
         message: errorMessage,
-        status: apiError.status,
+        httpStatus: apiError.status,
         vendorId,
         eventId,
         status,

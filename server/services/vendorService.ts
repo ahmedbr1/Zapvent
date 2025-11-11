@@ -720,7 +720,6 @@ export async function updateBazaarApplicationStatus(options: {
       };
     }
 
-    // const previousStatus = application.status;
     application.status = status;
     application.decisionDate = new Date();
 
