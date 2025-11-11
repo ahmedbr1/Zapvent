@@ -29,7 +29,9 @@ function parseOptionalDate(value: unknown): Date | undefined {
   return undefined;
 }
 
-function parseAttendeesFromRequest(req: AuthRequest):
+function parseAttendeesFromRequest(
+  req: AuthRequest
+):
   | { success: true; attendees: VendorAttendee[] }
   | { success: false; message: string } {
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -41,7 +43,7 @@ function parseAttendeesFromRequest(req: AuthRequest):
   if (Array.isArray(filesField)) {
     idFiles = filesField;
   } else if (filesField && typeof filesField === "object") {
-  const fileRecord = filesField as Record<string, UploadedFile[]>;
+    const fileRecord = filesField as Record<string, UploadedFile[]>;
     if (Array.isArray(fileRecord.attendeeIds)) {
       idFiles = fileRecord.attendeeIds;
     }
@@ -110,8 +112,7 @@ function parseAttendeesFromRequest(req: AuthRequest):
     }
 
     normalizedAttendees.push({
-      name:
-        typeof name === "string" && name.trim() ? name.trim() : "Attendee",
+      name: typeof name === "string" && name.trim() ? name.trim() : "Attendee",
       email: attendeeEmail,
       idDocumentPath: assignedPath,
     });
@@ -252,7 +253,9 @@ export class VendorController {
       };
 
       const boothInfoPayload =
-        boothInfo.boothLocation || boothInfo.boothStartTime || boothInfo.boothEndTime
+        boothInfo.boothLocation ||
+        boothInfo.boothStartTime ||
+        boothInfo.boothEndTime
           ? boothInfo
           : undefined;
 
@@ -643,6 +646,108 @@ export class VendorController {
       return res.status(statusCode).json(result);
     } catch (error) {
       console.error("Approve vendor account error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async applyToLoyaltyProgram(req: AuthRequest, res: Response) {
+    try {
+      //const vendorId = "690d1f16c11accb382a0fd06"; // for testing without authentication
+      const vendorId = req.user?.id;
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
+      const result = await vendorService.applyToLoyaltyProgram(
+        vendorId,
+        req.body
+      );
+
+      const statusCode = result.success ? 200 : 400;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Apply loyalty program error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async cancelLoyaltyProgram(req: AuthRequest, res: Response) {
+    try {
+      // const vendorId = "690d1f16c11accb382a0fd06"; // for testing without authentication
+      const vendorId = req.user?.id;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
+      const result = await vendorService.cancelLoyaltyProgram(vendorId);
+      const statusCode = result.success ? 200 : 400;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Cancel loyalty program error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async getMyLoyaltyProgram(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = req.user?.id;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
+      const result = await vendorService.getVendorLoyaltyProgram(vendorId);
+      const statusCode =
+        result.success ||
+        result.message === "Vendor has not joined the loyalty program"
+          ? 200
+          : result.message === "Vendor not found"
+            ? 404
+            : 400;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Get loyalty program error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor", "EventOffice", "Admin"])
+  async listLoyaltyVendors(_req: AuthRequest, res: Response) {
+    try {
+      const result = await vendorService.listLoyaltyVendors();
+      const statusCode = result.success ? 200 : 500;
+      return res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("List loyalty vendors error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

@@ -67,6 +67,34 @@ router.get("/profile", vendorController.getProfile.bind(vendorController));
 //   vendorController.updateProfile.bind(vendorController)
 // );
 
+router.post(
+  "/loyalty/apply",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.applyToLoyaltyProgram.bind(vendorController)
+);
+
+router.post(
+  "/loyalty/cancel",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.cancelLoyaltyProgram.bind(vendorController)
+);
+
+router.get(
+  "/loyalty/me",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.getMyLoyaltyProgram.bind(vendorController)
+);
+
+router.get(
+  "/loyalty",
+  loginRequired,
+  allowedRoles(["Student", "Staff", "TA", "Professor", "EventOffice", "Admin"]),
+  vendorController.listLoyaltyVendors.bind(vendorController)
+);
+
 router.patch(
   "/bazaar-application/status",
   vendorController.updateBazaarApplicationStatus.bind(vendorController)

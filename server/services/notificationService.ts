@@ -106,6 +106,25 @@ export async function notifyUsersOfNewEvent(
   }
 }
 
+export async function notifyUsersOfNewLoyaltyPartner(options: {
+  companyName: string;
+  discountRate: number;
+  promoCode: string;
+}): Promise<void> {
+  try {
+    const message = `New loyalty partner: ${options.companyName} is offering ${options.discountRate.toFixed(
+      2
+    )}% off with code ${options.promoCode}.`;
+
+    await UserModel.updateMany(
+      { role: { $in: TARGET_USER_ROLES } },
+      { $addToSet: { notifications: message } }
+    ).exec();
+  } catch (error) {
+    console.error("Failed to send loyalty partner notification:", error);
+  }
+}
+
 async function sendReminderForEvent(
   event: Pick<IEvent, "name" | "eventType" | "startDate" | "registeredUsers"> & {
     _id: Types.ObjectId;
