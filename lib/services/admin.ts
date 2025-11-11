@@ -131,20 +131,48 @@ export async function updateVendorApplicationStatus(
   status: "approved" | "rejected",
   token?: string
 ) {
-  const response = await apiFetch<AdminActionResponse>(
-    `/vendors/bazaar-application/status`,
-    {
-      method: "PATCH",
-      body: { vendorId, eventId, status },
-      token,
+  try {
+    if (!token) {
+      throw new Error("Authentication token is required");
     }
-  );
 
-  if (!response.success) {
-    throw new Error(response.message ?? "Failed to update application status");
+    const response = await apiFetch<AdminActionResponse>(
+      `/vendors/bazaar-application/status`,
+      {
+        method: "PATCH",
+        body: { vendorId, eventId, status },
+        token,
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(response.message ?? "Failed to update application status");
+    }
+
+    return response;
+  } catch (error) {
+    // Handle ApiError objects thrown by apiFetch
+    if (error && typeof error === "object" && "message" in error) {
+      const apiError = error as { message: string; status?: number };
+      const errorMessage = apiError.message ?? "Failed to update application status";
+      console.error("API Error:", {
+        message: errorMessage,
+        status: apiError.status,
+        vendorId,
+        eventId,
+        status,
+      });
+      throw new Error(errorMessage);
+    }
+    // Handle Error instances
+    if (error instanceof Error) {
+      console.error("Error updating vendor application status:", error);
+      throw error;
+    }
+    // Fallback for unknown error types
+    console.error("Unknown error updating vendor application status:", error);
+    throw new Error("Failed to update application status");
   }
-
-  return response;
 }
 
 export async function rejectUser(

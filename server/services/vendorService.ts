@@ -646,10 +646,24 @@ export async function updateBazaarApplicationStatus(options: {
   try {
     const { vendorId, eventId, status, reason } = options;
 
+    console.log("updateBazaarApplicationStatus called with:", {
+      vendorId,
+      eventId,
+      status,
+      vendorIdValid: Types.ObjectId.isValid(vendorId),
+      eventIdValid: Types.ObjectId.isValid(eventId),
+    });
+
     if (!Types.ObjectId.isValid(vendorId) || !Types.ObjectId.isValid(eventId)) {
+      console.error("Invalid IDs:", {
+        vendorId,
+        eventId,
+        vendorIdValid: Types.ObjectId.isValid(vendorId),
+        eventIdValid: Types.ObjectId.isValid(eventId),
+      });
       return {
         success: false,
-        message: "Invalid vendor or event identifier provided.",
+        message: `Invalid vendor or event identifier provided. vendorId valid: ${Types.ObjectId.isValid(vendorId)}, eventId valid: ${Types.ObjectId.isValid(eventId)}`,
       };
     }
 
@@ -658,20 +672,33 @@ export async function updateBazaarApplicationStatus(options: {
       EventModel.findById(eventId),
     ]);
 
+    console.log("Found vendor:", !!vendor, "Found event:", !!event);
+
     if (!vendor) {
-      return { success: false, message: "Vendor not found" };
+      return { success: false, message: `Vendor not found with ID: ${vendorId}` };
     }
 
     if (!event) {
-      return { success: false, message: "Event not found" };
+      return { success: false, message: `Event not found with ID: ${eventId}` };
     }
 
-    const application = getVendorApplicationsArray(vendor).find(
+    const applications = getVendorApplicationsArray(vendor);
+    console.log("Vendor applications count:", applications.length);
+    
+    const application = applications.find(
       (app) => app.eventId.toString() === eventId
     );
 
+    console.log("Application found:", !!application);
+    if (application) {
+      console.log("Current application status:", application.status);
+    }
+
     if (!application) {
-      return { success: false, message: "Application not found" };
+      return {
+        success: false,
+        message: `Application not found for vendor ${vendorId} and event ${eventId}`,
+      };
     }
 
     application.status = status;
@@ -693,15 +720,21 @@ export async function updateBazaarApplicationStatus(options: {
     vendor.markModified("applications");
     await vendor.save();
 
-    await emailService.sendVendorApplicationDecisionEmail({
-      vendorEmail: vendor.email,
-      vendorCompany: vendor.companyName,
-      eventName: event.name,
-      status,
-      payment: application.payment,
-      dueDate: application.payment?.dueDate,
-      reason,
-    });
+    // Send email notification (non-blocking - don't fail if email fails)
+    try {
+      await emailService.sendVendorApplicationDecisionEmail({
+        vendorEmail: vendor.email,
+        vendorCompany: vendor.companyName,
+        eventName: event.name,
+        status,
+        payment: application.payment,
+        dueDate: application.payment?.dueDate,
+        reason,
+      });
+    } catch (emailError) {
+      // Log email error but don't fail the operation
+      console.error("Failed to send vendor application decision email:", emailError);
+    }
 
     return {
       success: true,
@@ -709,9 +742,16 @@ export async function updateBazaarApplicationStatus(options: {
     };
   } catch (error) {
     console.error("Error updating application status:", error);
+    // Include actual error message for debugging
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to update application status";
     return {
       success: false,
-      message: "Failed to update application status",
+      message: errorMessage,
     };
   }
 }

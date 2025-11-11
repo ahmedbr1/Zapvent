@@ -355,7 +355,7 @@ export class EmailService {
       ? formatDateTime(dueDate ?? payment?.dueDate)
       : undefined;
     const amountDisplay = payment
-      ? formatCurrency(payment.amount, payment.currency)
+      ? formatCurrency(payment.amount, payment.currency || "EGP")
       : undefined;
 
     const subject = isApproved

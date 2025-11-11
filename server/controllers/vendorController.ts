@@ -352,6 +352,14 @@ export class VendorController {
     try {
       const { vendorId, eventId, status, reason } = req.body;
 
+      console.log("Update bazaar application status request:", {
+        vendorId,
+        eventId,
+        status,
+        hasUser: !!req.user,
+        userRole: req.user?.role,
+      });
+
       if (!vendorId || !eventId || !status) {
         return res.status(400).json({
           success: false,
@@ -359,19 +367,34 @@ export class VendorController {
         });
       }
 
-      if (![VendorStatus.APPROVED, VendorStatus.REJECTED].includes(status)) {
+      // Normalize status to lowercase for comparison
+      const normalizedStatus = String(status).toLowerCase().trim();
+      
+      // Validate status
+      if (normalizedStatus !== VendorStatus.APPROVED && normalizedStatus !== VendorStatus.REJECTED) {
         return res.status(400).json({
           success: false,
-          message: "Status must be 'approved' or 'rejected'",
+          message: `Status must be 'approved' or 'rejected'. Received: '${normalizedStatus}'`,
         });
       }
+
+      // Cast to VendorStatus enum
+      const applicationStatus = normalizedStatus as VendorStatus;
+
+      console.log("Calling vendorService.updateBazaarApplicationStatus with:", {
+        vendorId,
+        eventId,
+        status: applicationStatus,
+      });
 
       const result = await vendorService.updateBazaarApplicationStatus({
         vendorId,
         eventId,
-        status,
+        status: applicationStatus,
         reason,
       });
+
+      console.log("Service result:", result);
 
       const statusCode = result.success
         ? 200
@@ -382,9 +405,15 @@ export class VendorController {
       return res.status(statusCode).json(result);
     } catch (error) {
       console.error("Update bazaar application status error:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Internal server error";
       return res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: errorMessage,
       });
     }
   }
