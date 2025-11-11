@@ -29,6 +29,7 @@ const eslintConfig = [
       "dist-server/**",
       "*.log",
       "next-env.d.ts",
+      "coverage/**",
     ],
   },
 ];

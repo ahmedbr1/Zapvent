@@ -411,8 +411,7 @@ export async function registerForGymSession(
     if (!REGISTERABLE_ROLES.has(user.role)) {
       return {
         success: false,
-        message:
-          "Only students, staff, professors, and TAs can register for sessions",
+        message: "Only students, staff, professors, and TAs can register for sessions",
         statusCode: 403,
       };
     }
@@ -445,6 +444,7 @@ export async function registerForGymSession(
         statusCode: 409,
       };
     }
+    
 
     const currentCount = session.registeredUsers?.length ?? 0;
     if (currentCount >= session.maxParticipants) {
