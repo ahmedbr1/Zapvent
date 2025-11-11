@@ -281,6 +281,8 @@ export async function signup(vendorData: vendorSignupData) {
 
   const vendor = new vendorModel(vendorDataWithDefaults);
   await vendor.save();
+  // Notify admins of new pending vendor
+  await notifyAdminsOfPendingVendors(1);
 
   // Return vendor without password
   const vendorWithoutPassword = vendor.toObject();
@@ -677,6 +679,7 @@ export async function updateBazaarApplicationStatus(options: {
       return { success: false, message: "Application not found" };
     }
 
+    const previousStatus = application.status;
     application.status = status;
     application.decisionDate = new Date();
 
@@ -695,6 +698,13 @@ export async function updateBazaarApplicationStatus(options: {
 
     vendor.markModified("applications");
     await vendor.save();
+
+    if (
+      status === VendorStatus.PENDING &&
+      previousStatus !== VendorStatus.PENDING
+    ) {
+      await notifyAdminsOfPendingVendors(1);
+    }
 
     await emailService.sendVendorApplicationDecisionEmail({
       vendorEmail: vendor.email,
@@ -999,10 +1009,6 @@ export async function findAllForAdmin(): Promise<{
       .find()
       .lean<Array<IVendor & { _id: Types.ObjectId }>>();
 
-    const pendingVendorCount = vendors.filter(
-      (vendor) => vendor.verificationStatus === VendorStatus.PENDING
-    ).length;
-
     const normalized: AdminVendorResponse[] = await Promise.all(
       vendors.map(async (vendor) => {
         // Fetch event names for all applications
@@ -1074,10 +1080,6 @@ export async function findAllForAdmin(): Promise<{
         };
       })
     );
-
-    if (pendingVendorCount > 0) {
-      await notifyAdminsOfPendingVendors(pendingVendorCount);
-    }
 
     return {
       success: true,
@@ -1517,3 +1519,4 @@ export async function listLoyaltyVendors(): Promise<{
     };
   }
 }
+
