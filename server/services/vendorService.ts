@@ -124,6 +124,15 @@ export async function findAll() {
   return vendorModel.find().lean();
 }
 
+async function notifyAdminsAboutPendingTotal() {
+  const pendingCount = await vendorModel.countDocuments({
+    verificationStatus: VendorStatus.PENDING,
+  });
+  if (pendingCount > 0) {
+    await notifyAdminsOfPendingVendors(pendingCount);
+  }
+}
+
 type VendorDocument = HydratedDocument<IVendor>;
 
 type BazaarApplicationSubdoc = BazaarApplication & {
@@ -281,8 +290,10 @@ export async function signup(vendorData: vendorSignupData) {
 
   const vendor = new vendorModel(vendorDataWithDefaults);
   await vendor.save();
-  // Notify admins of new pending vendor
-  await notifyAdminsOfPendingVendors(1);
+
+  if (vendor.verificationStatus === VendorStatus.PENDING) {
+    await notifyAdminsAboutPendingTotal();
+  }
 
   // Return vendor without password
   const vendorWithoutPassword = vendor.toObject();
@@ -703,7 +714,13 @@ export async function updateBazaarApplicationStatus(options: {
       status === VendorStatus.PENDING &&
       previousStatus !== VendorStatus.PENDING
     ) {
-      await notifyAdminsOfPendingVendors(1);
+      await notifyAdminsAboutPendingTotal();
+    }
+
+    if (
+      status === VendorStatus.PENDING &&
+      previousStatus !== VendorStatus.PENDING
+    ) {
     }
 
     await emailService.sendVendorApplicationDecisionEmail({
@@ -1519,4 +1536,3 @@ export async function listLoyaltyVendors(): Promise<{
     };
   }
 }
-
