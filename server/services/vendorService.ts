@@ -20,7 +20,10 @@ import EventModel, {
 import { Types } from "mongoose";
 import type { HydratedDocument } from "mongoose";
 import { emailService } from "./emailService";
-import { notifyUsersOfNewLoyaltyPartner } from "./notificationService";
+import {
+  notifyUsersOfNewLoyaltyPartner,
+  notifyAdminsOfPendingVendors,
+} from "./notificationService";
 import crypto from "node:crypto";
 
 // Zod schema for vendor signup validation
@@ -996,6 +999,10 @@ export async function findAllForAdmin(): Promise<{
       .find()
       .lean<Array<IVendor & { _id: Types.ObjectId }>>();
 
+    const pendingVendorCount = vendors.filter(
+      (vendor) => vendor.verificationStatus === VendorStatus.PENDING
+    ).length;
+
     const normalized: AdminVendorResponse[] = await Promise.all(
       vendors.map(async (vendor) => {
         // Fetch event names for all applications
@@ -1067,6 +1074,10 @@ export async function findAllForAdmin(): Promise<{
         };
       })
     );
+
+    if (pendingVendorCount > 0) {
+      await notifyAdminsOfPendingVendors(pendingVendorCount);
+    }
 
     return {
       success: true,

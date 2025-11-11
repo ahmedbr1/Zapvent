@@ -125,6 +125,24 @@ export async function notifyUsersOfNewLoyaltyPartner(options: {
   }
 }
 
+export async function notifyAdminsOfPendingVendors(
+  pendingCount: number
+): Promise<void> {
+  try {
+    const message =
+      pendingCount === 1
+        ? "There is 1 vendor request waiting for review."
+        : `There are ${pendingCount} vendor requests waiting for review.`;
+
+    await AdminModel.updateMany(
+      { adminType: { $in: ["Admin", "EventOffice"] } },
+      { $addToSet: { notifications: message } }
+    ).exec();
+  } catch (error) {
+    console.error("Failed to send pending vendor notification:", error);
+  }
+}
+
 async function sendReminderForEvent(
   event: Pick<IEvent, "name" | "eventType" | "startDate" | "registeredUsers"> & {
     _id: Types.ObjectId;
