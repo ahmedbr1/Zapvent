@@ -167,14 +167,6 @@ export async function updateVendorApplicationStatus(
       });
       throw new Error(errorMessage);
     }
-    // Handle Error instances
-    if (error instanceof Error) {
-      console.error("Error updating vendor application status:", error);
-      throw error;
-    }
-    // Fallback for unknown error types
-    console.error("Unknown error updating vendor application status:", error);
-    throw new Error("Failed to update application status");
   }
 }
 
@@ -487,5 +479,3 @@ export async function unblockAdmin(adminId: string, token?: string) {
 
   return response;
 }
-
-// ----------------------------------------------------
