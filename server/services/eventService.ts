@@ -16,10 +16,34 @@ import vendorModel, {
   BazaarApplication,
 } from "../models/Vendor";
 import UserModel, { IUser, userRole } from "../models/User";
-import * as XLSX from "xlsx";
-import * as qr from "qr-image";
 import { emailService } from "./emailService";
 import { notifyUsersOfNewEvent } from "./notificationService";
+
+type XLSXModule = typeof import("xlsx");
+type QRImageModule = typeof import("qr-image");
+
+let xlsxModulePromise: Promise<XLSXModule> | null = null;
+let qrModulePromise: Promise<QRImageModule> | null = null;
+
+async function loadXlsx() {
+  if (!xlsxModulePromise) {
+    xlsxModulePromise = import("xlsx").catch((error) => {
+      xlsxModulePromise = null;
+      throw error;
+    });
+  }
+  return xlsxModulePromise;
+}
+
+async function loadQrImage() {
+  if (!qrModulePromise) {
+    qrModulePromise = import("qr-image").catch((error) => {
+      qrModulePromise = null;
+      throw error;
+    });
+  }
+  return qrModulePromise;
+}
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -2059,6 +2083,17 @@ export async function exportEventRegistrations(eventId: string): Promise<{
       "Staff ID": user.staffId || "N/A",
     }));
 
+    let XLSX: XLSXModule;
+    try {
+      XLSX = await loadXlsx();
+    } catch (importError) {
+      console.error("Failed to load xlsx module:", importError);
+      return {
+        success: false,
+        message: "Excel export is temporarily unavailable.",
+      };
+    }
+
     // Create workbook and worksheet
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -2147,8 +2182,19 @@ export async function generateEventQRCode(eventId: string): Promise<{
       eventTypeName = "CareerFair";
     }
 
+    let qrLib: QRImageModule;
+    try {
+      qrLib = await loadQrImage();
+    } catch (importError) {
+      console.error("Failed to load qr-image module:", importError);
+      return {
+        success: false,
+        message: "QR code generation is temporarily unavailable.",
+      };
+    }
+
     // Generate QR code as PNG buffer
-    const qrBuffer = qr.imageSync(qrText, {
+    const qrBuffer = qrLib.imageSync(qrText, {
       type: "png",
       size: 10,
       margin: 2,
