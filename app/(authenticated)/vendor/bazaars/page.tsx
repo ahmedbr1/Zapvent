@@ -81,21 +81,28 @@ function ApplyDialog({
 
     setIsSubmitting(true);
     try {
-      const requestBody = {
+      // Build minimal attendee objects (names/emails) for server parsing
+      const generatedAttendees = Array.from({ length: attendeesNum }).map(
+        (_, i) => ({
+          name: companyName || `Attendee ${i + 1}`,
+          email: vendorEmail || "",
+        })
+      );
+
+      const body: Record<string, unknown> = {
         eventId: bazaar.id,
-        attendees: attendeesNum,
+        attendees: generatedAttendees,
         boothSize: boothSize,
         vendorEmail,
         companyName,
       };
 
       console.log("=== Submitting Application ===");
-      console.log("Request Body:", requestBody);
       console.log("Token:", token ? "Present" : "Missing");
 
       const response = (await apiFetch("/vendors/apply-bazaar", {
         method: "POST",
-        body: requestBody,
+        body: body,
         token: token ?? undefined,
       })) as { success: boolean; message?: string };
       console.log("Response:", response);
@@ -194,6 +201,7 @@ function ApplyDialog({
             <option value="2x2">2x2 meters</option>
             <option value="4x4">4x4 meters</option>
           </TextField>
+          {/* We no longer accept file uploads from the client. The server will generate QR images for attendees if needed. */}
         </Stack>
       </DialogContent>
       <DialogActions>

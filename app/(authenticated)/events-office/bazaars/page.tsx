@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
@@ -17,18 +18,18 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
+import Alert from "@mui/material/Alert";
+import Skeleton from "@mui/material/Skeleton";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import Alert from "@mui/material/Alert";
-import Skeleton from "@mui/material/Skeleton";
 import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import DeleteIcon from "@mui/icons-material/DeleteRounded";
-import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import dayjs from "dayjs";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
@@ -70,6 +71,7 @@ export default function BazaarManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBazaarId, setEditingBazaarId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -131,12 +133,14 @@ export default function BazaarManagementPage() {
       setPendingDeleteId(null);
     },
   });
+
   const bazaars = useMemo(() => {
     if (!data) return [];
-    return [...data].sort(
+    const sorted = [...data].sort(
       (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
     );
-  }, [data]);
+    return sortOrder === "asc" ? sorted : sorted.reverse();
+  }, [data, sortOrder]);
 
   const handleCreateClick = () => {
     setEditingBazaarId(null);
@@ -214,6 +218,14 @@ export default function BazaarManagementPage() {
         <Typography variant="body1" color="text.secondary">
           Craft immersive marketplace experiences across GUC campuses.
         </Typography>
+        <Box>
+          <Button
+            size="small"
+            onClick={() => setSortOrder((s) => (s === "asc" ? "desc" : "asc"))}
+          >
+            Sort by date: {sortOrder === "asc" ? "ascending" : "descending"}
+          </Button>
+        </Box>
       </Stack>
 
       {isEventsOfficeUser ? (
@@ -226,7 +238,10 @@ export default function BazaarManagementPage() {
       {isLoading ? (
         <Grid container spacing={3}>
           {Array.from({ length: 3 }).map((_, index) => (
-            <Grid key={`bazaar-skeleton-${index}`} size={{ xs: 12, md: 6, lg: 4 }}>
+            <Grid
+              key={`bazaar-skeleton-${index}`}
+              size={{ xs: 12, md: 6, lg: 4 }}
+            >
               <Skeleton
                 variant="rectangular"
                 height={280}
@@ -244,8 +259,8 @@ export default function BazaarManagementPage() {
         </Alert>
       ) : bazaars.length === 0 ? (
         <Alert severity="info">
-          No bazaars scheduled yet. Tap &quot;New bazaar&quot; to launch your next
-          campus experience.
+          No bazaars scheduled yet. Tap &quot;New bazaar&quot; to launch your
+          next campus experience.
         </Alert>
       ) : (
         <Grid container spacing={3}>
@@ -294,6 +309,12 @@ export default function BazaarManagementPage() {
                         label="Registration deadline"
                         value={formatDateTime(bazaar.registrationDeadline)}
                       />
+                      <Button
+                        component={Link}
+                        href={`/authenticated/events-office/bazaars/${bazaar.id}/applications`}
+                      >
+                        View applications
+                      </Button>
                       <Typography variant="caption" color="text.secondary">
                         Vendors assigned: {bazaar.vendors?.length ?? 0}
                       </Typography>
@@ -454,9 +475,7 @@ export default function BazaarManagementPage() {
                   slotProps={{
                     textField: {
                       fullWidth: true,
-                      error: Boolean(
-                        formState.errors.registrationDeadline
-                      ),
+                      error: Boolean(formState.errors.registrationDeadline),
                       helperText:
                         formState.errors.registrationDeadline?.message,
                     },

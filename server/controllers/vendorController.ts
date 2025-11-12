@@ -6,6 +6,9 @@ import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 import { VendorStatus, VendorAttendee } from "../models/Vendor";
 import type { IVendor } from "../models/Vendor";
 import { BazaarBoothSize } from "../models/Event";
+import { imageSync } from "qr-image";
+import fs from "fs";
+import path from "path";
 interface UploadedFile {
   path?: string;
 }
@@ -103,13 +106,36 @@ function parseAttendeesFromRequest(
 
     const fallbackEmail = req.user?.email ?? "";
     const attendeeEmail = (email ?? fallbackEmail).trim();
-    const assignedPath = idDocumentPath || idFiles[index]?.path;
+    let assignedPath = idDocumentPath || idFiles[index]?.path;
 
     if (!assignedPath) {
-      return {
-        success: false,
-        message: `Missing ID document for attendee #${index + 1}.`,
-      };
+      // Generate a QR image for this attendee and save it to uploads/
+      try {
+        const uploadsDir = path.join(process.cwd(), "uploads");
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const vendorId = req.user?.id ?? "unknown";
+        const filename = `attendee-${vendorId}-${Date.now()}-${index}.png`;
+        const filePath = path.join(uploadsDir, filename);
+
+        const payload = JSON.stringify({
+          name: name ?? "Attendee",
+          email: email ?? "",
+        });
+        const pngBuffer = imageSync(payload, { type: "png" }) as Buffer;
+        fs.writeFileSync(filePath, pngBuffer);
+
+        // Use relative path for storage consistency with uploaded files
+        assignedPath = `uploads/${filename}`;
+      } catch (err) {
+        console.error("Failed to generate QR image for attendee:", err);
+        return {
+          success: false,
+          message: `Missing ID document for attendee #${index + 1} and failed to generate QR.`,
+        };
+      }
     }
 
     normalizedAttendees.push({
@@ -398,7 +424,7 @@ export class VendorController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Admin"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async updateBazaarApplicationStatus(req: AuthRequest, res: Response) {
     try {
       const { vendorId, eventId, status, reason } = req.body;
