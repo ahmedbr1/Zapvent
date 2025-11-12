@@ -18,16 +18,7 @@ import ClearIcon from "@mui/icons-material/ClearRounded";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs, { type Dayjs } from "dayjs";
 import { EventType, Location } from "@/lib/types";
-
-export interface EventFilters {
-  search: string;
-  eventType?: EventType | "All";
-  location?: Location | "All";
-  professor?: string;
-  startDate?: string | null;
-  endDate?: string | null;
-  sortOrder: "asc" | "desc";
-}
+import type { EventFilters } from "@/lib/events/filters";
 
 interface EventFiltersBarProps {
   value: EventFilters;
@@ -312,3 +303,5 @@ export function EventFiltersBar({
     </Stack>
   );
 }
+
+export type { EventFilters } from "@/lib/events/filters";

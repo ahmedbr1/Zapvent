@@ -36,6 +36,7 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
+import { filterAndSortEvents } from "@/lib/events/filters";
 import {
   fetchUpcomingBazaars,
   createBazaar,
@@ -145,46 +146,15 @@ export default function BazaarManagementPage() {
     },
   });
 
-  const bazaars = useMemo(() => {
-    if (!data) return [];
-    const searchTerm = filters.search.trim().toLowerCase();
-    const startDate = filters.startDate ? dayjs(filters.startDate) : null;
-    const endDate = filters.endDate ? dayjs(filters.endDate) : null;
-
-    const filtered = data.filter((bazaar) => {
-      if (
-        filters.location &&
-        filters.location !== "All" &&
-        bazaar.location !== filters.location
-      ) {
-        return false;
-      }
-
-      if (startDate && dayjs(bazaar.startDate).isBefore(startDate, "day")) {
-        return false;
-      }
-
-      if (endDate && dayjs(bazaar.startDate).isAfter(endDate, "day")) {
-        return false;
-      }
-
-      if (searchTerm) {
-        const haystack =
-          `${bazaar.name} ${bazaar.description ?? ""}`.toLowerCase();
-        if (!haystack.includes(searchTerm)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    const sorted = filtered.sort(
-      (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
-    );
-
-    return filters.sortOrder === "asc" ? sorted : sorted.reverse();
-  }, [data, filters]);
+  const bazaars = useMemo(
+    () =>
+      filterAndSortEvents(data, filters, {
+        getSearchValues: (bazaar) => [bazaar.name, bazaar.description],
+        getStartDate: (bazaar) => bazaar.startDate,
+        getLocation: (bazaar) => bazaar.location,
+      }),
+    [data, filters]
+  );
 
   const handleCreateClick = () => {
     setEditingBazaarId(null);

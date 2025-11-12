@@ -36,6 +36,7 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
+import { filterAndSortEvents } from "@/lib/events/filters";
 import {
   fetchTrips,
   createTrip,
@@ -109,46 +110,15 @@ export default function TripManagementPage() {
       defaultValues: defaultTripValues(),
     });
 
-  const trips = useMemo(() => {
-    if (!data) return [];
-
-    const searchTerm = filters.search.trim().toLowerCase();
-    const startDate = filters.startDate ? dayjs(filters.startDate) : null;
-    const endDate = filters.endDate ? dayjs(filters.endDate) : null;
-
-    const filtered = data.filter((trip) => {
-      if (
-        filters.location &&
-        filters.location !== "All" &&
-        trip.location !== filters.location
-      ) {
-        return false;
-      }
-
-      if (startDate && dayjs(trip.startDate).isBefore(startDate, "day")) {
-        return false;
-      }
-
-      if (endDate && dayjs(trip.startDate).isAfter(endDate, "day")) {
-        return false;
-      }
-
-      if (searchTerm) {
-        const haystack = `${trip.name} ${trip.description ?? ""}`.toLowerCase();
-        if (!haystack.includes(searchTerm)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    const sorted = filtered.sort(
-      (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
-    );
-
-    return filters.sortOrder === "asc" ? sorted : sorted.reverse();
-  }, [data, filters]);
+  const trips = useMemo(
+    () =>
+      filterAndSortEvents(data, filters, {
+        getSearchValues: (trip) => [trip.name, trip.description],
+        getStartDate: (trip) => trip.startDate,
+        getLocation: (trip) => trip.location,
+      }),
+    [data, filters]
+  );
 
   const createMutation = useMutation({
     mutationFn: (payload: TripPayload) =>

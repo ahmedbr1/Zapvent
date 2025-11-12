@@ -37,6 +37,7 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
+import { filterAndSortEvents } from "@/lib/events/filters";
 import {
   fetchConferences,
   createConference,
@@ -108,60 +109,21 @@ export default function ConferenceManagementPage() {
       defaultValues: defaultConferenceValues(),
     });
 
-  const conferences = useMemo(() => {
-    if (!data) return [];
-
-    const searchTerm = filters.search.trim().toLowerCase();
-    const startDate = filters.startDate ? dayjs(filters.startDate) : null;
-    const endDate = filters.endDate ? dayjs(filters.endDate) : null;
-
-    const filtered = data.filter((conference) => {
-      if (
-        filters.location &&
-        filters.location !== "All" &&
-        conference.location !== filters.location
-      ) {
-        return false;
-      }
-
-      if (startDate && dayjs(conference.startDate).isBefore(startDate, "day")) {
-        return false;
-      }
-
-      if (endDate && dayjs(conference.startDate).isAfter(endDate, "day")) {
-        return false;
-      }
-
-      if (filters.professor) {
-        const professorList = conference.participatingProfessors ?? [];
-        if (!professorList.includes(filters.professor)) {
-          return false;
-        }
-      }
-
-      if (searchTerm) {
-        const haystack = [
+  const conferences = useMemo(
+    () =>
+      filterAndSortEvents(data, filters, {
+        getSearchValues: (conference) => [
           conference.name,
-          conference.description ?? "",
-          conference.fullAgenda ?? "",
+          conference.description,
+          conference.fullAgenda,
           ...(conference.participatingProfessors ?? []),
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(searchTerm)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    const sorted = filtered.sort(
-      (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
-    );
-
-    return filters.sortOrder === "asc" ? sorted : sorted.reverse();
-  }, [data, filters]);
+        ],
+        getStartDate: (conference) => conference.startDate,
+        getLocation: (conference) => conference.location,
+        getProfessorNames: (conference) => conference.participatingProfessors,
+      }),
+    [data, filters]
+  );
 
   const professorOptions = useMemo(
     () =>
