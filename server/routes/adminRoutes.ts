@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { adminController } from "../controllers/adminController";
-import { loginRequired } from "../middleware/authMiddleware";
+import { pollController } from "../controllers/pollController";
+import { loginRequired, allowedRoles } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -26,6 +27,12 @@ router.delete(
 router.get(
   "/notifications",
   adminController.getMyNotifications.bind(adminController)
+);
+
+router.post(
+  "/polls",
+  allowedRoles(["EventOffice"]),
+  pollController.createVendorBoothPoll.bind(pollController)
 );
 
 // Admins only routes (adminType: "Admin")

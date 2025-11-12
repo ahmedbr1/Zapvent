@@ -25,7 +25,11 @@ const eslintConfig = [
       "dist/**",
       "out/**",
       "build/**",
+      "coverage/**",
+      "dist-server/**",
+      "*.log",
       "next-env.d.ts",
+      "coverage/**",
     ],
   },
 ];
