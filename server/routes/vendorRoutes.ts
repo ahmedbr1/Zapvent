@@ -17,13 +17,15 @@ const router = Router();
 //   vendorController.vendorSignup.bind(vendorController)
 // );
 
-// router.post(
-//   "/apply-bazaar",
-//   loginRequired,
-//   allowedRoles(["Vendor"]),
-//   upload.fields([{ name: "attendeeIds", maxCount: 5 }]),
-//   vendorController.applyToBazaar.bind(vendorController)
-// );
+router.post(
+  "/apply-bazaar",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  // Note: file upload middleware is intentionally omitted here because the
+  // frontend currently submits a numeric `attendees` field. The controller
+  // will synthesize an attendees array when a numeric value is provided.
+  vendorController.applyToBazaar.bind(vendorController)
+);
 
 // router.post(
 //   "/applications/:eventId/attendees",

@@ -116,10 +116,26 @@ function ApplyDialog({
       }
     } catch (error) {
       console.error("Application submission error:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "An error occurred while submitting application";
+      // apiFetch throws plain ApiError objects (not instances of Error).
+      // Try to extract a useful message from common shapes.
+      let errorMessage = "An error occurred while submitting application";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === "object") {
+        const anyErr = error as Record<string, unknown>;
+        if (typeof anyErr.message === "string" && anyErr.message.trim()) {
+          errorMessage = anyErr.message as string;
+        } else if (typeof anyErr.status === "number") {
+          errorMessage = `Request failed (${anyErr.status})`;
+        } else {
+          try {
+            errorMessage = JSON.stringify(anyErr);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
       enqueueSnackbar(errorMessage, {
         variant: "error",
       });

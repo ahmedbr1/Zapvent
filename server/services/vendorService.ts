@@ -1305,6 +1305,20 @@ export async function getVendorProfile(vendorId: string): Promise<{
   }
 }
 
+// Return raw vendor document (lean) for internal controller helpers that need
+// access to stored file paths (taxCard/documents) without the password.
+export async function getVendorRawRecord(vendorId: string) {
+  try {
+    return await vendorModel
+      .findById(vendorId)
+      .select("email companyName taxCard documents")
+      .lean();
+  } catch (err) {
+    console.error("Error fetching raw vendor record:", err);
+    return null;
+  }
+}
+
 // Update vendor profile
 export async function updateVendorProfile(
   vendorId: string,
