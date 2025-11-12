@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
@@ -33,6 +32,10 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
+import {
+  EventFiltersBar,
+  type EventFilters,
+} from "@/components/events/EventFiltersBar";
 import {
   fetchUpcomingBazaars,
   createBazaar,
@@ -71,7 +74,15 @@ export default function BazaarManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBazaarId, setEditingBazaarId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [filters, setFilters] = useState<EventFilters>({
+    search: "",
+    eventType: "All",
+    location: "All",
+    professor: "",
+    startDate: null,
+    endDate: null,
+    sortOrder: "asc",
+  });
   const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -136,11 +147,44 @@ export default function BazaarManagementPage() {
 
   const bazaars = useMemo(() => {
     if (!data) return [];
-    const sorted = [...data].sort(
+    const searchTerm = filters.search.trim().toLowerCase();
+    const startDate = filters.startDate ? dayjs(filters.startDate) : null;
+    const endDate = filters.endDate ? dayjs(filters.endDate) : null;
+
+    const filtered = data.filter((bazaar) => {
+      if (
+        filters.location &&
+        filters.location !== "All" &&
+        bazaar.location !== filters.location
+      ) {
+        return false;
+      }
+
+      if (startDate && dayjs(bazaar.startDate).isBefore(startDate, "day")) {
+        return false;
+      }
+
+      if (endDate && dayjs(bazaar.startDate).isAfter(endDate, "day")) {
+        return false;
+      }
+
+      if (searchTerm) {
+        const haystack =
+          `${bazaar.name} ${bazaar.description ?? ""}`.toLowerCase();
+        if (!haystack.includes(searchTerm)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    const sorted = filtered.sort(
       (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
     );
-    return sortOrder === "asc" ? sorted : sorted.reverse();
-  }, [data, sortOrder]);
+
+    return filters.sortOrder === "asc" ? sorted : sorted.reverse();
+  }, [data, filters]);
 
   const handleCreateClick = () => {
     setEditingBazaarId(null);
@@ -218,15 +262,15 @@ export default function BazaarManagementPage() {
         <Typography variant="body1" color="text.secondary">
           Craft immersive marketplace experiences across GUC campuses.
         </Typography>
-        <Box>
-          <Button
-            size="small"
-            onClick={() => setSortOrder((s) => (s === "asc" ? "desc" : "asc"))}
-          >
-            Sort by date: {sortOrder === "asc" ? "ascending" : "descending"}
-          </Button>
-        </Box>
       </Stack>
+
+      <EventFiltersBar
+        value={filters}
+        onChange={setFilters}
+        showEventTypeFilter={false}
+        showProfessorFilter={false}
+        searchPlaceholder="Search bazaars"
+      />
 
       {isEventsOfficeUser ? (
         <Typography variant="body2" color="text.secondary">
@@ -309,12 +353,6 @@ export default function BazaarManagementPage() {
                         label="Registration deadline"
                         value={formatDateTime(bazaar.registrationDeadline)}
                       />
-                      <Button
-                        component={Link}
-                        href={`/authenticated/events-office/bazaars/${bazaar.id}/applications`}
-                      >
-                        View applications
-                      </Button>
                       <Typography variant="caption" color="text.secondary">
                         Vendors assigned: {bazaar.vendors?.length ?? 0}
                       </Typography>

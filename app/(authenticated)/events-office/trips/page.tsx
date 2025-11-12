@@ -33,6 +33,10 @@ import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import {
+  EventFiltersBar,
+  type EventFilters,
+} from "@/components/events/EventFiltersBar";
+import {
   fetchTrips,
   createTrip,
   updateTrip,
@@ -83,39 +87,72 @@ export default function TripManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<EventFilters>({
+    search: "",
+    eventType: "All",
+    location: "All",
+    professor: "",
+    startDate: null,
+    endDate: null,
+    sortOrder: "asc",
+  });
   const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "trips", token ?? "public"],
     queryFn: () => fetchTrips(token ?? undefined),
   });
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState,
-    register,
-  } = useForm<TripFormValues>({
-    resolver: zodResolver(tripSchema),
-    defaultValues: defaultTripValues(),
-  });
+  const { control, handleSubmit, reset, formState, register } =
+    useForm<TripFormValues>({
+      resolver: zodResolver(tripSchema),
+      defaultValues: defaultTripValues(),
+    });
 
   const trips = useMemo(() => {
     if (!data) return [];
-    return [...data].sort((a, b) =>
-      dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
+
+    const searchTerm = filters.search.trim().toLowerCase();
+    const startDate = filters.startDate ? dayjs(filters.startDate) : null;
+    const endDate = filters.endDate ? dayjs(filters.endDate) : null;
+
+    const filtered = data.filter((trip) => {
+      if (
+        filters.location &&
+        filters.location !== "All" &&
+        trip.location !== filters.location
+      ) {
+        return false;
+      }
+
+      if (startDate && dayjs(trip.startDate).isBefore(startDate, "day")) {
+        return false;
+      }
+
+      if (endDate && dayjs(trip.startDate).isAfter(endDate, "day")) {
+        return false;
+      }
+
+      if (searchTerm) {
+        const haystack = `${trip.name} ${trip.description ?? ""}`.toLowerCase();
+        if (!haystack.includes(searchTerm)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    const sorted = filtered.sort(
+      (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
     );
-  }, [data]);
+
+    return filters.sortOrder === "asc" ? sorted : sorted.reverse();
+  }, [data, filters]);
 
   const createMutation = useMutation({
-    mutationFn: (payload: TripPayload) => createTrip(payload, token ?? undefined),
+    mutationFn: (payload: TripPayload) =>
+      createTrip(payload, token ?? undefined),
     onSuccess: () => {
       enqueueSnackbar("Trip created successfully", { variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["events", "trips"] });
@@ -127,8 +164,13 @@ export default function TripManagementPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<TripPayload> }) =>
-      updateTrip(id, payload, token ?? undefined),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Partial<TripPayload>;
+    }) => updateTrip(id, payload, token ?? undefined),
     onSuccess: () => {
       enqueueSnackbar("Trip updated", { variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["events", "trips"] });
@@ -167,9 +209,12 @@ export default function TripManagementPage() {
     if (!trip) return;
 
     if (isEventsOfficeUser && !dayjs(trip.startDate).isAfter(dayjs())) {
-      enqueueSnackbar("Trips that have started can only be edited by administrators.", {
-        variant: "warning",
-      });
+      enqueueSnackbar(
+        "Trips that have started can only be edited by administrators.",
+        {
+          variant: "warning",
+        }
+      );
       return;
     }
 
@@ -223,8 +268,8 @@ export default function TripManagementPage() {
           Trip management
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Plan and publish university trips with capacity, pricing, and timelines
-          synced across student portals.
+          Plan and publish university trips with capacity, pricing, and
+          timelines synced across student portals.
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Signed in as{" "}
@@ -233,11 +278,23 @@ export default function TripManagementPage() {
         </Typography>
       </Stack>
 
+      <EventFiltersBar
+        value={filters}
+        onChange={setFilters}
+        showEventTypeFilter={false}
+        showProfessorFilter={false}
+        searchPlaceholder="Search trips"
+      />
+
       {isError ? (
         <Alert
           severity="error"
           action={
-            <Button onClick={() => refetch()} size="small" startIcon={<RefreshIcon />}>
+            <Button
+              onClick={() => refetch()}
+              size="small"
+              startIcon={<RefreshIcon />}
+            >
               Retry
             </Button>
           }
@@ -254,7 +311,11 @@ export default function TripManagementPage() {
                   <CardContent>
                     <Skeleton variant="text" width="70%" height={32} />
                     <Skeleton variant="text" width="50%" />
-                    <Skeleton variant="rectangular" height={120} sx={{ mt: 2 }} />
+                    <Skeleton
+                      variant="rectangular"
+                      height={120}
+                      sx={{ mt: 2 }}
+                    />
                   </CardContent>
                 </Card>
               </Grid>
@@ -264,7 +325,8 @@ export default function TripManagementPage() {
         {!isLoading && trips.length === 0 ? (
           <Grid item xs={12}>
             <Alert severity="info">
-              No upcoming trips yet. Create the first one to get students excited.
+              No upcoming trips yet. Create the first one to get students
+              excited.
             </Alert>
           </Grid>
         ) : null}
@@ -278,22 +340,38 @@ export default function TripManagementPage() {
             (deleteMutation.isPending && pendingDeleteId === trip.id);
           return (
             <Grid item xs={12} md={6} lg={4} key={trip.id}>
-              <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              <Card
+                sx={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Stack spacing={1.5}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="h6" fontWeight={700}>
                         {trip.name}
                       </Typography>
-                      <Chip label={trip.location} size="small" color="primary" />
+                      <Chip
+                        label={trip.location}
+                        size="small"
+                        color="primary"
+                      />
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
                       {trip.description}
                     </Typography>
                     <Divider />
                     <Stack spacing={1}>
-                      <Detail label="Start" value={formatDateTime(trip.startDate)} />
-                      <Detail label="End" value={formatDateTime(trip.endDate)} />
+                      <Detail
+                        label="Start"
+                        value={formatDateTime(trip.startDate)}
+                      />
+                      <Detail
+                        label="End"
+                        value={formatDateTime(trip.endDate)}
+                      />
                       <Detail
                         label="Registration deadline"
                         value={formatDateTime(trip.registrationDeadline)}
@@ -302,7 +380,10 @@ export default function TripManagementPage() {
                         label="Capacity"
                         value={`${trip.capacity ?? 0} participants`}
                       />
-                      <Detail label="Price" value={formatPrice(trip.price ?? 0)} />
+                      <Detail
+                        label="Price"
+                        value={formatPrice(trip.price ?? 0)}
+                      />
                     </Stack>
                   </Stack>
                 </CardContent>
@@ -354,7 +435,12 @@ export default function TripManagementPage() {
           {editingTripId ? "Edit trip details" : "Publish a new trip"}
         </DialogTitle>
         <DialogContent dividers>
-          <Stack spacing={2} component="form" id="trip-form" onSubmit={onSubmit}>
+          <Stack
+            spacing={2}
+            component="form"
+            id="trip-form"
+            onSubmit={onSubmit}
+          >
             <TextField
               label="Trip name"
               fullWidth
@@ -392,7 +478,9 @@ export default function TripManagementPage() {
                 <DateTimePicker
                   label="Start"
                   value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) => field.onChange(date?.toDate() ?? field.value)}
+                  onChange={(date) =>
+                    field.onChange(date?.toDate() ?? field.value)
+                  }
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -410,7 +498,9 @@ export default function TripManagementPage() {
                 <DateTimePicker
                   label="End"
                   value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) => field.onChange(date?.toDate() ?? field.value)}
+                  onChange={(date) =>
+                    field.onChange(date?.toDate() ?? field.value)
+                  }
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -428,12 +518,15 @@ export default function TripManagementPage() {
                 <DateTimePicker
                   label="Registration deadline"
                   value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) => field.onChange(date?.toDate() ?? field.value)}
+                  onChange={(date) =>
+                    field.onChange(date?.toDate() ?? field.value)
+                  }
                   slotProps={{
                     textField: {
                       fullWidth: true,
                       error: Boolean(formState.errors.registrationDeadline),
-                      helperText: formState.errors.registrationDeadline?.message,
+                      helperText:
+                        formState.errors.registrationDeadline?.message,
                     },
                   }}
                 />
@@ -455,7 +548,9 @@ export default function TripManagementPage() {
               inputProps={{ min: 0, step: 0.01 }}
               {...register("price", { valueAsNumber: true })}
               error={Boolean(formState.errors.price)}
-              helperText={formState.errors.price?.message ?? "Set to 0 for free trips"}
+              helperText={
+                formState.errors.price?.message ?? "Set to 0 for free trips"
+              }
             />
           </Stack>
         </DialogContent>

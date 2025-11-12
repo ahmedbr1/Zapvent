@@ -33,30 +33,64 @@ interface EventFiltersBarProps {
   value: EventFilters;
   onChange: (filters: EventFilters) => void;
   professors?: string[];
+  searchPlaceholder?: string;
+  showEventTypeFilter?: boolean;
+  showLocationFilter?: boolean;
+  showDateFilters?: boolean;
+  showProfessorFilter?: boolean;
+  showSort?: boolean;
 }
 
-export function EventFiltersBar({ value, onChange, professors = [] }: EventFiltersBarProps) {
+export function EventFiltersBar({
+  value,
+  onChange,
+  professors = [],
+  searchPlaceholder = "Search by event or professor name",
+  showEventTypeFilter = true,
+  showLocationFilter = true,
+  showDateFilters = true,
+  showProfessorFilter = true,
+  showSort = true,
+}: EventFiltersBarProps) {
   const activeFilters = useMemo(() => {
     const filters: Array<{ label: string; key: keyof EventFilters }> = [];
-    if (value.eventType && value.eventType !== "All") {
+    if (showEventTypeFilter && value.eventType && value.eventType !== "All") {
       filters.push({ label: value.eventType, key: "eventType" });
     }
-    if (value.location && value.location !== "All") {
+    if (showLocationFilter && value.location && value.location !== "All") {
       filters.push({ label: value.location, key: "location" });
     }
-    if (value.professor) {
-      filters.push({ label: `Professor: ${value.professor}`, key: "professor" });
+    if (showProfessorFilter && value.professor) {
+      filters.push({
+        label: `Professor: ${value.professor}`,
+        key: "professor",
+      });
     }
-    if (value.startDate) {
-      filters.push({ label: `From ${dayjs(value.startDate).format("MMM D")}`, key: "startDate" });
+    if (showDateFilters && value.startDate) {
+      filters.push({
+        label: `From ${dayjs(value.startDate).format("MMM D")}`,
+        key: "startDate",
+      });
     }
-    if (value.endDate) {
-      filters.push({ label: `Until ${dayjs(value.endDate).format("MMM D")}`, key: "endDate" });
+    if (showDateFilters && value.endDate) {
+      filters.push({
+        label: `Until ${dayjs(value.endDate).format("MMM D")}`,
+        key: "endDate",
+      });
     }
     return filters;
-  }, [value]);
+  }, [
+    value,
+    showDateFilters,
+    showEventTypeFilter,
+    showLocationFilter,
+    showProfessorFilter,
+  ]);
 
-  const setFilter = <K extends keyof EventFilters>(key: K, filterValue: EventFilters[K]) => {
+  const setFilter = <K extends keyof EventFilters>(
+    key: K,
+    filterValue: EventFilters[K]
+  ) => {
     onChange({ ...value, [key]: filterValue });
   };
 
@@ -89,11 +123,18 @@ export function EventFiltersBar({ value, onChange, professors = [] }: EventFilte
   };
 
   return (
-    <Stack spacing={2} sx={{ p: 2.5, borderRadius: 3, backgroundColor: "#FFFFFF", mb: 3 }}>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="stretch">
+    <Stack
+      spacing={2}
+      sx={{ p: 2.5, borderRadius: 3, backgroundColor: "#FFFFFF", mb: 3 }}
+    >
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={2}
+        alignItems="stretch"
+      >
         <TextField
           fullWidth
-          placeholder="Search by event or professor name"
+          placeholder={searchPlaceholder}
           value={value.search}
           onChange={(event) => setFilter("search", event.target.value)}
           InputProps={{
@@ -104,96 +145,139 @@ export function EventFiltersBar({ value, onChange, professors = [] }: EventFilte
             ),
             endAdornment: value.search ? (
               <InputAdornment position="end">
-                <IconButton onClick={() => setFilter("search", "")} aria-label="Clear search">
+                <IconButton
+                  onClick={() => setFilter("search", "")}
+                  aria-label="Clear search"
+                >
                   <ClearIcon fontSize="small" />
                 </IconButton>
               </InputAdornment>
             ) : undefined,
           }}
         />
-        <TextField
-          select
-          label="Event type"
-          value={value.eventType ?? "All"}
-          onChange={(event) => setFilter("eventType", event.target.value as EventFilters["eventType"])}
-          sx={{ minWidth: { md: 160 } }}
-        >
-          <MenuItem value="All">All</MenuItem>
-          {Object.values(EventType).map((type) => (
-            <MenuItem key={type} value={type}>
-              {type}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Location"
-          value={value.location ?? "All"}
-          onChange={(event) => setFilter("location", event.target.value as EventFilters["location"])}
-          sx={{ minWidth: { md: 160 } }}
-        >
-          <MenuItem value="All">All</MenuItem>
-          {Object.values(Location).map((loc) => (
-            <MenuItem key={loc} value={loc}>
-              {loc}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Sort by date"
-          value={value.sortOrder}
-          onChange={(event) => setFilter("sortOrder", event.target.value as EventFilters["sortOrder"])}
-          sx={{ minWidth: { md: 160 } }}
-        >
-          <MenuItem value="asc">Soonest first</MenuItem>
-          <MenuItem value="desc">Latest first</MenuItem>
-        </TextField>
-      </Stack>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} flexGrow={1}>
-          <DatePicker
-            label="Start date"
-            value={value.startDate ? dayjs(value.startDate) : null}
-            onChange={(date: Dayjs | null) =>
-              setFilter("startDate", date ? date.toISOString() : null)
+        {showEventTypeFilter ? (
+          <TextField
+            select
+            label="Event type"
+            value={value.eventType ?? "All"}
+            onChange={(event) =>
+              setFilter(
+                "eventType",
+                event.target.value as EventFilters["eventType"]
+              )
             }
-            slotProps={{
-              textField: {
-                fullWidth: true,
-              },
-            }}
-          />
-          <DatePicker
-            label="End date"
-            value={value.endDate ? dayjs(value.endDate) : null}
-            onChange={(date: Dayjs | null) => setFilter("endDate", date ? date.toISOString() : null)}
-            slotProps={{
-              textField: {
-                fullWidth: true,
-              },
-            }}
-          />
-        </Stack>
-        <TextField
-          select
-          label="Professor"
-          value={value.professor ?? ""}
-          onChange={(event) => setFilter("professor", event.target.value)}
-          sx={{ minWidth: { md: 200 } }}
-        >
-          <MenuItem value="">All professors</MenuItem>
-          {professors.map((professor) => (
-            <MenuItem key={professor} value={professor}>
-              {professor}
-            </MenuItem>
-          ))}
-        </TextField>
+            sx={{ minWidth: { md: 160 } }}
+          >
+            <MenuItem value="All">All</MenuItem>
+            {Object.values(EventType).map((type) => (
+              <MenuItem key={type} value={type}>
+                {type}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : null}
+        {showLocationFilter ? (
+          <TextField
+            select
+            label="Location"
+            value={value.location ?? "All"}
+            onChange={(event) =>
+              setFilter(
+                "location",
+                event.target.value as EventFilters["location"]
+              )
+            }
+            sx={{ minWidth: { md: 160 } }}
+          >
+            <MenuItem value="All">All</MenuItem>
+            {Object.values(Location).map((loc) => (
+              <MenuItem key={loc} value={loc}>
+                {loc}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : null}
+        {showSort ? (
+          <TextField
+            select
+            label="Sort by date"
+            value={value.sortOrder}
+            onChange={(event) =>
+              setFilter(
+                "sortOrder",
+                event.target.value as EventFilters["sortOrder"]
+              )
+            }
+            sx={{ minWidth: { md: 160 } }}
+          >
+            <MenuItem value="asc">Soonest first</MenuItem>
+            <MenuItem value="desc">Latest first</MenuItem>
+          </TextField>
+        ) : null}
+      </Stack>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={2}
+        alignItems={{ xs: "stretch", md: "center" }}
+      >
+        {showDateFilters ? (
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            flexGrow={1}
+          >
+            <DatePicker
+              label="Start date"
+              value={value.startDate ? dayjs(value.startDate) : null}
+              onChange={(date: Dayjs | null) =>
+                setFilter("startDate", date ? date.toISOString() : null)
+              }
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                },
+              }}
+            />
+            <DatePicker
+              label="End date"
+              value={value.endDate ? dayjs(value.endDate) : null}
+              onChange={(date: Dayjs | null) =>
+                setFilter("endDate", date ? date.toISOString() : null)
+              }
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                },
+              }}
+            />
+          </Stack>
+        ) : (
+          <Box flexGrow={1} />
+        )}
+        {showProfessorFilter ? (
+          <TextField
+            select
+            label="Professor"
+            value={value.professor ?? ""}
+            onChange={(event) => setFilter("professor", event.target.value)}
+            sx={{ minWidth: { md: 200 } }}
+          >
+            <MenuItem value="">All professors</MenuItem>
+            {professors.map((professor) => (
+              <MenuItem key={professor} value={professor}>
+                {professor}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : null}
         <Button
           onClick={handleResetAll}
           color="primary"
           variant="text"
-          sx={{ alignSelf: { xs: "stretch", md: "center" }, whiteSpace: "nowrap" }}
+          sx={{
+            alignSelf: { xs: "stretch", md: "center" },
+            whiteSpace: "nowrap",
+          }}
         >
           Reset filters
         </Button>
