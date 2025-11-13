@@ -222,7 +222,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     },
   });
 
-  const workshops = data ?? [];
+  const workshops = useMemo(() => data ?? [], [data]);
   const professorOptions = useMemo<ProfessorSummary[]>(
     () => professorsQuery.data ?? [],
     [professorsQuery.data]

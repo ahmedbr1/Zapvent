@@ -153,7 +153,10 @@ export default function EventsOfficeGymSessionsPage() {
       fetchGymSchedule(selectedYear, selectedMonth + 1, token ?? undefined),
     enabled: Boolean(token && canManage),
   });
-  const sessions = scheduleQuery.data ?? [];
+  const sessions = useMemo(
+    () => scheduleQuery.data ?? [],
+    [scheduleQuery.data]
+  );
   const filteredSessions = useMemo(
     () =>
       filterAndSortEvents(sessions, filters, {
