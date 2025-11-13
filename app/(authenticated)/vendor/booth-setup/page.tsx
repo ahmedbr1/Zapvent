@@ -30,7 +30,7 @@ import { apiFetch } from "@/lib/api-client";
 import { BazaarBoothSize } from "@/server/models/Event";
 
 interface BoothSetup {
-  id: string;
+  eventId: string;
   eventName: string;
   eventDate: string;
   boothLocation: string;
@@ -204,7 +204,7 @@ export default function VendorBoothSetupPage() {
       ) : (
         <Grid container spacing={3}>
           {boothsQuery.data?.map((booth) => (
-            <Grid key={booth.id} size={{ xs: 12, md: 6, lg: 4 }}>
+            <Grid key={booth.eventId} size={{ xs: 12, md: 6, lg: 4 }}>
               <Card
                 sx={{
                   height: "100%",

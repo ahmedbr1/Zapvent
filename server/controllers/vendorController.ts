@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 import { VendorStatus, VendorAttendee } from "../models/Vendor";
-import type { IVendor } from "../models/Vendor";
 import { BazaarBoothSize } from "../models/Event";
 import { imageSync } from "qr-image";
 import fs from "fs";
@@ -53,6 +52,13 @@ function parseAttendeesFromRequest(
     }
   }
 
+  if (attendeesPayload === undefined || attendeesPayload === null) {
+    return {
+      success: true,
+      attendees: [],
+    };
+  }
+
   let attendeesArray: unknown;
   if (typeof attendeesPayload === "string") {
     try {
@@ -76,8 +82,8 @@ function parseAttendeesFromRequest(
 
   if (attendeesArray.length === 0) {
     return {
-      success: false,
-      message: "At least one attendee is required.",
+      success: true,
+      attendees: [],
     };
   }
 
@@ -223,56 +229,6 @@ export class VendorController {
       }
 
       const body = (req.body ?? {}) as Record<string, unknown>;
-
-      // Support a simplified frontend payload where `attendees` is a number
-      // (number of attendees). In that case, build a minimal attendees array
-      // using the vendor's stored documents (taxCard/documents) as id paths.
-      // This keeps the existing file-upload flow intact while allowing the
-      // simple vendor UI to submit a numeric attendees value.
-      if (
-        (typeof body.attendees === "number" &&
-          Number.isFinite(body.attendees)) ||
-        (typeof body.attendees === "string" && /^\d+$/.test(body.attendees))
-      ) {
-        try {
-          const numAttendees = Number(body.attendees);
-          if (numAttendees < 1 || numAttendees > 5) {
-            return res.status(400).json({
-              success: false,
-              message: "Attendees must be between 1 and 5",
-            });
-          }
-
-          // Load vendor record to find any uploaded ID documents to reuse
-          const vendorRecord = (await (vendorService.getVendorRawRecord
-            ? vendorService.getVendorRawRecord(vendorId)
-            : null)) as Partial<IVendor> | null;
-
-          const idPathFallback =
-            (vendorRecord &&
-              (vendorRecord.taxCard || vendorRecord.documents)) ||
-            undefined;
-
-          const generated = Array.from({ length: numAttendees }).map(
-            (_, i) => ({
-              name: vendorRecord?.companyName || `Attendee ${i + 1}`,
-              email: vendorRecord?.email || (req.user?.email ?? ""),
-              idDocumentPath: idPathFallback,
-            })
-          );
-
-          // Place JSON string into body so parseAttendeesFromRequest can parse it
-          (req as AuthRequest).body = {
-            ...req.body,
-            attendees: JSON.stringify(generated),
-          };
-        } catch (err) {
-          console.error("Failed to synthesize attendees array:", err);
-          return res
-            .status(500)
-            .json({ success: false, message: "Failed to process attendees" });
-        }
-      }
 
       console.log("=== Apply to Bazaar Request ===");
       console.log("Vendor ID:", vendorId);

@@ -47,14 +47,13 @@ function ApplyDialog({
   vendorEmail,
   companyName,
 }: ApplyDialogProps) {
-  const [attendees, setAttendees] = useState("");
   const [boothSize, setBoothSize] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
   const token = useAuthToken();
 
   const handleSubmit = async () => {
-    if (!attendees || !boothSize || !bazaar) {
+    if (!boothSize || !bazaar) {
       enqueueSnackbar("Please fill in all required fields", {
         variant: "error",
       });
@@ -71,27 +70,10 @@ function ApplyDialog({
       return;
     }
 
-    const attendeesNum = parseInt(attendees);
-    if (attendeesNum > 5) {
-      enqueueSnackbar("Maximum 5 attendees allowed per booth", {
-        variant: "error",
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      // Build minimal attendee objects (names/emails) for server parsing
-      const generatedAttendees = Array.from({ length: attendeesNum }).map(
-        (_, i) => ({
-          name: companyName || `Attendee ${i + 1}`,
-          email: vendorEmail || "",
-        })
-      );
-
       const body: Record<string, unknown> = {
         eventId: bazaar.id,
-        attendees: generatedAttendees,
         boothSize: boothSize,
         vendorEmail,
         companyName,
@@ -114,7 +96,6 @@ function ApplyDialog({
         onSuccess();
         onClose();
         // Reset form
-        setAttendees("");
         setBoothSize("");
       } else {
         enqueueSnackbar(response.message || "Failed to submit application", {

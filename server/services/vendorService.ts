@@ -99,6 +99,69 @@ function sanitizePromoCode(value: string): string {
   return value.trim().replace(/\s+/g, "-").toUpperCase();
 }
 
+const VALID_BOOTH_SIZES = new Map<string, BazaarBoothSize>(
+  Object.values(BazaarBoothSize).map((size) => [size.toLowerCase(), size])
+);
+
+function normalizeBoothSize(value: unknown): BazaarBoothSize {
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+
+    const directMatch = VALID_BOOTH_SIZES.get(trimmed);
+    if (directMatch) {
+      return directMatch;
+    }
+
+    if (
+      trimmed.includes("4x4") ||
+      trimmed.includes("4") ||
+      trimmed.includes("large")
+    ) {
+      return BazaarBoothSize.LARGE;
+    }
+
+    if (
+      trimmed.includes("2x2") ||
+      trimmed.includes("small") ||
+      trimmed.includes("standard")
+    ) {
+      return BazaarBoothSize.SMALL;
+    }
+  }
+
+  if (typeof value === "number") {
+    return value >= 4 ? BazaarBoothSize.LARGE : BazaarBoothSize.SMALL;
+  }
+
+  return BazaarBoothSize.SMALL;
+}
+
+function sanitizeVendorApplicationsBoothSizes(
+  vendor: HydratedDocument<IVendor> | null | undefined
+) {
+  if (!vendor || !Array.isArray(vendor.applications)) {
+    return;
+  }
+
+  let mutated = false;
+  const applications = vendor.applications as Array<
+    BazaarApplication & { boothSize?: string | number }
+  >;
+
+  for (const application of applications) {
+    if (!application) continue;
+    const normalized = normalizeBoothSize(application.boothSize);
+    if (application.boothSize !== normalized) {
+      application.boothSize = normalized;
+      mutated = true;
+    }
+  }
+
+  if (mutated && typeof vendor.markModified === "function") {
+    vendor.markModified("applications");
+  }
+}
+
 function serializeLoyaltyProgram(loyalty?: LoyaltyProgramDetails | null):
   | (Omit<LoyaltyProgramDetails, "appliedAt" | "cancelledAt"> & {
       appliedAt?: Date;
@@ -305,7 +368,7 @@ export async function applyToBazaar(
   vendorId: string,
   applicationData: {
     eventId: string;
-    attendees: VendorAttendee[];
+    attendees?: VendorAttendee[];
     boothSize: BazaarBoothSize;
     hasPaid?: boolean;
     boothInfo?: {
@@ -337,55 +400,49 @@ export async function applyToBazaar(
       return { success: false, message: "Event is not a bazaar" };
     }
 
-    // Validate attendees count (1..5)
-    if (
-      !Array.isArray(applicationData.attendees) ||
-      applicationData.attendees.length < 1
-    ) {
-      console.log("Invalid attendees array:", applicationData.attendees);
-      return { success: false, message: "At least 1 attendee is required" };
-    }
-    // Validate attendees count (max 5)
-    if (applicationData.attendees.length > 5) {
+    const attendeesArray = Array.isArray(applicationData.attendees)
+      ? applicationData.attendees.filter((attendee) => Boolean(attendee))
+      : [];
+    const boothSize = normalizeBoothSize(applicationData.boothSize);
+
+    if (attendeesArray.length > 5) {
       return { success: false, message: "Maximum 5 attendees allowed" };
     }
 
-    const invalidAttendee = applicationData.attendees.find((attendee) => {
-      if (!attendee || typeof attendee !== "object") {
-        return true;
-      }
-      const { name, email, idDocumentPath } = attendee;
-      if (!name || !email) {
-        return true;
-      }
+    if (attendeesArray.length > 0) {
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(email)) {
-        return true;
-      }
-      return !idDocumentPath;
-    });
+      const seenEmails = new Set<string>();
 
-    if (invalidAttendee) {
-      return {
-        success: false,
-        message:
-          "Each attendee must include a valid name, email, and uploaded ID document.",
-      };
-    }
+      for (const attendee of attendeesArray) {
+        if (!attendee || typeof attendee !== "object") {
+          return {
+            success: false,
+            message: "Invalid attendee information provided.",
+          };
+        }
 
-    const seenEmails = new Set<string>();
-    for (const attendee of applicationData.attendees) {
-      const email = attendee.email.toLowerCase();
-      if (seenEmails.has(email)) {
-        return {
-          success: false,
-          message: "Duplicate attendee email addresses are not allowed.",
-        };
+        const { name, email } = attendee;
+        if (!name || !email || !emailPattern.test(email)) {
+          return {
+            success: false,
+            message:
+              "Each attendee must include a valid name and email address.",
+          };
+        }
+
+        const normalizedEmail = email.toLowerCase();
+        if (seenEmails.has(normalizedEmail)) {
+          return {
+            success: false,
+            message: "Duplicate attendee email addresses are not allowed.",
+          };
+        }
+
+        seenEmails.add(normalizedEmail);
       }
-      seenEmails.add(email);
     }
     // Validate booth size
-    if (!Object.values(BazaarBoothSize).includes(applicationData.boothSize)) {
+    if (!Object.values(BazaarBoothSize).includes(boothSize)) {
       return { success: false, message: "Invalid boothSize" };
     }
 
@@ -442,8 +499,8 @@ export async function applyToBazaar(
       eventId: new Types.ObjectId(applicationData.eventId),
       status: VendorStatus.PENDING,
       applicationDate: new Date(),
-      attendees: applicationData.attendees,
-      boothSize: applicationData.boothSize,
+      attendees: attendeesArray,
+      boothSize,
       hasPaid: Boolean(applicationData.hasPaid),
       ...(boothInfoToSave ? { boothInfo: boothInfoToSave } : {}),
     };
@@ -465,7 +522,6 @@ export async function applyToBazaar(
       { $push: { applications: newApplication } },
       {
         new: true,
-        runValidators: true,
         projection: { applications: { $slice: -1 } }, // return only the inserted subdoc
       }
     );
@@ -484,7 +540,7 @@ export async function applyToBazaar(
     console.log("Application saved successfully!");
 
     // Update event capacity - decrease available spots
-    const numAttendees = applicationData.attendees.length;
+    const numAttendees = attendeesArray.length;
     await EventModel.findByIdAndUpdate(applicationData.eventId, {
       $inc: { capacity: -numAttendees },
     });
@@ -542,6 +598,7 @@ export async function cancelBazaarApplication(
     const attendeesCount = application.attendees?.length ?? 0;
     applications.splice(applicationIndex, 1);
     vendor.applications = applications;
+    sanitizeVendorApplicationsBoothSizes(vendor);
     await vendor.save();
 
     if (attendeesCount > 0) {
@@ -736,6 +793,7 @@ export async function updateBazaarApplicationStatus(options: {
       });
     }
 
+    sanitizeVendorApplicationsBoothSizes(vendor);
     vendor.markModified("applications");
     await vendor.save();
 
@@ -888,6 +946,7 @@ export async function recordVendorPayment(options: {
 
     application.qrCodes = qrCodes;
 
+    sanitizeVendorApplicationsBoothSizes(vendor);
     vendor.markModified("applications");
     await vendor.save();
 
@@ -1031,6 +1090,7 @@ export async function updateApplicationAttendees(options: {
       });
     }
 
+    sanitizeVendorApplicationsBoothSizes(vendor);
     vendor.markModified("applications");
     await vendor.save();
 
