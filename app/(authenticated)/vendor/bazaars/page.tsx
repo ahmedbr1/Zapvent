@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -29,6 +29,12 @@ import { fetchVendorProfile } from "@/lib/services/vendor";
 import { formatDateTime } from "@/lib/date";
 import { apiFetch } from "@/lib/api-client";
 import type { EventSummary } from "@/lib/types";
+
+const VENDOR_CACHE_SETTINGS = {
+  staleTime: 5 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const;
 
 interface ApplyDialogProps {
   open: boolean;
@@ -80,15 +86,19 @@ function ApplyDialog({
         companyName,
       };
 
-      console.log("=== Submitting Application ===");
-      console.log("Token:", token ? "Present" : "Missing");
+      if (process.env.NODE_ENV !== "production") {
+        console.log("=== Submitting Application ===");
+        console.log("Token:", token ? "Present" : "Missing");
+      }
 
       const response = (await apiFetch("/vendors/apply-bazaar", {
         method: "POST",
         body: body,
         token: token ?? undefined,
       })) as { success: boolean; message?: string };
-      console.log("Response:", response);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Response:", response);
+      }
 
       if (response.success) {
         enqueueSnackbar("Application submitted successfully!", {
@@ -214,13 +224,15 @@ export default function VendorBazaarsPage() {
     queryKey: ["bazaars", token],
     queryFn: () => fetchUpcomingBazaars(token ?? undefined),
     enabled: Boolean(token),
+    ...VENDOR_CACHE_SETTINGS,
   });
 
   // Fetch vendor profile to get company name
   const profileQuery = useQuery({
-    queryKey: ["vendorProfile"],
+    queryKey: ["vendorProfile", token],
     queryFn: () => fetchVendorProfile(token || ""),
     enabled: Boolean(token),
+    ...VENDOR_CACHE_SETTINGS,
   });
 
   // Fetch vendor applications to check which bazaars already applied to
@@ -237,12 +249,19 @@ export default function VendorBazaarsPage() {
       return response.success ? response.data : [];
     },
     enabled: Boolean(token),
+    ...VENDOR_CACHE_SETTINGS,
   });
 
+  const appliedEventIds = useMemo(() => {
+    const entries = applicationsQuery.data ?? [];
+    return new Set(entries.map((app) => app.eventId));
+  }, [applicationsQuery.data]);
+
   // Check if already applied to a bazaar
-  const hasApplied = (bazaarId: string) => {
-    return applicationsQuery.data?.some((app) => app.eventId === bazaarId);
-  };
+  const hasApplied = useCallback(
+    (bazaarId: string) => appliedEventIds.has(bazaarId),
+    [appliedEventIds]
+  );
 
   // Helper function to check if bazaar is outdated
   const isBazaarOutdated = (endDate: string) => {

@@ -54,6 +54,12 @@ import {
 } from "@/components/events/EventFiltersBar";
 import { filterAndSortEvents } from "@/lib/events/filters";
 
+const WORKSHOP_QUERY_SETTINGS = {
+  staleTime: 5 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const;
+
 const workshopSchema = z
   .object({
     name: z.string().min(3, "Name must be at least 3 characters"),
@@ -161,12 +167,14 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     queryKey,
     queryFn: () => fetchMyWorkshops(token ?? undefined),
     enabled: Boolean(token && canManage),
+    ...WORKSHOP_QUERY_SETTINGS,
   });
 
   const professorsQuery = useQuery({
     queryKey: ["professors", token],
     queryFn: () => fetchProfessors(token ?? undefined),
     enabled: Boolean(token && canManage),
+    ...WORKSHOP_QUERY_SETTINGS,
   });
 
   const {

@@ -53,6 +53,12 @@ import { type GymSession, GymSessionType, AuthRole } from "@/lib/types";
 import { filterAndSortEvents } from "@/lib/events/filters";
 import type { Resolver } from "react-hook-form";
 
+const QUERY_CACHE_SETTINGS = {
+  staleTime: 5 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const;
+
 const MONTHS = [
   "January",
   "February",
@@ -152,6 +158,7 @@ export default function EventsOfficeGymSessionsPage() {
     queryFn: () =>
       fetchGymSchedule(selectedYear, selectedMonth + 1, token ?? undefined),
     enabled: Boolean(token && canManage),
+    ...QUERY_CACHE_SETTINGS,
   });
   const sessions = useMemo(
     () => scheduleQuery.data ?? [],
