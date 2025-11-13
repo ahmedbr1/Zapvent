@@ -1,17 +1,12 @@
 "use client";
-
-import { useMemo } from "react";
 import {
   Box,
-  Chip,
   Button,
-  Divider,
   IconButton,
   InputAdornment,
   MenuItem,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/SearchRounded";
 import ClearIcon from "@mui/icons-material/ClearRounded";
@@ -45,70 +40,11 @@ export function EventFiltersBar({
   showSort = true,
   sessionTypes = [],
 }: EventFiltersBarProps) {
-  const activeFilters = useMemo(() => {
-    const filters: Array<{ label: string; key: keyof EventFilters }> = [];
-    if (showEventTypeFilter && value.eventType && value.eventType !== "All") {
-      filters.push({ label: value.eventType, key: "eventType" });
-    }
-    if (showLocationFilter && value.location && value.location !== "All") {
-      filters.push({ label: value.location, key: "location" });
-    }
-    if (
-      sessionTypes.length > 0 &&
-      value.sessionType &&
-      value.sessionType !== "All"
-    ) {
-      filters.push({ label: value.sessionType, key: "sessionType" });
-    }
-    if (showProfessorFilter && value.professor) {
-      filters.push({
-        label: `Professor: ${value.professor}`,
-        key: "professor",
-      });
-    }
-    if (showDateFilters && value.startDate) {
-      filters.push({
-        label: `From ${dayjs(value.startDate).format("MMM D")}`,
-        key: "startDate",
-      });
-    }
-    if (showDateFilters && value.endDate) {
-      filters.push({
-        label: `Until ${dayjs(value.endDate).format("MMM D")}`,
-        key: "endDate",
-      });
-    }
-    return filters;
-  }, [
-    value,
-    showDateFilters,
-    showEventTypeFilter,
-    showLocationFilter,
-    showProfessorFilter,
-    sessionTypes,
-  ]);
-
   const setFilter = <K extends keyof EventFilters>(
     key: K,
     filterValue: EventFilters[K]
   ) => {
     onChange({ ...value, [key]: filterValue });
-  };
-
-  const handleClearFilter = (key: keyof EventFilters) => {
-    if (key === "eventType" || key === "location" || key === "sessionType") {
-      setFilter(key, "All" as EventFilters[typeof key]);
-      return;
-    }
-    if (key === "sortOrder") {
-      setFilter(key, "asc" as EventFilters[typeof key]);
-      return;
-    }
-    if (key === "startDate" || key === "endDate") {
-      setFilter(key, null as EventFilters[typeof key]);
-      return;
-    }
-    setFilter(key, "" as EventFilters[typeof key]);
   };
 
   const handleResetAll = () => {
@@ -305,33 +241,6 @@ export function EventFiltersBar({
           Reset filters
         </Button>
       </Stack>
-      {activeFilters.length > 0 && (
-        <>
-          <Divider />
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-              Active filters:
-            </Typography>
-            {activeFilters.map((filter) => (
-              <Chip
-                key={filter.key}
-                label={filter.label}
-                onDelete={() => handleClearFilter(filter.key)}
-                color="primary"
-                variant="outlined"
-              />
-            ))}
-            <Box flexGrow={1} />
-            <Chip
-              label="Clear all"
-              onClick={handleResetAll}
-              onDelete={handleResetAll}
-              color="secondary"
-              variant="outlined"
-            />
-          </Stack>
-        </>
-      )}
     </Stack>
   );
 }

@@ -600,7 +600,7 @@ export class VendorController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Admin"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async listVendorsForAdmin(req: AuthRequest, res: Response) {
     try {
       const result = await vendorService.findAllForAdmin();
