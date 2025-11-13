@@ -27,7 +27,7 @@ export class GymSessionController {
       const result = await cancelGymSession(id);
 
       if (!result.success) {
-        return res.status(404).json(result);
+        return res.status(500).json(result);
       }
 
       return res.status(200).json(result);
@@ -129,7 +129,7 @@ export class GymSessionController {
       });
 
       if (!result.success) {
-        return res.status(400).json(result);
+        return res.status(500).json(result);
       }
 
       return res.status(201).json(result);

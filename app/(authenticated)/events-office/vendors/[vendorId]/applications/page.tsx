@@ -4,7 +4,7 @@ import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import Card from "@mui/material/CardContent";
+import Card from "@mui/material/Card";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";

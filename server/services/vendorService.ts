@@ -138,9 +138,9 @@ function normalizeBoothSize(value: unknown): BazaarBoothSize {
 
 function sanitizeVendorApplicationsBoothSizes(
   vendor: HydratedDocument<IVendor> | null | undefined
-) {
+): boolean {
   if (!vendor || !Array.isArray(vendor.applications)) {
-    return;
+    return false;
   }
 
   let mutated = false;
@@ -160,6 +160,8 @@ function sanitizeVendorApplicationsBoothSizes(
   if (mutated && typeof vendor.markModified === "function") {
     vendor.markModified("applications");
   }
+
+  return mutated;
 }
 
 function serializeLoyaltyProgram(loyalty?: LoyaltyProgramDetails | null):
@@ -1114,12 +1116,16 @@ export async function findAllForAdmin(): Promise<{
   vendors: AdminVendorResponse[];
 }> {
   try {
-    const vendors = await vendorModel
-      .find()
-      .lean<Array<IVendor & { _id: Types.ObjectId }>>();
+    const vendorDocs = await vendorModel.find();
 
     const normalized: AdminVendorResponse[] = await Promise.all(
-      vendors.map(async (vendor) => {
+      vendorDocs.map(async (vendorDoc) => {
+        const sanitized = sanitizeVendorApplicationsBoothSizes(vendorDoc);
+        if (sanitized) await vendorDoc.save();
+
+        const vendor = vendorDoc.toObject() as IVendor & {
+          _id: Types.ObjectId;
+        };
         // Fetch event names for all applications
         const applicationsWithNames = await Promise.all(
           (vendor.applications ?? []).map(async (application) => {
