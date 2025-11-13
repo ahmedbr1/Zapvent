@@ -34,6 +34,11 @@ import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import {
+  EventFiltersBar,
+  type EventFilters,
+} from "@/components/events/EventFiltersBar";
+import { filterAndSortEvents } from "@/lib/events/filters";
+import {
   fetchConferences,
   createConference,
   updateConference,
@@ -79,8 +84,20 @@ export default function ConferenceManagementPage() {
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingConferenceId, setEditingConferenceId] = useState<string | null>(null);
+  const [editingConferenceId, setEditingConferenceId] = useState<string | null>(
+    null
+  );
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<EventFilters>({
+    search: "",
+    eventType: "All",
+    location: "All",
+    professor: "",
+    sessionType: "All",
+    startDate: null,
+    endDate: null,
+    sortOrder: "asc",
+  });
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "conferences", token ?? "public"],
@@ -93,18 +110,41 @@ export default function ConferenceManagementPage() {
       defaultValues: defaultConferenceValues(),
     });
 
-  const conferences = useMemo(() => {
-    if (!data) return [];
-    return [...data].sort(
-      (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
-    );
-  }, [data]);
+  const conferences = useMemo(
+    () =>
+      filterAndSortEvents(data, filters, {
+        getSearchValues: (conference) => [
+          conference.name,
+          conference.description,
+          conference.fullAgenda,
+          ...(conference.participatingProfessors ?? []),
+        ],
+        getStartDate: (conference) => conference.startDate,
+        getLocation: (conference) => conference.location,
+        getProfessorNames: (conference) => conference.participatingProfessors,
+      }),
+    [data, filters]
+  );
+
+  const professorOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (data ?? [])
+            .flatMap((conference) => conference.participatingProfessors ?? [])
+            .filter((name): name is string => Boolean(name))
+        )
+      ),
+    [data]
+  );
 
   const createMutation = useMutation({
     mutationFn: (payload: ConferencePayload) =>
       createConference(payload, token ?? undefined),
     onSuccess: () => {
-      enqueueSnackbar("Conference created successfully", { variant: "success" });
+      enqueueSnackbar("Conference created successfully", {
+        variant: "success",
+      });
       queryClient.invalidateQueries({ queryKey: ["events", "conferences"] });
       closeDialog();
     },
@@ -114,8 +154,13 @@ export default function ConferenceManagementPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<ConferencePayload> }) =>
-      updateConference(id, payload, token ?? undefined),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Partial<ConferencePayload>;
+    }) => updateConference(id, payload, token ?? undefined),
     onSuccess: () => {
       enqueueSnackbar("Conference updated", { variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["events", "conferences"] });
@@ -194,7 +239,9 @@ export default function ConferenceManagementPage() {
     }
   });
 
-  const actionLabel = editingConferenceId ? "Save changes" : "Create conference";
+  const actionLabel = editingConferenceId
+    ? "Save changes"
+    : "Create conference";
 
   return (
     <Stack spacing={3}>
@@ -203,19 +250,34 @@ export default function ConferenceManagementPage() {
           Conference management
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Publish and maintain major conferences with agenda, funding, and outreach details.
+          Publish and maintain major conferences with agenda, funding, and
+          outreach details.
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Signed in as <strong>{user?.name ?? user?.email ?? "your account"}</strong>. Only
+          Signed in as{" "}
+          <strong>{user?.name ?? user?.email ?? "your account"}</strong>. Only
           Events Office admins can manage conference listings.
         </Typography>
       </Stack>
+
+      <EventFiltersBar
+        value={filters}
+        onChange={setFilters}
+        showEventTypeFilter={false}
+        searchPlaceholder="Search conferences"
+        professors={professorOptions}
+        showProfessorFilter={professorOptions.length > 0}
+      />
 
       {isError ? (
         <Alert
           severity="error"
           action={
-            <Button onClick={() => refetch()} size="small" startIcon={<RefreshIcon />}>
+            <Button
+              onClick={() => refetch()}
+              size="small"
+              startIcon={<RefreshIcon />}
+            >
               Retry
             </Button>
           }
@@ -227,12 +289,22 @@ export default function ConferenceManagementPage() {
       <Grid container spacing={3}>
         {isLoading
           ? Array.from({ length: 3 }).map((_, index) => (
-              <Grid item xs={12} md={6} lg={4} key={`conference-skeleton-${index}`}>
+              <Grid
+                item
+                xs={12}
+                md={6}
+                lg={4}
+                key={`conference-skeleton-${index}`}
+              >
                 <Card sx={{ height: "100%" }}>
                   <CardContent>
                     <Skeleton variant="text" width="70%" height={32} />
                     <Skeleton variant="text" width="40%" />
-                    <Skeleton variant="rectangular" height={120} sx={{ mt: 2 }} />
+                    <Skeleton
+                      variant="rectangular"
+                      height={120}
+                      sx={{ mt: 2 }}
+                    />
                   </CardContent>
                 </Card>
               </Grid>
@@ -242,22 +314,28 @@ export default function ConferenceManagementPage() {
         {!isLoading && conferences.length === 0 ? (
           <Grid item xs={12}>
             <Alert severity="info">
-              No upcoming conferences yet. Create one to showcase GUC&apos;s research and
-              industry collaborations.
+              No upcoming conferences yet. Create one to showcase GUC&apos;s
+              research and industry collaborations.
             </Alert>
           </Grid>
         ) : null}
 
         {conferences.map((conference) => (
           <Grid item xs={12} md={6} lg={4} key={conference.id}>
-            <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <Card
+              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+            >
               <CardContent sx={{ flexGrow: 1 }}>
                 <Stack spacing={1.5}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography variant="h6" fontWeight={700}>
                       {conference.name}
                     </Typography>
-                    <Chip label={conference.location} size="small" color="primary" />
+                    <Chip
+                      label={conference.location}
+                      size="small"
+                      color="primary"
+                    />
                     {conference.fundingSource ? (
                       <Chip
                         label={conference.fundingSource}
@@ -271,8 +349,14 @@ export default function ConferenceManagementPage() {
                   </Typography>
                   <Divider />
                   <Stack spacing={1}>
-                    <Detail label="Start" value={formatDateTime(conference.startDate)} />
-                    <Detail label="End" value={formatDateTime(conference.endDate)} />
+                    <Detail
+                      label="Start"
+                      value={formatDateTime(conference.startDate)}
+                    />
+                    <Detail
+                      label="End"
+                      value={formatDateTime(conference.endDate)}
+                    />
                     <Detail
                       label="Registration deadline"
                       value={formatDateTime(conference.registrationDeadline)}
@@ -308,15 +392,23 @@ export default function ConferenceManagementPage() {
                     startIcon={<EditIcon />}
                     onClick={() => handleEditClick(conference.id)}
                     variant="outlined"
-                    disabled={deleteMutation.isPending && pendingDeleteId === conference.id}
+                    disabled={
+                      deleteMutation.isPending &&
+                      pendingDeleteId === conference.id
+                    }
                   >
                     Edit
                   </Button>
                   <Button
                     color="error"
                     startIcon={<DeleteIcon />}
-                    onClick={() => handleDeleteClick(conference.id, conference.name)}
-                    disabled={deleteMutation.isPending && pendingDeleteId === conference.id}
+                    onClick={() =>
+                      handleDeleteClick(conference.id, conference.name)
+                    }
+                    disabled={
+                      deleteMutation.isPending &&
+                      pendingDeleteId === conference.id
+                    }
                   >
                     Delete
                   </Button>
@@ -346,7 +438,9 @@ export default function ConferenceManagementPage() {
         keepMounted={false}
       >
         <DialogTitle>
-          {editingConferenceId ? "Edit conference details" : "Publish a new conference"}
+          {editingConferenceId
+            ? "Edit conference details"
+            : "Publish a new conference"}
         </DialogTitle>
         <DialogContent dividers>
           <Stack
@@ -378,7 +472,9 @@ export default function ConferenceManagementPage() {
                 <DateTimePicker
                   label="Start"
                   value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) => field.onChange(date?.toDate() ?? field.value)}
+                  onChange={(date) =>
+                    field.onChange(date?.toDate() ?? field.value)
+                  }
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -396,7 +492,9 @@ export default function ConferenceManagementPage() {
                 <DateTimePicker
                   label="End"
                   value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) => field.onChange(date?.toDate() ?? field.value)}
+                  onChange={(date) =>
+                    field.onChange(date?.toDate() ?? field.value)
+                  }
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -520,7 +618,15 @@ function mapFormToPayload(values: ConferenceFormValues): ConferencePayload {
   };
 }
 
-function Detail({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
+function Detail({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: ReactNode;
+}) {
   return (
     <Stack spacing={0.25}>
       <Stack direction="row" spacing={0.75} alignItems="center">
@@ -529,7 +635,11 @@ function Detail({ label, value, icon }: { label: string; value: string; icon?: R
         </Typography>
         {icon ?? null}
       </Stack>
-      <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ wordBreak: "break-word" }}
+      >
         {value}
       </Typography>
     </Stack>

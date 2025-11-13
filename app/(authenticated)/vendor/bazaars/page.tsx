@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -30,6 +30,12 @@ import { formatDateTime } from "@/lib/date";
 import { apiFetch } from "@/lib/api-client";
 import type { EventSummary } from "@/lib/types";
 
+const VENDOR_CACHE_SETTINGS = {
+  staleTime: 5 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const;
+
 interface ApplyDialogProps {
   open: boolean;
   bazaar: EventSummary | null;
@@ -47,14 +53,14 @@ function ApplyDialog({
   vendorEmail,
   companyName,
 }: ApplyDialogProps) {
-  const [attendees, setAttendees] = useState("");
   const [boothSize, setBoothSize] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attendees, setAttendees] = useState("");
   const { enqueueSnackbar } = useSnackbar();
   const token = useAuthToken();
 
   const handleSubmit = async () => {
-    if (!attendees || !boothSize || !bazaar) {
+    if (!boothSize || !bazaar) {
       enqueueSnackbar("Please fill in all required fields", {
         variant: "error",
       });
@@ -71,34 +77,28 @@ function ApplyDialog({
       return;
     }
 
-    const attendeesNum = parseInt(attendees);
-    if (attendeesNum > 5) {
-      enqueueSnackbar("Maximum 5 attendees allowed per booth", {
-        variant: "error",
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      const requestBody = {
+      const body: Record<string, unknown> = {
         eventId: bazaar.id,
-        attendees: attendeesNum,
         boothSize: boothSize,
         vendorEmail,
         companyName,
       };
 
-      console.log("=== Submitting Application ===");
-      console.log("Request Body:", requestBody);
-      console.log("Token:", token ? "Present" : "Missing");
+      if (process.env.NODE_ENV !== "production") {
+        console.log("=== Submitting Application ===");
+        console.log("Token:", token ? "Present" : "Missing");
+      }
 
       const response = (await apiFetch("/vendors/apply-bazaar", {
         method: "POST",
-        body: requestBody,
+        body: body,
         token: token ?? undefined,
       })) as { success: boolean; message?: string };
-      console.log("Response:", response);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Response:", response);
+      }
 
       if (response.success) {
         enqueueSnackbar("Application submitted successfully!", {
@@ -107,7 +107,6 @@ function ApplyDialog({
         onSuccess();
         onClose();
         // Reset form
-        setAttendees("");
         setBoothSize("");
       } else {
         enqueueSnackbar(response.message || "Failed to submit application", {
@@ -116,10 +115,26 @@ function ApplyDialog({
       }
     } catch (error) {
       console.error("Application submission error:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "An error occurred while submitting application";
+      // apiFetch throws plain ApiError objects (not instances of Error).
+      // Try to extract a useful message from common shapes.
+      let errorMessage = "An error occurred while submitting application";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === "object") {
+        const anyErr = error as Record<string, unknown>;
+        if (typeof anyErr.message === "string" && anyErr.message.trim()) {
+          errorMessage = anyErr.message as string;
+        } else if (typeof anyErr.status === "number") {
+          errorMessage = `Request failed (${anyErr.status})`;
+        } else {
+          try {
+            errorMessage = JSON.stringify(anyErr);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
       enqueueSnackbar(errorMessage, {
         variant: "error",
       });
@@ -178,6 +193,7 @@ function ApplyDialog({
             <option value="2x2">2x2 meters</option>
             <option value="4x4">4x4 meters</option>
           </TextField>
+          {/* We no longer accept file uploads from the client. The server will generate QR images for attendees if needed. */}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -208,13 +224,15 @@ export default function VendorBazaarsPage() {
     queryKey: ["bazaars", token],
     queryFn: () => fetchUpcomingBazaars(token ?? undefined),
     enabled: Boolean(token),
+    ...VENDOR_CACHE_SETTINGS,
   });
 
   // Fetch vendor profile to get company name
   const profileQuery = useQuery({
-    queryKey: ["vendorProfile"],
+    queryKey: ["vendorProfile", token],
     queryFn: () => fetchVendorProfile(token || ""),
     enabled: Boolean(token),
+    ...VENDOR_CACHE_SETTINGS,
   });
 
   // Fetch vendor applications to check which bazaars already applied to
@@ -231,12 +249,19 @@ export default function VendorBazaarsPage() {
       return response.success ? response.data : [];
     },
     enabled: Boolean(token),
+    ...VENDOR_CACHE_SETTINGS,
   });
 
+  const appliedEventIds = useMemo(() => {
+    const entries = applicationsQuery.data ?? [];
+    return new Set(entries.map((app) => app.eventId));
+  }, [applicationsQuery.data]);
+
   // Check if already applied to a bazaar
-  const hasApplied = (bazaarId: string) => {
-    return applicationsQuery.data?.some((app) => app.eventId === bazaarId);
-  };
+  const hasApplied = useCallback(
+    (bazaarId: string) => appliedEventIds.has(bazaarId),
+    [appliedEventIds]
+  );
 
   // Helper function to check if bazaar is outdated
   const isBazaarOutdated = (endDate: string) => {

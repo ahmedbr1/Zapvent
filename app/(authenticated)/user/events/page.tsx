@@ -17,10 +17,14 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
-import { fetchUpcomingEvents, registerForWorkshop } from "@/lib/services/events";
+import {
+  fetchUpcomingEvents,
+  registerForWorkshop,
+} from "@/lib/services/events";
 import { EventType, type EventSummary } from "@/lib/types";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
+import { filterAndSortEvents } from "@/lib/events/filters";
 
 const PAGE_SIZE = 6;
 
@@ -29,6 +33,7 @@ const INITIAL_FILTERS: EventFilters = {
   eventType: "All",
   location: "All",
   professor: "",
+  sessionType: "All",
   startDate: null,
   endDate: null,
   sortOrder: "asc",
@@ -54,7 +59,14 @@ export default function UserEventsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [filters.search, filters.eventType, filters.location, filters.professor, filters.startDate, filters.endDate]);
+  }, [
+    filters.search,
+    filters.eventType,
+    filters.location,
+    filters.professor,
+    filters.startDate,
+    filters.endDate,
+  ]);
 
   useEffect(() => {
     if (eventsQuery.data) {
@@ -73,55 +85,28 @@ export default function UserEventsPage() {
   const professors = useMemo(() => {
     const names = new Set<string>();
     (eventsQuery.data ?? []).forEach((event) => {
-      event.participatingProfessors?.forEach((professor) => names.add(professor));
+      event.participatingProfessors?.forEach((professor) =>
+        names.add(professor)
+      );
     });
     return Array.from(names).sort();
   }, [eventsQuery.data]);
 
-  const filteredEvents = useMemo(() => {
-    if (!eventsQuery.data) return [];
-    return eventsQuery.data
-      .filter((event) => {
-        if (filters.eventType && filters.eventType !== "All" && event.eventType !== filters.eventType) {
-          return false;
-        }
-        if (filters.location && filters.location !== "All" && event.location !== filters.location) {
-          return false;
-        }
-        if (filters.professor) {
-          const professorsLower =
-            event.participatingProfessors?.map((professor) => professor.toLowerCase()) ?? [];
-          const professorFilter = filters.professor.toLowerCase();
-          if (!professorsLower.some((name) => name.includes(professorFilter))) {
-            return false;
-          }
-        }
-        if (filters.search) {
-          const haystack = [
-            event.name,
-            event.description,
-            ...(event.participatingProfessors ?? []),
-          ]
-            .join(" ")
-            .toLowerCase();
-          if (!haystack.includes(filters.search.toLowerCase())) {
-            return false;
-          }
-        }
-        if (filters.startDate && new Date(event.startDate) < new Date(filters.startDate)) {
-          return false;
-        }
-        if (filters.endDate && new Date(event.startDate) > new Date(filters.endDate)) {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        const delta =
-          new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-        return filters.sortOrder === "asc" ? delta : -delta;
-      });
-  }, [eventsQuery.data, filters]);
+  const filteredEvents = useMemo(
+    () =>
+      filterAndSortEvents(eventsQuery.data ?? [], filters, {
+        getEventType: (event) => event.eventType,
+        getLocation: (event) => event.location,
+        getStartDate: (event) => event.startDate,
+        getProfessorNames: (event) => event.participatingProfessors ?? [],
+        getSearchValues: (event) => [
+          event.name,
+          event.description,
+          ...(event.participatingProfessors ?? []),
+        ],
+      }),
+    [eventsQuery.data, filters]
+  );
 
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
   const paginatedEvents = filteredEvents.slice(
@@ -185,7 +170,8 @@ export default function UserEventsPage() {
     }
 
     const supportsRegistration =
-      event.eventType === EventType.Workshop || event.eventType === EventType.Trip;
+      event.eventType === EventType.Workshop ||
+      event.eventType === EventType.Trip;
 
     if (!supportsRegistration) {
       enqueueSnackbar("Only workshops and trips support online registration.", {
@@ -217,7 +203,8 @@ export default function UserEventsPage() {
             Explore Events
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Browse upcoming workshops, trips, conferences, and bazaars tailored for the GUC community.
+            Browse upcoming workshops, trips, conferences, and bazaars tailored
+            for the GUC community.
           </Typography>
         </Box>
         <Button
@@ -240,7 +227,11 @@ export default function UserEventsPage() {
         <Grid container spacing={3}>
           {Array.from({ length: PAGE_SIZE }).map((_, index) => (
             <Grid key={index} size={{ xs: 12, md: 6, lg: 4 }}>
-              <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 3 }} />
+              <Skeleton
+                variant="rectangular"
+                height={280}
+                sx={{ borderRadius: 3 }}
+              />
             </Grid>
           ))}
         </Grid>
@@ -248,12 +239,17 @@ export default function UserEventsPage() {
         <Alert
           severity="error"
           action={
-            <Button color="inherit" size="small" onClick={() => eventsQuery.refetch()}>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => eventsQuery.refetch()}
+            >
               Retry
             </Button>
           }
         >
-          Failed to load events. {eventsQuery.error instanceof Error ? eventsQuery.error.message : ""}
+          Failed to load events.{" "}
+          {eventsQuery.error instanceof Error ? eventsQuery.error.message : ""}
         </Alert>
       ) : filteredEvents.length === 0 ? (
         <Box
@@ -271,7 +267,10 @@ export default function UserEventsPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Try adjusting filters or resetting them to see all upcoming events.
           </Typography>
-          <Button onClick={() => setFilters({ ...INITIAL_FILTERS })} sx={{ mt: 3 }}>
+          <Button
+            onClick={() => setFilters({ ...INITIAL_FILTERS })}
+            sx={{ mt: 3 }}
+          >
             Reset filters
           </Button>
         </Box>
@@ -286,7 +285,8 @@ export default function UserEventsPage() {
                 isRegistered,
               };
               const isRegisterable =
-                event.eventType === EventType.Workshop || event.eventType === EventType.Trip;
+                event.eventType === EventType.Workshop ||
+                event.eventType === EventType.Trip;
               const isPendingRegistration =
                 pendingEventId === event.id && registerMutation.isPending;
 

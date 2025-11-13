@@ -22,27 +22,26 @@ export interface VendorProfileResponse {
 }
 
 export async function fetchVendorProfile(
-  token: string
+  token?: string
 ): Promise<VendorProfileResponse> {
-  return apiFetch("/vendors/profile", {
+  return apiFetch<VendorProfileResponse>("/vendors/profile", {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    token: token ?? undefined,
   });
 }
 
 export async function updateVendorProfile(
   data: UpdateVendorProfileData,
-  token: string
+  token?: string
 ): Promise<VendorProfileResponse> {
-  return apiFetch("/vendors/profile", {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
+  // Pass the body as an object and use the token option so apiFetch can
+  // handle serialization and Authorization header consistently.
+  return apiFetch<VendorProfileResponse, UpdateVendorProfileData>(
+    "/vendors/profile",
+    {
+      method: "PATCH",
+      body: data,
+      token: token ?? undefined,
+    }
+  );
 }

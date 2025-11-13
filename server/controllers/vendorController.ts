@@ -5,6 +5,9 @@ import type { AuthRequest } from "../middleware/authMiddleware";
 import { LoginRequired, AllowedRoles } from "../middleware/authDecorators";
 import { VendorStatus, VendorAttendee } from "../models/Vendor";
 import { BazaarBoothSize } from "../models/Event";
+import { imageSync } from "qr-image";
+import fs from "fs";
+import path from "path";
 interface UploadedFile {
   path?: string;
 }
@@ -49,6 +52,13 @@ function parseAttendeesFromRequest(
     }
   }
 
+  if (attendeesPayload === undefined || attendeesPayload === null) {
+    return {
+      success: true,
+      attendees: [],
+    };
+  }
+
   let attendeesArray: unknown;
   if (typeof attendeesPayload === "string") {
     try {
@@ -72,8 +82,8 @@ function parseAttendeesFromRequest(
 
   if (attendeesArray.length === 0) {
     return {
-      success: false,
-      message: "At least one attendee is required.",
+      success: true,
+      attendees: [],
     };
   }
 
@@ -102,13 +112,36 @@ function parseAttendeesFromRequest(
 
     const fallbackEmail = req.user?.email ?? "";
     const attendeeEmail = (email ?? fallbackEmail).trim();
-    const assignedPath = idDocumentPath || idFiles[index]?.path;
+    let assignedPath = idDocumentPath || idFiles[index]?.path;
 
     if (!assignedPath) {
-      return {
-        success: false,
-        message: `Missing ID document for attendee #${index + 1}.`,
-      };
+      // Generate a QR image for this attendee and save it to uploads/
+      try {
+        const uploadsDir = path.join(process.cwd(), "uploads");
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const vendorId = req.user?.id ?? "unknown";
+        const filename = `attendee-${vendorId}-${Date.now()}-${index}.png`;
+        const filePath = path.join(uploadsDir, filename);
+
+        const payload = JSON.stringify({
+          name: name ?? "Attendee",
+          email: email ?? "",
+        });
+        const pngBuffer = imageSync(payload, { type: "png" }) as Buffer;
+        fs.writeFileSync(filePath, pngBuffer);
+
+        // Use relative path for storage consistency with uploaded files
+        assignedPath = `uploads/${filename}`;
+      } catch (err) {
+        console.error("Failed to generate QR image for attendee:", err);
+        return {
+          success: false,
+          message: `Missing ID document for attendee #${index + 1} and failed to generate QR.`,
+        };
+      }
     }
 
     normalizedAttendees.push({
@@ -347,10 +380,18 @@ export class VendorController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Admin"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async updateBazaarApplicationStatus(req: AuthRequest, res: Response) {
     try {
       const { vendorId, eventId, status, reason } = req.body;
+
+      console.log("Update bazaar application status request:", {
+        vendorId,
+        eventId,
+        status,
+        hasUser: !!req.user,
+        userRole: req.user?.role,
+      });
 
       if (!vendorId || !eventId || !status) {
         return res.status(400).json({
@@ -359,19 +400,37 @@ export class VendorController {
         });
       }
 
-      if (![VendorStatus.APPROVED, VendorStatus.REJECTED].includes(status)) {
+      // Normalize status to lowercase for comparison
+      const normalizedStatus = String(status).toLowerCase().trim();
+
+      // Validate status
+      if (
+        normalizedStatus !== VendorStatus.APPROVED &&
+        normalizedStatus !== VendorStatus.REJECTED
+      ) {
         return res.status(400).json({
           success: false,
-          message: "Status must be 'approved' or 'rejected'",
+          message: `Status must be 'approved' or 'rejected'. Received: '${normalizedStatus}'`,
         });
       }
+
+      // Cast to VendorStatus enum
+      const applicationStatus = normalizedStatus as VendorStatus;
+
+      console.log("Calling vendorService.updateBazaarApplicationStatus with:", {
+        vendorId,
+        eventId,
+        status: applicationStatus,
+      });
 
       const result = await vendorService.updateBazaarApplicationStatus({
         vendorId,
         eventId,
-        status,
+        status: applicationStatus,
         reason,
       });
+
+      console.log("Service result:", result);
 
       const statusCode = result.success
         ? 200
@@ -382,9 +441,15 @@ export class VendorController {
       return res.status(statusCode).json(result);
     } catch (error) {
       console.error("Update bazaar application status error:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Internal server error";
       return res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: errorMessage,
       });
     }
   }
@@ -491,7 +556,7 @@ export class VendorController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Admin"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async listVendorsForAdmin(req: AuthRequest, res: Response) {
     try {
       const result = await vendorService.findAllForAdmin();

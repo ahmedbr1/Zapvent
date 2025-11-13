@@ -85,10 +85,22 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.Admin],
   },
   {
+    label: "Vendor Applications",
+    href: "/events-office/vendors",
+    icon: StorefrontIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
     label: "Bazaar Management",
     href: "/events-office/bazaars",
     icon: StorefrontIcon,
     roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Bazaar Management",
+    href: "/admin/bazaars",
+    icon: StorefrontIcon,
+    roles: [AuthRole.Admin],
   },
   {
     label: "Trip Management",
@@ -97,10 +109,22 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.EventOffice],
   },
   {
+    label: "Trip Management",
+    href: "/admin/trips",
+    icon: FlightIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
     label: "Workshop Management",
     href: "/events-office/workshops",
     icon: SchoolIcon,
     roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Workshop Management",
+    href: "/admin/workshops",
+    icon: SchoolIcon,
+    roles: [AuthRole.Admin],
   },
   {
     label: "Conference Management",
@@ -109,10 +133,22 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.EventOffice],
   },
   {
+    label: "Conference Management",
+    href: "/admin/conferences",
+    icon: ConferenceIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
     label: "Gym Sessions",
     href: "/events-office/gym-sessions",
     icon: FitnessCenterIcon,
     roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Gym Sessions",
+    href: "/admin/gym-sessions",
+    icon: FitnessCenterIcon,
+    roles: [AuthRole.Admin],
   },
   {
     label: "Vendor Dashboard",
@@ -140,21 +176,26 @@ export const navItems: NavItem[] = [
   },
 ];
 
-export function getNavItemsForRole(role: AuthRole | null, userRole: UserRole | null) {
+export function getNavItemsForRole(
+  role: AuthRole | null,
+  userRole: UserRole | null
+) {
   if (!role) return [];
-  return navItems.filter((item) => {
-    if (!item.roles.includes(role)) {
-      return false;
-    }
-    if (!item.userRoles) {
-      return true;
-    }
-    if (!userRole) {
-      return false;
-    }
-    return item.userRoles.includes(userRole);
-  }).map((item) => {
-    const override = userRole ? item.labelOverrides?.[userRole] : undefined;
-    return override ? { ...item, label: override } : item;
-  });
+  return navItems
+    .filter((item) => {
+      if (!item.roles.includes(role)) {
+        return false;
+      }
+      if (!item.userRoles) {
+        return true;
+      }
+      if (!userRole) {
+        return false;
+      }
+      return item.userRoles.includes(userRole);
+    })
+    .map((item) => {
+      const override = userRole ? item.labelOverrides?.[userRole] : undefined;
+      return override ? { ...item, label: override } : item;
+    });
 }

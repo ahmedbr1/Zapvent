@@ -17,21 +17,26 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
+import Alert from "@mui/material/Alert";
+import Skeleton from "@mui/material/Skeleton";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import Alert from "@mui/material/Alert";
-import Skeleton from "@mui/material/Skeleton";
 import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import DeleteIcon from "@mui/icons-material/DeleteRounded";
-import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import dayjs from "dayjs";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
+import {
+  EventFiltersBar,
+  type EventFilters,
+} from "@/components/events/EventFiltersBar";
+import { filterAndSortEvents } from "@/lib/events/filters";
 import {
   fetchUpcomingBazaars,
   createBazaar,
@@ -70,6 +75,16 @@ export default function BazaarManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBazaarId, setEditingBazaarId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<EventFilters>({
+    search: "",
+    eventType: "All",
+    location: "All",
+    professor: "",
+    sessionType: "All",
+    startDate: null,
+    endDate: null,
+    sortOrder: "asc",
+  });
   const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -131,12 +146,16 @@ export default function BazaarManagementPage() {
       setPendingDeleteId(null);
     },
   });
-  const bazaars = useMemo(() => {
-    if (!data) return [];
-    return [...data].sort(
-      (a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()
-    );
-  }, [data]);
+
+  const bazaars = useMemo(
+    () =>
+      filterAndSortEvents(data, filters, {
+        getSearchValues: (bazaar) => [bazaar.name, bazaar.description],
+        getStartDate: (bazaar) => bazaar.startDate,
+        getLocation: (bazaar) => bazaar.location,
+      }),
+    [data, filters]
+  );
 
   const handleCreateClick = () => {
     setEditingBazaarId(null);
@@ -216,6 +235,14 @@ export default function BazaarManagementPage() {
         </Typography>
       </Stack>
 
+      <EventFiltersBar
+        value={filters}
+        onChange={setFilters}
+        showEventTypeFilter={false}
+        showProfessorFilter={false}
+        searchPlaceholder="Search bazaars"
+      />
+
       {isEventsOfficeUser ? (
         <Typography variant="body2" color="text.secondary">
           Signed in as Events Office. All published bazaars sync automatically
@@ -226,7 +253,10 @@ export default function BazaarManagementPage() {
       {isLoading ? (
         <Grid container spacing={3}>
           {Array.from({ length: 3 }).map((_, index) => (
-            <Grid key={`bazaar-skeleton-${index}`} size={{ xs: 12, md: 6, lg: 4 }}>
+            <Grid
+              key={`bazaar-skeleton-${index}`}
+              size={{ xs: 12, md: 6, lg: 4 }}
+            >
               <Skeleton
                 variant="rectangular"
                 height={280}
@@ -244,8 +274,8 @@ export default function BazaarManagementPage() {
         </Alert>
       ) : bazaars.length === 0 ? (
         <Alert severity="info">
-          No bazaars scheduled yet. Tap &quot;New bazaar&quot; to launch your next
-          campus experience.
+          No bazaars scheduled yet. Tap &quot;New bazaar&quot; to launch your
+          next campus experience.
         </Alert>
       ) : (
         <Grid container spacing={3}>
@@ -454,9 +484,7 @@ export default function BazaarManagementPage() {
                   slotProps={{
                     textField: {
                       fullWidth: true,
-                      error: Boolean(
-                        formState.errors.registrationDeadline
-                      ),
+                      error: Boolean(formState.errors.registrationDeadline),
                       helperText:
                         formState.errors.registrationDeadline?.message,
                     },

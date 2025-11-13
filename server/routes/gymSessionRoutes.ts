@@ -1,11 +1,5 @@
 import express from "express";
-import {
-  cancelGymSessionController,
-  createGymSessionController,
-  viewGymScheduleByMonthController,
-  editGymSessionController,
-  registerForGymSessionController,
-} from "../controllers/gymSessionController";
+import gymSessionController from "../controllers/gymSessionController";
 import { allowedRoles, loginRequired } from "../middleware/authMiddleware";
 
 const router = express.Router();
@@ -14,30 +8,30 @@ const router = express.Router();
 router.post(
   "/",
   allowedRoles(["EventOffice", "Admin"]),
-  createGymSessionController
+  gymSessionController.create
 );
 
 // DELETE /api/gym-sessions/:id - Delete a gym session (EventsOffice or Admin only)
 router.delete(
   "/:id",
   allowedRoles(["EventOffice", "Admin"]),
-  cancelGymSessionController
+  gymSessionController.cancel
 );
 
 // GET /api/gym-sessions/schedule?year=2025&month=10 - View schedule (no auth required or optional)
-router.get("/schedule", viewGymScheduleByMonthController);
+router.get("/schedule", gymSessionController.viewScheduleByMonth);
 
 // PUT /api/gym-sessions/:id - Update a gym session (EventsOffice or Admin only)
 router.put(
   "/:id",
   allowedRoles(["EventOffice", "Admin"]),
-  editGymSessionController
+  gymSessionController.edit
 );
 
 router.post(
   "/:id/register",
   loginRequired,
   allowedRoles(["Student", "Staff", "Professor", "TA"]),
-  registerForGymSessionController
+  gymSessionController.register
 );
 export default router;

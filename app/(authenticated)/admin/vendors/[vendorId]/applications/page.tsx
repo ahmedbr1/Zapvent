@@ -64,10 +64,13 @@ export default function VendorApplicationsDetailPage({
       enqueueSnackbar("Application status updated successfully", {
         variant: "success",
       });
+      // Invalidate queries to trigger refetch of active queries
       queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
     },
     onError: (error: Error) => {
-      enqueueSnackbar(error.message || "Failed to update application status", {
+      console.error("Failed to update application status:", error);
+      const errorMessage = error.message || "Failed to update application status";
+      enqueueSnackbar(errorMessage, {
         variant: "error",
       });
     },

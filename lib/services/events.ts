@@ -146,19 +146,9 @@ export async function fetchUpcomingBazaars(
   token?: string,
   currentUserId?: string
 ): Promise<EventSummary[]> {
-  if (token) {
-    const response = await apiFetch<EventApiResponse>("/events/bazaar", {
-      method: "GET",
-      token,
-    });
-
-    if (!response.success) {
-      throw new Error(response.message ?? "Failed to load bazaars");
-    }
-
-    return (response.data ?? []).map((item) => mapEvent(item, currentUserId));
-  }
-
+  // Use the public upcoming-bazaars endpoint for listing bazaars to vendors
+  // and unauthenticated users. Admin-only `/events/bazaar` is reserved for
+  // admin/event-office use and will return 403 for Vendor tokens.
   const response = await apiFetch<UpcomingBazaarsResponse>(
     "/events/upcoming-bazaars",
     {
@@ -348,11 +338,13 @@ function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
     ? (event.registeredUsers ?? []).some((userId) => userId === currentUserId)
     : undefined;
   const registeredCount = event.registeredUsers?.length ?? 0;
-  const vendors: VendorSummary[] = (event.vendors ?? []).map((vendorId, index) => ({
-    id: vendorId,
-    companyName: `Vendor ${index + 1}`,
-    status: undefined as never,
-  }));
+  const vendors: VendorSummary[] = (event.vendors ?? []).map(
+    (vendorId, index) => ({
+      id: vendorId,
+      companyName: `Vendor ${index + 1}`,
+      status: undefined as never,
+    })
+  );
 
   return {
     id: event._id,

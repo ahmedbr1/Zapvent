@@ -40,13 +40,24 @@ import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import {
+  EventFiltersBar,
+  type EventFilters,
+} from "@/components/events/EventFiltersBar";
+import {
   fetchGymSchedule,
   createGymSession,
   updateGymSession,
   deleteGymSession,
 } from "@/lib/services/gym";
 import { type GymSession, GymSessionType, AuthRole } from "@/lib/types";
+import { filterAndSortEvents } from "@/lib/events/filters";
 import type { Resolver } from "react-hook-form";
+
+const QUERY_CACHE_SETTINGS = {
+  staleTime: 5 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const;
 
 const MONTHS = [
   "January",
@@ -64,7 +75,10 @@ const MONTHS = [
 ];
 const TODAY = dayjs();
 
-const SESSION_COLOR_MAP: Record<GymSessionType, "primary" | "secondary" | "success" | "info" | "warning"> = {
+const SESSION_COLOR_MAP: Record<
+  GymSessionType,
+  "primary" | "secondary" | "success" | "info" | "warning"
+> = {
   [GymSessionType.Yoga]: "primary",
   [GymSessionType.Cardio]: "secondary",
   [GymSessionType.Strength]: "success",
@@ -75,9 +89,15 @@ const SESSION_COLOR_MAP: Record<GymSessionType, "primary" | "secondary" | "succe
 const gymSessionSchema = z.object({
   date: z.date({ message: "Date is required" }),
   time: z.string().min(1, "Time is required"),
-  duration: z.coerce.number().int().positive("Duration must be greater than zero"),
+  duration: z.coerce
+    .number()
+    .int()
+    .positive("Duration must be greater than zero"),
   type: z.nativeEnum(GymSessionType, { message: "Select a session type" }),
-  maxParticipants: z.coerce.number().int().positive("Max participants must be greater than zero"),
+  maxParticipants: z.coerce
+    .number()
+    .int()
+    .positive("Max participants must be greater than zero"),
 });
 
 type GymSessionFormValues = z.infer<typeof gymSessionSchema>;
@@ -99,6 +119,16 @@ export default function EventsOfficeGymSessionsPage() {
   const canManage = Boolean(isEventsOffice || isAdmin);
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  const [filters, setFilters] = useState<EventFilters>({
+    search: "",
+    eventType: "All",
+    location: "All",
+    professor: "",
+    sessionType: "All",
+    startDate: null,
+    endDate: null,
+    sortOrder: "asc",
+  });
 
   const [selectedMonth, setSelectedMonth] = useState(TODAY.month());
   const [selectedYear, setSelectedYear] = useState(TODAY.year());
@@ -125,9 +155,28 @@ export default function EventsOfficeGymSessionsPage() {
 
   const scheduleQuery = useQuery({
     queryKey: ["gym-schedule", selectedYear, selectedMonth, token],
-    queryFn: () => fetchGymSchedule(selectedYear, selectedMonth + 1, token ?? undefined),
+    queryFn: () =>
+      fetchGymSchedule(selectedYear, selectedMonth + 1, token ?? undefined),
     enabled: Boolean(token && canManage),
+    ...QUERY_CACHE_SETTINGS,
   });
+  const sessions = useMemo(
+    () => scheduleQuery.data ?? [],
+    [scheduleQuery.data]
+  );
+  const filteredSessions = useMemo(
+    () =>
+      filterAndSortEvents(sessions, filters, {
+        getStartDate: (session) => session.date,
+        getSessionType: (session) => session.type,
+        getSearchValues: (session) => [
+          session.type,
+          formatSessionDate(session.date),
+          formatSessionTime(session.date, session.time),
+        ],
+      }),
+    [sessions, filters]
+  );
 
   const createMutation = useMutation({
     mutationFn: (payload: {
@@ -138,12 +187,16 @@ export default function EventsOfficeGymSessionsPage() {
       maxParticipants: number;
     }) => createGymSession(payload, token ?? undefined),
     onSuccess: () => {
-      enqueueSnackbar("Gym session created successfully!", { variant: "success" });
+      enqueueSnackbar("Gym session created successfully!", {
+        variant: "success",
+      });
       queryClient.invalidateQueries({ queryKey: ["gym-schedule"] });
       handleCloseDialog();
     },
     onError: (error: Error) => {
-      enqueueSnackbar(error.message || "Failed to create gym session", { variant: "error" });
+      enqueueSnackbar(error.message || "Failed to create gym session", {
+        variant: "error",
+      });
     },
   });
 
@@ -159,31 +212,38 @@ export default function EventsOfficeGymSessionsPage() {
       }>;
     }) => updateGymSession(payload.id, payload.data, token ?? undefined),
     onSuccess: () => {
-      enqueueSnackbar("Gym session updated successfully!", { variant: "success" });
+      enqueueSnackbar("Gym session updated successfully!", {
+        variant: "success",
+      });
       queryClient.invalidateQueries({ queryKey: ["gym-schedule"] });
       handleCloseDialog();
     },
     onError: (error: Error) => {
-      enqueueSnackbar(error.message || "Failed to update gym session", { variant: "error" });
+      enqueueSnackbar(error.message || "Failed to update gym session", {
+        variant: "error",
+      });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteGymSession(id, token ?? undefined),
     onSuccess: () => {
-      enqueueSnackbar("Gym session deleted successfully!", { variant: "success" });
+      enqueueSnackbar("Gym session deleted successfully!", {
+        variant: "success",
+      });
       queryClient.invalidateQueries({ queryKey: ["gym-schedule"] });
     },
     onError: (error: Error) => {
-      enqueueSnackbar(error.message || "Failed to delete gym session", { variant: "error" });
+      enqueueSnackbar(error.message || "Failed to delete gym session", {
+        variant: "error",
+      });
     },
   });
 
   const groupedSessions = useMemo(() => {
-    const sessions = scheduleQuery.data ?? [];
     const map = new Map<string, GymSession[]>();
 
-    sessions.forEach((session) => {
+    filteredSessions.forEach((session) => {
       const key = dayjs(session.date).format("YYYY-MM-DD");
       if (!map.has(key)) {
         map.set(key, []);
@@ -197,21 +257,22 @@ export default function EventsOfficeGymSessionsPage() {
         date,
         sessions: list.sort((a, b) => (a.time > b.time ? 1 : -1)),
       }));
-  }, [scheduleQuery.data]);
+  }, [filteredSessions]);
 
   const sessionStats = useMemo(() => {
-    const sessions = scheduleQuery.data ?? [];
     const totals = new Map<GymSessionType, number>();
 
-    sessions.forEach((session) => {
+    filteredSessions.forEach((session) => {
       totals.set(session.type, (totals.get(session.type) ?? 0) + 1);
     });
 
     return {
-      total: sessions.length,
+      total: filteredSessions.length,
       totals,
     };
-  }, [scheduleQuery.data]);
+  }, [filteredSessions]);
+  const hasSessions = sessions.length > 0;
+  const hasFilteredSessions = filteredSessions.length > 0;
 
   const handleMonthShift = (delta: number) => {
     const next = dayjs()
@@ -263,7 +324,9 @@ export default function EventsOfficeGymSessionsPage() {
     if (editingSession) {
       const updatePayload = {
         ...basePayload,
-        ...(isAdmin ? { type: data.type, maxParticipants: data.maxParticipants } : {}),
+        ...(isAdmin
+          ? { type: data.type, maxParticipants: data.maxParticipants }
+          : {}),
       };
       updateMutation.mutate({ id: editingSession.id, data: updatePayload });
     } else {
@@ -284,7 +347,8 @@ export default function EventsOfficeGymSessionsPage() {
   if (!canManage) {
     return (
       <Alert severity="error">
-        Gym session management is only available to Events Office admins. Contact the platform team if you need access.
+        Gym session management is only available to Events Office admins.
+        Contact the platform team if you need access.
       </Alert>
     );
   }
@@ -302,11 +366,15 @@ export default function EventsOfficeGymSessionsPage() {
             Gym Session Management
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Create and manage gym sessions for yoga, cardio, strength training, pilates, and CrossFit.
+            Create and manage gym sessions for yoga, cardio, strength training,
+            pilates, and CrossFit.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <IconButton aria-label="Previous month" onClick={() => handleMonthShift(-1)}>
+          <IconButton
+            aria-label="Previous month"
+            onClick={() => handleMonthShift(-1)}
+          >
             <ArrowBackIcon />
           </IconButton>
           <Select
@@ -324,17 +392,24 @@ export default function EventsOfficeGymSessionsPage() {
             size="small"
             type="number"
             value={selectedYear}
-            onChange={(event) => setSelectedYear(Number(event.target.value) || TODAY.year())}
+            onChange={(event) =>
+              setSelectedYear(Number(event.target.value) || TODAY.year())
+            }
             inputProps={{ min: 2000, max: 2100 }}
             sx={{ width: 96 }}
           />
-          <IconButton aria-label="Next month" onClick={() => handleMonthShift(1)}>
+          <IconButton
+            aria-label="Next month"
+            onClick={() => handleMonthShift(1)}
+          >
             <ArrowForwardIcon />
           </IconButton>
         </Stack>
       </Stack>
 
-      <Card sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}>
+      <Card
+        sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}
+      >
         <CardContent>
           <Stack
             direction={{ xs: "column", md: "row" }}
@@ -345,7 +420,8 @@ export default function EventsOfficeGymSessionsPage() {
             <Stack direction="row" spacing={1} alignItems="center">
               <FitnessCenterIcon color="primary" />
               <Typography variant="subtitle1" fontWeight={700}>
-                {sessionStats.total} session{sessionStats.total === 1 ? "" : "s"} scheduled
+                {sessionStats.total} session
+                {sessionStats.total === 1 ? "" : "s"} scheduled
               </Typography>
             </Stack>
             <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -362,15 +438,36 @@ export default function EventsOfficeGymSessionsPage() {
         </CardContent>
       </Card>
 
+      <EventFiltersBar
+        value={filters}
+        onChange={setFilters}
+        showEventTypeFilter={false}
+        showLocationFilter={false}
+        showProfessorFilter={false}
+        searchPlaceholder="Search sessions"
+        sessionTypes={Object.values(GymSessionType)}
+      />
+
       {scheduleQuery.isLoading ? (
         <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 3 }} />
       ) : scheduleQuery.isError ? (
-        <Alert severity="error" action={<Button onClick={() => scheduleQuery.refetch()}>Retry</Button>}>
+        <Alert
+          severity="error"
+          action={
+            <Button onClick={() => scheduleQuery.refetch()}>Retry</Button>
+          }
+        >
           Unable to load gym sessions right now.
         </Alert>
-      ) : groupedSessions.length === 0 ? (
+      ) : !hasSessions ? (
         <Alert severity="info">
-          No gym sessions scheduled for {MONTHS[selectedMonth]} {selectedYear}. Click the + button to create one.
+          No gym sessions scheduled for {MONTHS[selectedMonth]} {selectedYear}.
+          Click the + button to create one.
+        </Alert>
+      ) : !hasFilteredSessions ? (
+        <Alert severity="info">
+          No gym sessions match the current filters for {MONTHS[selectedMonth]}{" "}
+          {selectedYear}. Adjust your filters to see more sessions.
         </Alert>
       ) : (
         <Grid container spacing={3}>
@@ -419,21 +516,46 @@ export default function EventsOfficeGymSessionsPage() {
                                   size="small"
                                   sx={{ width: "fit-content" }}
                                 />
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                  <AccessTimeIcon fontSize="small" color="action" />
-                                  <Typography variant="body2" color="text.secondary">
-                                    {formatSessionTime(session.date, session.time)} • {session.duration} minutes
+                                <Stack
+                                  direction="row"
+                                  spacing={1}
+                                  alignItems="center"
+                                >
+                                  <AccessTimeIcon
+                                    fontSize="small"
+                                    color="action"
+                                  />
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                  >
+                                    {formatSessionTime(
+                                      session.date,
+                                      session.time
+                                    )}{" "}
+                                    • {session.duration} minutes
                                   </Typography>
                                 </Stack>
                               </Stack>
-                              <Stack direction="row" spacing={1} alignItems="center">
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                              >
                                 <PeopleIcon fontSize="small" color="action" />
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
                                   {registered}/{capacity} booked
                                 </Typography>
                               </Stack>
                             </Stack>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="flex-end"
+                            >
                               <IconButton
                                 size="small"
                                 color="primary"
@@ -476,13 +598,21 @@ export default function EventsOfficeGymSessionsPage() {
         <AddIcon />
       </Fab>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingSession ? "Edit Gym Session" : "Create New Gym Session"}</DialogTitle>
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {editingSession ? "Edit Gym Session" : "Create New Gym Session"}
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 2 }}>
             {isEventsOfficeEditor && (
               <Alert severity="info">
-                Events office staff can update the session date, time, or duration only.
+                Events office staff can update the session date, time, or
+                duration only.
               </Alert>
             )}
             <Controller
@@ -565,7 +695,9 @@ export default function EventsOfficeGymSessionsPage() {
                   value={field.value ?? ""}
                   onChange={(event) =>
                     field.onChange(
-                      event.target.value === "" ? event.target.value : Number(event.target.value)
+                      event.target.value === ""
+                        ? event.target.value
+                        : Number(event.target.value)
                     )
                   }
                   disabled={isEventsOfficeEditor}

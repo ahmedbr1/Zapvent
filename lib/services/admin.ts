@@ -33,12 +33,12 @@ export interface AdminVendorApplication {
   eventId: string;
   eventName?: string;
   status: VendorStatus;
-  applicationDate?: Date;
+  applicationDate?: string | null;
   attendees: number;
   boothSize: BazaarBoothSize;
   boothLocation?: string;
-  boothStartTime?: Date;
-  boothEndTime?: Date;
+  boothStartTime?: string | null;
+  boothEndTime?: string | null;
 }
 
 export interface AdminVendor {
@@ -89,8 +89,23 @@ export async function fetchAdminVendors(
   if (!response.success) {
     throw new Error(response.message ?? "Failed to fetch vendors");
   }
+  const vendors = response.vendors ?? [];
 
-  return response.vendors ?? [];
+  return vendors.map((vendor) => ({
+    ...vendor,
+    applications: (vendor.applications ?? []).map((application) => ({
+      ...application,
+      applicationDate: application.applicationDate
+        ? new Date(application.applicationDate).toISOString()
+        : null,
+      boothStartTime: application.boothStartTime
+        ? new Date(application.boothStartTime).toISOString()
+        : null,
+      boothEndTime: application.boothEndTime
+        ? new Date(application.boothEndTime).toISOString()
+        : null,
+    })),
+  }));
 }
 
 export async function approveVendorAccount(vendorId: string, token?: string) {
@@ -131,20 +146,43 @@ export async function updateVendorApplicationStatus(
   status: "approved" | "rejected",
   token?: string
 ) {
-  const response = await apiFetch<AdminActionResponse>(
-    `/vendors/bazaar-application/status`,
-    {
-      method: "PATCH",
-      body: { vendorId, eventId, status },
-      token,
+  try {
+    if (!token) {
+      throw new Error("Authentication token is required");
     }
-  );
 
-  if (!response.success) {
-    throw new Error(response.message ?? "Failed to update application status");
+    const response = await apiFetch<AdminActionResponse>(
+      `/vendors/bazaar-application/status`,
+      {
+        method: "PATCH",
+        body: { vendorId, eventId, status },
+        token,
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.message ?? "Failed to update application status"
+      );
+    }
+
+    return response;
+  } catch (error) {
+    // Handle ApiError objects thrown by apiFetch
+    if (error && typeof error === "object" && "message" in error) {
+      const apiError = error as { message: string; status?: number };
+      const errorMessage =
+        apiError.message ?? "Failed to update application status";
+      console.error("API Error:", {
+        message: errorMessage,
+        httpStatus: apiError.status,
+        vendorId,
+        eventId,
+        status,
+      });
+      throw new Error(errorMessage);
+    }
   }
-
-  return response;
 }
 
 export async function rejectUser(
@@ -456,5 +494,3 @@ export async function unblockAdmin(adminId: string, token?: string) {
 
   return response;
 }
-
-// ----------------------------------------------------

@@ -99,6 +99,71 @@ function sanitizePromoCode(value: string): string {
   return value.trim().replace(/\s+/g, "-").toUpperCase();
 }
 
+const VALID_BOOTH_SIZES = new Map<string, BazaarBoothSize>(
+  Object.values(BazaarBoothSize).map((size) => [size.toLowerCase(), size])
+);
+
+function normalizeBoothSize(value: unknown): BazaarBoothSize {
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+
+    const directMatch = VALID_BOOTH_SIZES.get(trimmed);
+    if (directMatch) {
+      return directMatch;
+    }
+
+    if (
+      trimmed.includes("4x4") ||
+      trimmed.includes("4") ||
+      trimmed.includes("large")
+    ) {
+      return BazaarBoothSize.LARGE;
+    }
+
+    if (
+      trimmed.includes("2x2") ||
+      trimmed.includes("small") ||
+      trimmed.includes("standard")
+    ) {
+      return BazaarBoothSize.SMALL;
+    }
+  }
+
+  if (typeof value === "number") {
+    return value >= 4 ? BazaarBoothSize.LARGE : BazaarBoothSize.SMALL;
+  }
+
+  return BazaarBoothSize.SMALL;
+}
+
+function sanitizeVendorApplicationsBoothSizes(
+  vendor: HydratedDocument<IVendor> | null | undefined
+): boolean {
+  if (!vendor || !Array.isArray(vendor.applications)) {
+    return false;
+  }
+
+  let mutated = false;
+  const applications = vendor.applications as Array<
+    BazaarApplication & { boothSize?: string | number }
+  >;
+
+  for (const application of applications) {
+    if (!application) continue;
+    const normalized = normalizeBoothSize(application.boothSize);
+    if (application.boothSize !== normalized) {
+      application.boothSize = normalized;
+      mutated = true;
+    }
+  }
+
+  if (mutated && typeof vendor.markModified === "function") {
+    vendor.markModified("applications");
+  }
+
+  return mutated;
+}
+
 function serializeLoyaltyProgram(loyalty?: LoyaltyProgramDetails | null):
   | (Omit<LoyaltyProgramDetails, "appliedAt" | "cancelledAt"> & {
       appliedAt?: Date;
@@ -305,7 +370,7 @@ export async function applyToBazaar(
   vendorId: string,
   applicationData: {
     eventId: string;
-    attendees: VendorAttendee[];
+    attendees?: VendorAttendee[];
     boothSize: BazaarBoothSize;
     hasPaid?: boolean;
     boothInfo?: {
@@ -337,55 +402,49 @@ export async function applyToBazaar(
       return { success: false, message: "Event is not a bazaar" };
     }
 
-    // Validate attendees count (1..5)
-    if (
-      !Array.isArray(applicationData.attendees) ||
-      applicationData.attendees.length < 1
-    ) {
-      console.log("Invalid attendees array:", applicationData.attendees);
-      return { success: false, message: "At least 1 attendee is required" };
-    }
-    // Validate attendees count (max 5)
-    if (applicationData.attendees.length > 5) {
+    const attendeesArray = Array.isArray(applicationData.attendees)
+      ? applicationData.attendees.filter((attendee) => Boolean(attendee))
+      : [];
+    const boothSize = normalizeBoothSize(applicationData.boothSize);
+
+    if (attendeesArray.length > 5) {
       return { success: false, message: "Maximum 5 attendees allowed" };
     }
 
-    const invalidAttendee = applicationData.attendees.find((attendee) => {
-      if (!attendee || typeof attendee !== "object") {
-        return true;
-      }
-      const { name, email, idDocumentPath } = attendee;
-      if (!name || !email) {
-        return true;
-      }
+    if (attendeesArray.length > 0) {
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(email)) {
-        return true;
-      }
-      return !idDocumentPath;
-    });
+      const seenEmails = new Set<string>();
 
-    if (invalidAttendee) {
-      return {
-        success: false,
-        message:
-          "Each attendee must include a valid name, email, and uploaded ID document.",
-      };
-    }
+      for (const attendee of attendeesArray) {
+        if (!attendee || typeof attendee !== "object") {
+          return {
+            success: false,
+            message: "Invalid attendee information provided.",
+          };
+        }
 
-    const seenEmails = new Set<string>();
-    for (const attendee of applicationData.attendees) {
-      const email = attendee.email.toLowerCase();
-      if (seenEmails.has(email)) {
-        return {
-          success: false,
-          message: "Duplicate attendee email addresses are not allowed.",
-        };
+        const { name, email } = attendee;
+        if (!name || !email || !emailPattern.test(email)) {
+          return {
+            success: false,
+            message:
+              "Each attendee must include a valid name and email address.",
+          };
+        }
+
+        const normalizedEmail = email.toLowerCase();
+        if (seenEmails.has(normalizedEmail)) {
+          return {
+            success: false,
+            message: "Duplicate attendee email addresses are not allowed.",
+          };
+        }
+
+        seenEmails.add(normalizedEmail);
       }
-      seenEmails.add(email);
     }
     // Validate booth size
-    if (!Object.values(BazaarBoothSize).includes(applicationData.boothSize)) {
+    if (!Object.values(BazaarBoothSize).includes(boothSize)) {
       return { success: false, message: "Invalid boothSize" };
     }
 
@@ -442,8 +501,8 @@ export async function applyToBazaar(
       eventId: new Types.ObjectId(applicationData.eventId),
       status: VendorStatus.PENDING,
       applicationDate: new Date(),
-      attendees: applicationData.attendees,
-      boothSize: applicationData.boothSize,
+      attendees: attendeesArray,
+      boothSize,
       hasPaid: Boolean(applicationData.hasPaid),
       ...(boothInfoToSave ? { boothInfo: boothInfoToSave } : {}),
     };
@@ -465,7 +524,6 @@ export async function applyToBazaar(
       { $push: { applications: newApplication } },
       {
         new: true,
-        runValidators: true,
         projection: { applications: { $slice: -1 } }, // return only the inserted subdoc
       }
     );
@@ -484,7 +542,7 @@ export async function applyToBazaar(
     console.log("Application saved successfully!");
 
     // Update event capacity - decrease available spots
-    const numAttendees = applicationData.attendees.length;
+    const numAttendees = attendeesArray.length;
     await EventModel.findByIdAndUpdate(applicationData.eventId, {
       $inc: { capacity: -numAttendees },
     });
@@ -542,6 +600,7 @@ export async function cancelBazaarApplication(
     const attendeesCount = application.attendees?.length ?? 0;
     applications.splice(applicationIndex, 1);
     vendor.applications = applications;
+    sanitizeVendorApplicationsBoothSizes(vendor);
     await vendor.save();
 
     if (attendeesCount > 0) {
@@ -662,10 +721,24 @@ export async function updateBazaarApplicationStatus(options: {
   try {
     const { vendorId, eventId, status, reason } = options;
 
+    console.log("updateBazaarApplicationStatus called with:", {
+      vendorId,
+      eventId,
+      status,
+      vendorIdValid: Types.ObjectId.isValid(vendorId),
+      eventIdValid: Types.ObjectId.isValid(eventId),
+    });
+
     if (!Types.ObjectId.isValid(vendorId) || !Types.ObjectId.isValid(eventId)) {
+      console.error("Invalid IDs:", {
+        vendorId,
+        eventId,
+        vendorIdValid: Types.ObjectId.isValid(vendorId),
+        eventIdValid: Types.ObjectId.isValid(eventId),
+      });
       return {
         success: false,
-        message: "Invalid vendor or event identifier provided.",
+        message: `Invalid vendor or event identifier provided. vendorId valid: ${Types.ObjectId.isValid(vendorId)}, eventId valid: ${Types.ObjectId.isValid(eventId)}`,
       };
     }
 
@@ -674,23 +747,38 @@ export async function updateBazaarApplicationStatus(options: {
       EventModel.findById(eventId),
     ]);
 
+    console.log("Found vendor:", !!vendor, "Found event:", !!event);
+
     if (!vendor) {
-      return { success: false, message: "Vendor not found" };
+      return {
+        success: false,
+        message: `Vendor not found with ID: ${vendorId}`,
+      };
     }
 
     if (!event) {
-      return { success: false, message: "Event not found" };
+      return { success: false, message: `Event not found with ID: ${eventId}` };
     }
 
-    const application = getVendorApplicationsArray(vendor).find(
+    const applications = getVendorApplicationsArray(vendor);
+    console.log("Vendor applications count:", applications.length);
+
+    const application = applications.find(
       (app) => app.eventId.toString() === eventId
     );
 
-    if (!application) {
-      return { success: false, message: "Application not found" };
+    console.log("Application found:", !!application);
+    if (application) {
+      console.log("Current application status:", application.status);
     }
 
-    const previousStatus = application.status;
+    if (!application) {
+      return {
+        success: false,
+        message: `Application not found for vendor ${vendorId} and event ${eventId}`,
+      };
+    }
+
     application.status = status;
     application.decisionDate = new Date();
 
@@ -707,31 +795,28 @@ export async function updateBazaarApplicationStatus(options: {
       });
     }
 
+    sanitizeVendorApplicationsBoothSizes(vendor);
     vendor.markModified("applications");
     await vendor.save();
 
-    if (
-      status === VendorStatus.PENDING &&
-      previousStatus !== VendorStatus.PENDING
-    ) {
-      await notifyAdminsAboutPendingTotal();
+    // Send email notification (non-blocking - don't fail if email fails)
+    try {
+      await emailService.sendVendorApplicationDecisionEmail({
+        vendorEmail: vendor.email,
+        vendorCompany: vendor.companyName,
+        eventName: event.name,
+        status,
+        payment: application.payment,
+        dueDate: application.payment?.dueDate,
+        reason,
+      });
+    } catch (emailError) {
+      // Log email error but don't fail the operation
+      console.error(
+        "Failed to send vendor application decision email:",
+        emailError
+      );
     }
-
-    if (
-      status === VendorStatus.PENDING &&
-      previousStatus !== VendorStatus.PENDING
-    ) {
-    }
-
-    await emailService.sendVendorApplicationDecisionEmail({
-      vendorEmail: vendor.email,
-      vendorCompany: vendor.companyName,
-      eventName: event.name,
-      status,
-      payment: application.payment,
-      dueDate: application.payment?.dueDate,
-      reason,
-    });
 
     return {
       success: true,
@@ -739,9 +824,16 @@ export async function updateBazaarApplicationStatus(options: {
     };
   } catch (error) {
     console.error("Error updating application status:", error);
+    // Include actual error message for debugging
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to update application status";
     return {
       success: false,
-      message: "Failed to update application status",
+      message: errorMessage,
     };
   }
 }
@@ -856,6 +948,7 @@ export async function recordVendorPayment(options: {
 
     application.qrCodes = qrCodes;
 
+    sanitizeVendorApplicationsBoothSizes(vendor);
     vendor.markModified("applications");
     await vendor.save();
 
@@ -999,6 +1092,7 @@ export async function updateApplicationAttendees(options: {
       });
     }
 
+    sanitizeVendorApplicationsBoothSizes(vendor);
     vendor.markModified("applications");
     await vendor.save();
 
@@ -1022,12 +1116,16 @@ export async function findAllForAdmin(): Promise<{
   vendors: AdminVendorResponse[];
 }> {
   try {
-    const vendors = await vendorModel
-      .find()
-      .lean<Array<IVendor & { _id: Types.ObjectId }>>();
+    const vendorDocs = await vendorModel.find();
 
     const normalized: AdminVendorResponse[] = await Promise.all(
-      vendors.map(async (vendor) => {
+      vendorDocs.map(async (vendorDoc) => {
+        const sanitized = sanitizeVendorApplicationsBoothSizes(vendorDoc);
+        if (sanitized) await vendorDoc.save();
+
+        const vendor = vendorDoc.toObject() as IVendor & {
+          _id: Types.ObjectId;
+        };
         // Fetch event names for all applications
         const applicationsWithNames = await Promise.all(
           (vendor.applications ?? []).map(async (application) => {
@@ -1270,6 +1368,20 @@ export async function getVendorProfile(vendorId: string): Promise<{
       success: false,
       message: "An error occurred while fetching vendor profile",
     };
+  }
+}
+
+// Return raw vendor document (lean) for internal controller helpers that need
+// access to stored file paths (taxCard/documents) without the password.
+export async function getVendorRawRecord(vendorId: string) {
+  try {
+    return await vendorModel
+      .findById(vendorId)
+      .select("email companyName taxCard documents")
+      .lean();
+  } catch (err) {
+    console.error("Error fetching raw vendor record:", err);
+    return null;
   }
 }
 

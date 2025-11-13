@@ -1,25 +1,21 @@
 import { Router } from "express";
-import {
-  viewAllCourts,
-  viewCourtAvailability,
-  reserveCourt,
-} from "../controllers/courtController";
+import courtController from "../controllers/courtController";
 import { loginRequired, allowedRoles } from "../middleware/authMiddleware";
 
 const router = Router();
 
-router.get("/", viewAllCourts);
+router.get("/", courtController.viewAllCourts);
 router.get(
   "/:courtId/availability",
-    loginRequired,
+  loginRequired,
   allowedRoles(["Student"]),
-  viewCourtAvailability
+  courtController.viewCourtAvailability
 );
 router.post(
   "/:courtId/reservations",
   loginRequired,
   allowedRoles(["Student"]),
-  reserveCourt
+  courtController.reserveCourt
 );
 
 export default router;

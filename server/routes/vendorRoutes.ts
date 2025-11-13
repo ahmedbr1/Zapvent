@@ -17,13 +17,12 @@ const router = Router();
 //   vendorController.vendorSignup.bind(vendorController)
 // );
 
-// router.post(
-//   "/apply-bazaar",
-//   loginRequired,
-//   allowedRoles(["Vendor"]),
-//   upload.fields([{ name: "attendeeIds", maxCount: 5 }]),
-//   vendorController.applyToBazaar.bind(vendorController)
-// );
+router.post(
+  "/apply-bazaar",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.applyToBazaar.bind(vendorController)
+);
 
 // router.post(
 //   "/applications/:eventId/attendees",
@@ -97,13 +96,15 @@ router.get(
 
 router.patch(
   "/bazaar-application/status",
+  loginRequired,
+  allowedRoles(["Admin", "EventOffice"]),
   vendorController.updateBazaarApplicationStatus.bind(vendorController)
 );
 // Admin routes - properly protected with middleware
 router.get(
   "/admin",
   loginRequired,
-  allowedRoles(["Admin"]),
+  allowedRoles(["Admin", "EventOffice"]),
   vendorController.listVendorsForAdmin.bind(vendorController)
 );
 
