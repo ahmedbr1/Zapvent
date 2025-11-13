@@ -49,6 +49,7 @@ function ApplyDialog({
 }: ApplyDialogProps) {
   const [boothSize, setBoothSize] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attendees, setAttendees] = useState("");
   const { enqueueSnackbar } = useSnackbar();
   const token = useAuthToken();
 
