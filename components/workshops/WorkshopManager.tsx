@@ -48,24 +48,40 @@ import {
 import { formatDateTime } from "@/lib/date";
 import { fetchProfessors } from "@/lib/services/users";
 import type { Resolver } from "react-hook-form";
+import {
+  EventFiltersBar,
+  type EventFilters,
+} from "@/components/events/EventFiltersBar";
+import { filterAndSortEvents } from "@/lib/events/filters";
 
 const workshopSchema = z
   .object({
     name: z.string().min(3, "Name must be at least 3 characters"),
-    description: z.string().min(20, "Provide a short description (20+ characters)"),
+    description: z
+      .string()
+      .min(20, "Provide a short description (20+ characters)"),
     location: z.nativeEnum(Location, { message: "Select a location" }),
     startDate: z.date({ message: "Start date is required" }),
     endDate: z.date({ message: "End date is required" }),
-    registrationDeadline: z.date({ message: "Registration deadline is required" }),
+    registrationDeadline: z.date({
+      message: "Registration deadline is required",
+    }),
     fullAgenda: z.string().min(20, "Share the full agenda (20+ characters)"),
-    faculty: z.nativeEnum(Faculty, { message: "Choose the responsible faculty" }),
+    faculty: z.nativeEnum(Faculty, {
+      message: "Choose the responsible faculty",
+    }),
     participatingProfessorIds: z
       .array(z.string().min(1, "Professor selection is required"))
       .min(1, "Select at least one participating professor."),
     requiredBudget: z.coerce.number().min(0, "Budget must be a positive value"),
-    fundingSource: z.nativeEnum(FundingSource, { message: "Select a funding source" }),
+    fundingSource: z.nativeEnum(FundingSource, {
+      message: "Select a funding source",
+    }),
     extraRequiredResources: z.string().optional(),
-    capacity: z.coerce.number().int().positive("Capacity must be greater than zero"),
+    capacity: z.coerce
+      .number()
+      .int()
+      .positive("Capacity must be greater than zero"),
   })
   .refine((values) => values.startDate < values.endDate, {
     message: "Start date must be before end date.",
@@ -96,36 +112,49 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     ? Boolean(isEventsOffice || isAdmin)
     : Boolean(isProfessor);
   const managerName = user?.name ?? user?.email ?? "your account";
-  const copy =
-    isEventsOfficeVariant
-      ? {
-          title: "Workshop management",
-          subtitle: "Coordinate faculty-led sessions across GUC campuses.",
-          role: `Signed in as ${managerName}. Events Office admins can publish workshops on behalf of professors.`,
-          restriction:
-            "Workshop management tools are reserved for Events Office admins. Contact the platform team if you need access.",
-          empty: "No workshops yet. Launch your first session to collaborate with faculty.",
-          createCta: "New workshop",
-        }
-      : {
-          title: "Workshop studio",
-          subtitle: "Design, publish, and refine your GUC workshops from a single place.",
-          role: `Signed in as ${managerName}. Professors can orchestrate workshops and sync details with student portals.`,
-          restriction:
-            "Workshop management tools are only available to professors. Contact the events office if you need access.",
-          empty:
-            "You haven't published any workshops yet. Start by outlining the first session.",
-          createCta: "New workshop",
-        };
+  const copy = isEventsOfficeVariant
+    ? {
+        title: "Workshop management",
+        subtitle: "Coordinate faculty-led sessions across GUC campuses.",
+        role: `Signed in as ${managerName}. Events Office admins can publish workshops on behalf of professors.`,
+        restriction:
+          "Workshop management tools are reserved for Events Office admins. Contact the platform team if you need access.",
+        empty:
+          "No workshops yet. Launch your first session to collaborate with faculty.",
+        createCta: "New workshop",
+      }
+    : {
+        title: "Workshop studio",
+        subtitle:
+          "Design, publish, and refine your GUC workshops from a single place.",
+        role: `Signed in as ${managerName}. Professors can orchestrate workshops and sync details with student portals.`,
+        restriction:
+          "Workshop management tools are only available to professors. Contact the events office if you need access.",
+        empty:
+          "You haven't published any workshops yet. Start by outlining the first session.",
+        createCta: "New workshop",
+      };
   const rosterErrorMessage = isEventsOfficeVariant
     ? "Unable to load the professor roster right now. Assign a faculty contact once the list is available."
     : "Unable to load the professor roster right now. You won't be able to assign instructors until the list is available.";
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  const [filters, setFilters] = useState<EventFilters>({
+    search: "",
+    eventType: "All",
+    location: "All",
+    professor: "",
+    sessionType: "All",
+    startDate: null,
+    endDate: null,
+    sortOrder: "asc",
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const canCreate = isEventsOfficeVariant ? Boolean(isAdmin) : Boolean(isProfessor);
+  const canCreate = isEventsOfficeVariant
+    ? Boolean(isAdmin)
+    : Boolean(isProfessor);
   const queryKey = ["workshops", variant, token];
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -152,10 +181,13 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   });
 
   const createMutation = useMutation({
-    mutationFn: (payload: WorkshopPayload) => createWorkshop(payload, token ?? undefined),
+    mutationFn: (payload: WorkshopPayload) =>
+      createWorkshop(payload, token ?? undefined),
     onSuccess: () => {
       if (variant === "professor") {
-        enqueueSnackbar("Workshop created successfully.", { variant: "success" });
+        enqueueSnackbar("Workshop created successfully.", {
+          variant: "success",
+        });
         queryClient.invalidateQueries({ queryKey });
         closeDialog();
       }
@@ -179,7 +211,8 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (workshopId: string) => deleteWorkshop(workshopId, token ?? undefined),
+    mutationFn: (workshopId: string) =>
+      deleteWorkshop(workshopId, token ?? undefined),
     onSuccess: () => {
       enqueueSnackbar("Workshop deleted.", { variant: "success" });
       queryClient.invalidateQueries({ queryKey });
@@ -189,10 +222,31 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     },
   });
 
-  const workshops = useMemo(() => data ?? [], [data]);
+  const workshops = data ?? [];
   const professorOptions = useMemo<ProfessorSummary[]>(
     () => professorsQuery.data ?? [],
     [professorsQuery.data]
+  );
+  const professorNames = useMemo(
+    () =>
+      professorOptions
+        .map((professor) => professor.name)
+        .filter((name): name is string => Boolean(name)),
+    [professorOptions]
+  );
+  const filteredWorkshops = useMemo(
+    () =>
+      filterAndSortEvents(workshops, filters, {
+        getLocation: (workshop) => workshop.location,
+        getStartDate: (workshop) => workshop.startDate,
+        getProfessorNames: (workshop) => workshop.participatingProfessors,
+        getSearchValues: (workshop) => [
+          workshop.name,
+          workshop.description,
+          ...(workshop.participatingProfessors ?? []),
+        ],
+      }),
+    [workshops, filters]
   );
   const submitting = createMutation.isPending || updateMutation.isPending;
   const actionLabel = editingId ? "Save changes" : "Create workshop";
@@ -241,7 +295,8 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
       participatingProfessorIds: values.participatingProfessorIds,
       requiredBudget: values.requiredBudget,
       fundingSource: values.fundingSource,
-      extraRequiredResources: values.extraRequiredResources?.trim() || undefined,
+      extraRequiredResources:
+        values.extraRequiredResources?.trim() || undefined,
       capacity: values.capacity,
     };
 
@@ -249,9 +304,12 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
       updateMutation.mutate({ id: editingId, payload });
     } else {
       if (!canCreate) {
-        enqueueSnackbar("Workshop creation is limited to professor or admin accounts.", {
-          variant: "info",
-        });
+        enqueueSnackbar(
+          "Workshop creation is limited to professor or admin accounts.",
+          {
+            variant: "info",
+          }
+        );
         return;
       }
       createMutation.mutate(payload);
@@ -267,7 +325,9 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const handleDeleteClick = (workshopId: string, workshopName: string) => {
     const confirmed =
       typeof window !== "undefined"
-        ? window.confirm(`Delete "${workshopName}"? This action cannot be undone.`)
+        ? window.confirm(
+            `Delete "${workshopName}"? This action cannot be undone.`
+          )
         : false;
     if (!confirmed) return;
     deleteMutation.mutate(workshopId);
@@ -287,10 +347,23 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         </Typography>
       </Stack>
 
+      {canManage ? (
+        <EventFiltersBar
+          value={filters}
+          onChange={setFilters}
+          showEventTypeFilter={false}
+          searchPlaceholder="Search workshops"
+          professors={professorNames}
+          showProfessorFilter={professorNames.length > 0}
+        />
+      ) : null}
+
       {canManage && professorsQuery.isError ? (
         <Alert
           severity="error"
-          action={<Button onClick={() => professorsQuery.refetch()}>Retry</Button>}
+          action={
+            <Button onClick={() => professorsQuery.refetch()}>Retry</Button>
+          }
         >
           {rosterErrorMessage}
         </Alert>
@@ -302,12 +375,19 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         <Grid container spacing={3}>
           {Array.from({ length: 3 }).map((_, index) => (
             <Grid key={index} size={{ xs: 12, md: 6, lg: 4 }}>
-              <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 3 }} />
+              <Skeleton
+                variant="rectangular"
+                height={280}
+                sx={{ borderRadius: 3 }}
+              />
             </Grid>
           ))}
         </Grid>
       ) : isError ? (
-        <Alert severity="error" action={<Button onClick={() => refetch()}>Retry</Button>}>
+        <Alert
+          severity="error"
+          action={<Button onClick={() => refetch()}>Retry</Button>}
+        >
           {resolveErrorMessage(error)}
         </Alert>
       ) : workshops.length === 0 ? (
@@ -323,16 +403,19 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         >
           {copy.empty}
         </Alert>
+      ) : filteredWorkshops.length === 0 ? (
+        <Alert severity="info">No workshops match the current filters.</Alert>
       ) : (
         <Grid container spacing={3}>
-          {workshops.map((workshop) => {
-            const createdByYou =
-              Boolean(workshop.createdBy && userId && workshop.createdBy === userId);
+          {filteredWorkshops.map((workshop) => {
+            const createdByYou = Boolean(
+              workshop.createdBy && userId && workshop.createdBy === userId
+            );
             const creatorChipLabel = createdByYou
               ? "Created by you"
               : workshop.createdByName
-              ? `Created by ${workshop.createdByName}`
-              : "Created by faculty";
+                ? `Created by ${workshop.createdByName}`
+                : "Created by faculty";
             const canEditWorkshopCard = isProfessor || isEventsOfficeVariant;
             const canDeleteWorkshopCard = isProfessor || isEventsOfficeVariant;
 
@@ -356,7 +439,11 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                         rowGap={1}
                         sx={{ "& .MuiChip-root": { fontSize: "0.75rem" } }}
                       >
-                        <Chip label={workshop.location} size="small" color="primary" />
+                        <Chip
+                          label={workshop.location}
+                          size="small"
+                          color="primary"
+                        />
                         <Chip
                           label={workshop.fundingSource}
                           size="small"
@@ -375,7 +462,9 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                             size="small"
                             variant="outlined"
                             color={createdByYou ? "success" : "default"}
-                            sx={{ borderStyle: createdByYou ? "solid" : "dashed" }}
+                            sx={{
+                              borderStyle: createdByYou ? "solid" : "dashed",
+                            }}
                           />
                         ) : null}
                       </Stack>
@@ -389,15 +478,27 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                         <Typography variant="subtitle2" color="text.secondary">
                           Faculty
                         </Typography>
-                        <Typography variant="body2">{workshop.faculty}</Typography>
+                        <Typography variant="body2">
+                          {workshop.faculty}
+                        </Typography>
                       </Stack>
                       <Stack spacing={0.5}>
                         <Typography variant="subtitle2" color="text.secondary">
                           Participating professors
                         </Typography>
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap" rowGap={0.5}>
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          flexWrap="wrap"
+                          rowGap={0.5}
+                        >
                           {workshop.participatingProfessors.map((professor) => (
-                            <Chip key={professor} label={professor} size="small" variant="outlined" />
+                            <Chip
+                              key={professor}
+                              label={professor}
+                              size="small"
+                              variant="outlined"
+                            />
                           ))}
                         </Stack>
                       </Stack>
@@ -406,10 +507,12 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                           Schedule
                         </Typography>
                         <Typography variant="body2">
-                          {formatDateTime(workshop.startDate)} &mdash; {formatDateTime(workshop.endDate)}
+                          {formatDateTime(workshop.startDate)} &mdash;{" "}
+                          {formatDateTime(workshop.endDate)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Registration closes {formatDateTime(workshop.registrationDeadline)}
+                          Registration closes{" "}
+                          {formatDateTime(workshop.registrationDeadline)}
                         </Typography>
                       </Stack>
                       <Stack spacing={0.5}>
@@ -417,7 +520,8 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                           Budget &amp; requirements
                         </Typography>
                         <Typography variant="body2">
-                          Required budget: EGP {workshop.requiredBudget.toLocaleString()}
+                          Required budget: EGP{" "}
+                          {workshop.requiredBudget.toLocaleString()}
                         </Typography>
                         {workshop.extraRequiredResources ? (
                           <Typography variant="body2" color="text.secondary">
@@ -427,7 +531,9 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       </Stack>
                     </Stack>
                   </CardContent>
-                  <CardActions sx={{ justifyContent: "flex-end", px: 3, pb: 3 }}>
+                  <CardActions
+                    sx={{ justifyContent: "flex-end", px: 3, pb: 3 }}
+                  >
                     <Stack direction="row" spacing={1}>
                       <Button
                         startIcon={<EditIcon />}
@@ -444,8 +550,12 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       <Button
                         color="error"
                         variant="outlined"
-                        onClick={() => handleDeleteClick(workshop.id, workshop.name)}
-                        disabled={!canDeleteWorkshopCard || deleteMutation.isPending}
+                        onClick={() =>
+                          handleDeleteClick(workshop.id, workshop.name)
+                        }
+                        disabled={
+                          !canDeleteWorkshopCard || deleteMutation.isPending
+                        }
                         title={
                           !canDeleteWorkshopCard
                             ? "Deleting is restricted to authorized roles."
@@ -477,7 +587,9 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
 
       <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="md">
         <form onSubmit={onSubmit}>
-          <DialogTitle>{editingId ? "Edit workshop" : "New workshop"}</DialogTitle>
+          <DialogTitle>
+            {editingId ? "Edit workshop" : "New workshop"}
+          </DialogTitle>
           <DialogContent dividers>
             <Stack spacing={3} mt={1}>
               <Grid container spacing={2}>
@@ -487,7 +599,10 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     fullWidth
                     {...register("name")}
                     error={Boolean(errors.name)}
-                    helperText={errors.name?.message ?? "Give your workshop a memorable title."}
+                    helperText={
+                      errors.name?.message ??
+                      "Give your workshop a memorable title."
+                    }
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -498,7 +613,10 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     defaultValue={Location.Cairo}
                     {...register("location")}
                     error={Boolean(errors.location)}
-                    helperText={errors.location?.message ?? "Choose the campus hosting the workshop."}
+                    helperText={
+                      errors.location?.message ??
+                      "Choose the campus hosting the workshop."
+                    }
                   >
                     {Object.values(Location).map((location) => (
                       <MenuItem key={location} value={location}>
@@ -515,13 +633,16 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       <DateTimePicker
                         label="Start date and time"
                         value={field.value ? dayjs(field.value) : null}
-                        onChange={(value) => field.onChange(value ? value.toDate() : null)}
+                        onChange={(value) =>
+                          field.onChange(value ? value.toDate() : null)
+                        }
                         slotProps={{
                           textField: {
                             fullWidth: true,
                             error: Boolean(errors.startDate),
                             helperText:
-                              errors.startDate?.message ?? "When participants should arrive.",
+                              errors.startDate?.message ??
+                              "When participants should arrive.",
                           },
                         }}
                       />
@@ -536,12 +657,16 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       <DateTimePicker
                         label="End date and time"
                         value={field.value ? dayjs(field.value) : null}
-                        onChange={(value) => field.onChange(value ? value.toDate() : null)}
+                        onChange={(value) =>
+                          field.onChange(value ? value.toDate() : null)
+                        }
                         slotProps={{
                           textField: {
                             fullWidth: true,
                             error: Boolean(errors.endDate),
-                            helperText: errors.endDate?.message ?? "Wrap-up time for the workshop.",
+                            helperText:
+                              errors.endDate?.message ??
+                              "Wrap-up time for the workshop.",
                           },
                         }}
                       />
@@ -556,7 +681,9 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       <DateTimePicker
                         label="Registration deadline"
                         value={field.value ? dayjs(field.value) : null}
-                        onChange={(value) => field.onChange(value ? value.toDate() : null)}
+                        onChange={(value) =>
+                          field.onChange(value ? value.toDate() : null)
+                        }
                         slotProps={{
                           textField: {
                             fullWidth: true,
@@ -578,7 +705,10 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     defaultValue={Faculty.MET}
                     {...register("faculty")}
                     error={Boolean(errors.faculty)}
-                    helperText={errors.faculty?.message ?? "Faculty overseeing the workshop."}
+                    helperText={
+                      errors.faculty?.message ??
+                      "Faculty overseeing the workshop."
+                    }
                   >
                     {Object.values(Faculty).map((faculty) => (
                       <MenuItem key={faculty} value={faculty}>
@@ -601,16 +731,23 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                           options={professorOptions}
                           getOptionLabel={(option) => option.name}
                           value={selected}
-                          onChange={(_event, value) => field.onChange(value.map((option) => option.id))}
+                          onChange={(_event, value) =>
+                            field.onChange(value.map((option) => option.id))
+                          }
                           disableCloseOnSelect
                           loading={professorsQuery.isLoading}
-                          isOptionEqualToValue={(option, value) => option.id === value.id}
+                          isOptionEqualToValue={(option, value) =>
+                            option.id === value.id
+                          }
                           noOptionsText={
                             professorsQuery.isLoading
                               ? "Loading professors..."
                               : "No professors available."
                           }
-                          disabled={professorsQuery.isLoading || professorOptions.length === 0}
+                          disabled={
+                            professorsQuery.isLoading ||
+                            professorOptions.length === 0
+                          }
                           renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
                               <Chip
@@ -648,7 +785,8 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     {...register("description")}
                     error={Boolean(errors.description)}
                     helperText={
-                      errors.description?.message ?? "Share what participants will learn."
+                      errors.description?.message ??
+                      "Share what participants will learn."
                     }
                   />
                 </Grid>
@@ -674,7 +812,10 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     inputProps={{ min: 1 }}
                     {...register("capacity", { valueAsNumber: true })}
                     error={Boolean(errors.capacity)}
-                    helperText={errors.capacity?.message ?? "Maximum number of participants."}
+                    helperText={
+                      errors.capacity?.message ??
+                      "Maximum number of participants."
+                    }
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
@@ -699,7 +840,10 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     defaultValue={FundingSource.GUC}
                     {...register("fundingSource")}
                     error={Boolean(errors.fundingSource)}
-                    helperText={errors.fundingSource?.message ?? "Who provides the funding?"}
+                    helperText={
+                      errors.fundingSource?.message ??
+                      "Who provides the funding?"
+                    }
                   >
                     {Object.values(FundingSource).map((source) => (
                       <MenuItem key={source} value={source}>

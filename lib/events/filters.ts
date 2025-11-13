@@ -6,6 +6,7 @@ export interface EventFilters {
   eventType?: EventType | "All";
   location?: Location | "All";
   professor?: string;
+  sessionType?: string | "All";
   startDate?: string | null;
   endDate?: string | null;
   sortOrder: "asc" | "desc";
@@ -14,6 +15,7 @@ export interface EventFilters {
 interface FilterOptions<T> {
   getEventType?: (item: T) => EventType | string | undefined | null;
   getLocation?: (item: T) => Location | string | undefined | null;
+  getSessionType?: (item: T) => string | undefined | null;
   getStartDate?: (item: T) => string | Date | Dayjs | null | undefined;
   getProfessorNames?: (item: T) => readonly string[] | undefined;
   getSearchValues?: (item: T) => Array<string | undefined | null>;
@@ -32,6 +34,7 @@ export function filterAndSortEvents<T>(
     getEventType,
     getLocation = (item: T) =>
       (item as { location?: Location | string }).location,
+    getSessionType,
     getStartDate = (item: T) =>
       (item as { startDate?: string | Date }).startDate ?? null,
     getProfessorNames,
@@ -63,6 +66,13 @@ export function filterAndSortEvents<T>(
       itemLocation !== filters.location
     ) {
       return false;
+    }
+
+    if (filters.sessionType && filters.sessionType !== "All") {
+      const itemSessionType = getSessionType ? getSessionType(item) : undefined;
+      if (!itemSessionType || itemSessionType !== filters.sessionType) {
+        return false;
+      }
     }
 
     if (filters.professor) {

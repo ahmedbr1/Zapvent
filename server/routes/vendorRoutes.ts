@@ -104,7 +104,7 @@ router.patch(
 router.get(
   "/admin",
   loginRequired,
-  allowedRoles(["Admin"]),
+  allowedRoles(["Admin", "EventOffice"]),
   vendorController.listVendorsForAdmin.bind(vendorController)
 );
 

@@ -80,6 +80,7 @@ export default function BazaarManagementPage() {
     eventType: "All",
     location: "All",
     professor: "",
+    sessionType: "All",
     startDate: null,
     endDate: null,
     sortOrder: "asc",

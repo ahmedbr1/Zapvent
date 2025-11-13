@@ -30,6 +30,7 @@ interface EventFiltersBarProps {
   showDateFilters?: boolean;
   showProfessorFilter?: boolean;
   showSort?: boolean;
+  sessionTypes?: string[];
 }
 
 export function EventFiltersBar({
@@ -42,6 +43,7 @@ export function EventFiltersBar({
   showDateFilters = true,
   showProfessorFilter = true,
   showSort = true,
+  sessionTypes = [],
 }: EventFiltersBarProps) {
   const activeFilters = useMemo(() => {
     const filters: Array<{ label: string; key: keyof EventFilters }> = [];
@@ -50,6 +52,13 @@ export function EventFiltersBar({
     }
     if (showLocationFilter && value.location && value.location !== "All") {
       filters.push({ label: value.location, key: "location" });
+    }
+    if (
+      sessionTypes.length > 0 &&
+      value.sessionType &&
+      value.sessionType !== "All"
+    ) {
+      filters.push({ label: value.sessionType, key: "sessionType" });
     }
     if (showProfessorFilter && value.professor) {
       filters.push({
@@ -76,6 +85,7 @@ export function EventFiltersBar({
     showEventTypeFilter,
     showLocationFilter,
     showProfessorFilter,
+    sessionTypes,
   ]);
 
   const setFilter = <K extends keyof EventFilters>(
@@ -86,7 +96,7 @@ export function EventFiltersBar({
   };
 
   const handleClearFilter = (key: keyof EventFilters) => {
-    if (key === "eventType" || key === "location") {
+    if (key === "eventType" || key === "location" || key === "sessionType") {
       setFilter(key, "All" as EventFilters[typeof key]);
       return;
     }
@@ -106,6 +116,7 @@ export function EventFiltersBar({
       search: "",
       eventType: "All",
       location: "All",
+      sessionType: "All",
       professor: "",
       startDate: null,
       endDate: null,
@@ -161,6 +172,27 @@ export function EventFiltersBar({
           >
             <MenuItem value="All">All</MenuItem>
             {Object.values(EventType).map((type) => (
+              <MenuItem key={type} value={type}>
+                {type}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : null}
+        {sessionTypes.length > 0 ? (
+          <TextField
+            select
+            label="Session type"
+            value={value.sessionType ?? "All"}
+            onChange={(event) =>
+              setFilter(
+                "sessionType",
+                event.target.value as EventFilters["sessionType"]
+              )
+            }
+            sx={{ minWidth: { md: 180 } }}
+          >
+            <MenuItem value="All">All sessions</MenuItem>
+            {sessionTypes.map((type) => (
               <MenuItem key={type} value={type}>
                 {type}
               </MenuItem>
