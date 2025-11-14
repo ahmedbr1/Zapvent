@@ -1,6 +1,6 @@
-import UserModel, { userRole, userStatus } from "../models/User";
+import UserModel, { IUserNotification, userRole, userStatus } from "../models/User";
 import { emailService } from "./emailService";
-import AdminModel, { IAdmin } from "../models/Admin";
+import AdminModel, { IAdmin, IAdminNotification } from "../models/Admin";
 import { isValidObjectId } from "mongoose";
 
 export async function approveUser(userId: string) {
@@ -82,6 +82,68 @@ export interface CreateAdminData {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function normalizeUserNotifications(
+  notifications?: unknown[]
+): IUserNotification[] {
+  if (!Array.isArray(notifications)) {
+    return [];
+  }
+
+  return notifications.map((entry) => {
+    if (entry && typeof entry === "object" && "message" in entry) {
+      const candidate = entry as IUserNotification;
+      return {
+        message: String(candidate.message ?? ""),
+        seen: typeof candidate.seen === "boolean" ? candidate.seen : false,
+        createdAt: candidate.createdAt,
+      };
+    }
+
+    const fallback =
+      typeof entry === "string"
+        ? entry
+        : entry !== null && entry !== undefined
+          ? String(entry)
+          : "";
+
+    return {
+      message: fallback,
+      seen: false,
+    };
+  });
+}
+
+function normalizeAdminNotifications(
+  notifications?: unknown[]
+): IAdminNotification[] {
+  if (!Array.isArray(notifications)) {
+    return [];
+  }
+
+  return notifications.map((entry) => {
+    if (entry && typeof entry === "object" && "message" in entry) {
+      const candidate = entry as IAdminNotification;
+      return {
+        message: String(candidate.message ?? ""),
+        seen: typeof candidate.seen === "boolean" ? candidate.seen : false,
+        createdAt: candidate.createdAt,
+      };
+    }
+
+    const fallback =
+      typeof entry === "string"
+        ? entry
+        : entry !== null && entry !== undefined
+          ? String(entry)
+          : "";
+
+    return {
+      message: fallback,
+      seen: false,
+    };
+  });
 }
 
 export interface AdminResponse {
@@ -310,7 +372,7 @@ type UserDetails = {
   balance: number;
   verified: boolean;
   favorites: string[];
-  notifications: string[];
+  notifications: IUserNotification[];
   workshops: string[];
   registeredGymSessions: string[];
   reservedCourts: string[];
@@ -349,7 +411,7 @@ export async function viewAllUsers(): Promise<{
       balance: user.balance ?? 0,
       verified: user.verified,
       favorites: user.favorites ?? [],
-      notifications: user.notifications ?? [],
+      notifications: normalizeUserNotifications(user.notifications),
       workshops: user.workshops ?? [],
       registeredGymSessions: user.registeredGymSessions ?? [],
       reservedCourts: user.reservedCourts ?? [],
@@ -535,7 +597,7 @@ export async function unblockAdminAccount(
 
 export async function getEventOfficeNotifications(
   adminId: string
-): Promise<{ success: boolean; notifications?: string[]; message?: string }> {
+): Promise<{ success: boolean; notifications?: IAdminNotification[]; message?: string }> {
   try {
     if (!isValidObjectId(adminId)) {
       return { success: false, message: "Invalid admin ID" };
@@ -556,13 +618,60 @@ export async function getEventOfficeNotifications(
 
     return {
       success: true,
-      notifications: admin.notifications ?? [],
+      notifications: normalizeAdminNotifications(admin.notifications),
     };
   } catch (error) {
     console.error("Error fetching Event Office notifications:", error);
     return {
       success: false,
       message: "Failed to fetch notifications",
+    };
+  }
+}
+
+export async function markEventOfficeNotificationsSeen(
+  adminId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!isValidObjectId(adminId)) {
+      return { success: false, message: "Invalid admin ID" };
+    }
+
+    const admin = await AdminModel.findById(adminId)
+      .select(["notifications", "adminType"])
+      .lean<IAdmin | null>();
+    if (!admin) {
+      return { success: false, message: "Admin not found" };
+    }
+
+    if (admin.adminType !== "EventOffice") {
+      return {
+        success: false,
+        message: "Only Event Office admins can update notifications",
+      };
+    }
+
+    const normalized = normalizeAdminNotifications(admin.notifications).map(
+      (notification) => ({
+        ...notification,
+        seen: true,
+      })
+    );
+
+    await AdminModel.updateOne(
+      { _id: adminId },
+      { $set: { notifications: normalized } }
+    );
+
+    return {
+      success: true,
+      message: "Notifications marked as seen.",
+    };
+  } catch (error) {
+    console.error("Error marking Event Office notifications as seen:", error);
+    return {
+      success: false,
+      message: "Failed to mark notifications as seen",
     };
   }
 }

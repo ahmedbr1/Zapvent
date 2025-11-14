@@ -69,6 +69,18 @@ router.post(
   eventController.payByWalletController
 );
 router.post(
+  "/:id/stripe/payment-intent",
+  loginRequired,
+  allowedRoles(["Student", "Staff", "Professor", "TA"]),
+  eventController.createStripePaymentIntentController
+);
+router.post(
+  "/:id/stripe/finalize",
+  loginRequired,
+  allowedRoles(["Student", "Staff", "Professor", "TA"]),
+  eventController.finalizeStripePaymentController
+);
+router.post(
   "/:id/cancel-registration",
   loginRequired,
   allowedRoles(["Student", "Staff", "Professor", "TA"]),

@@ -3,6 +3,7 @@ import {
   FundingSource,
   Location,
   type Workshop,
+  type WorkshopParticipantsSnapshot,
 } from "@/lib/types";
 
 interface WorkshopApiItem {
@@ -18,6 +19,7 @@ interface WorkshopApiItem {
   participatingProfessorIds?: string[];
   participatingProfessors?: string[];
   requiredBudget?: number;
+  price?: number;
   fundingSource?: string;
   extraRequiredResources?: string;
   capacity?: number;
@@ -25,6 +27,8 @@ interface WorkshopApiItem {
   createdBy?: string;
   createdByName?: string;
   createdByRole?: string;
+  workshopStatus?: string;
+  requestedEdits?: string | null;
 }
 
 interface WorkshopListResponse {
@@ -49,6 +53,7 @@ export interface WorkshopPayload {
   faculty: string;
   participatingProfessorIds: string[];
   requiredBudget: number;
+  price: number;
   fundingSource: FundingSource;
   extraRequiredResources?: string;
   capacity: number;
@@ -141,6 +146,7 @@ function mapWorkshop(item: WorkshopApiItem): Workshop {
     participatingProfessorIds: professorIds,
     participatingProfessors: item.participatingProfessors ?? [],
     requiredBudget: typeof item.requiredBudget === "number" ? item.requiredBudget : 0,
+    price: typeof item.price === "number" ? item.price : 0,
     fundingSource: coerceEnumValue(item.fundingSource, FundingSource, FundingSource.GUC),
     extraRequiredResources: item.extraRequiredResources ?? "",
     capacity: typeof item.capacity === "number" ? item.capacity : 0,
@@ -148,6 +154,8 @@ function mapWorkshop(item: WorkshopApiItem): Workshop {
     createdBy: item.createdBy,
     createdByName: item.createdByName,
     createdByRole: item.createdByRole,
+    workshopStatus: item.workshopStatus,
+    requestedEdits: item.requestedEdits ?? null,
   };
 }
 
@@ -160,4 +168,74 @@ function coerceEnumValue<T extends Record<string, string>>(
   if (!stringValue) return fallback;
   const values = Object.values(enumObject) as Array<T[keyof T]>;
   return values.includes(stringValue as T[keyof T]) ? (stringValue as T[keyof T]) : fallback;
+}
+
+interface WorkshopParticipantsResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    workshopId: string;
+    workshopName: string;
+    capacity: number;
+    registeredCount: number;
+    remainingSpots: number;
+    participants: Array<{
+      id: string;
+      firstName?: string;
+      lastName?: string;
+      email: string;
+      role?: string;
+      studentId?: string;
+      staffId?: string;
+    }>;
+  };
+}
+
+interface CertificateResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    sentCount: number;
+    failedCount: number;
+  };
+}
+
+export async function fetchWorkshopParticipants(
+  workshopId: string,
+  token?: string
+): Promise<WorkshopParticipantsSnapshot> {
+  const response = await apiFetch<WorkshopParticipantsResponse>(`/events/workshop/${workshopId}/participants`, {
+    method: "GET",
+    token,
+  });
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message ?? "Failed to load workshop participants.");
+  }
+
+  return {
+    workshopId: response.data.workshopId,
+    workshopName: response.data.workshopName,
+    capacity: response.data.capacity,
+    registeredCount: response.data.registeredCount,
+    remainingSpots: response.data.remainingSpots,
+    participants: response.data.participants,
+  };
+}
+
+export async function sendWorkshopCertificates(workshopId: string, token?: string) {
+  const response = await apiFetch<CertificateResponse>(`/events/workshop/${workshopId}/send-certificates`, {
+    method: "POST",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to send workshop certificates.");
+  }
+
+  return {
+    sentCount: response.data?.sentCount ?? 0,
+    failedCount: response.data?.failedCount ?? 0,
+    message: response.message,
+  };
 }

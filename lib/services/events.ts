@@ -64,6 +64,37 @@ interface RegisterEventResponse {
   };
 }
 
+interface PayByWalletResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    receiptNumber?: string;
+  };
+}
+
+interface CancelRegistrationResponse {
+  success: boolean;
+  message: string;
+}
+
+interface StripeIntentResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    clientSecret: string;
+    paymentIntentId: string;
+  };
+}
+
+interface StripeFinalizeResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    receiptNumber: string;
+    transactionReference?: string;
+  };
+}
+
 export interface BazaarPayload {
   name: string;
   description: string;
@@ -112,6 +143,76 @@ export async function registerForWorkshop(
 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to register for this event");
+  }
+
+  return response;
+}
+
+export async function payForEventByWallet(eventId: string, token?: string) {
+  const response = await apiFetch<PayByWalletResponse, { useWalletBalance: boolean }>(
+    `/events/${eventId}/pay-by-wallet`,
+    {
+      method: "POST",
+      body: { useWalletBalance: true },
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to process wallet payment");
+  }
+
+  return response;
+}
+
+export async function cancelEventRegistration(eventId: string, token?: string) {
+  const response = await apiFetch<CancelRegistrationResponse>(
+    `/events/${eventId}/cancel-registration`,
+    {
+      method: "POST",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to cancel registration");
+  }
+
+  return response;
+}
+
+export async function createStripePaymentIntent(eventId: string, token?: string) {
+  const response = await apiFetch<StripeIntentResponse>(
+    `/events/${eventId}/stripe/payment-intent`,
+    {
+      method: "POST",
+      token,
+    }
+  );
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message ?? "Failed to start card payment");
+  }
+
+  return response.data;
+}
+
+export async function finalizeStripePayment(
+  eventId: string,
+  paymentIntentId: string,
+  token?: string
+) {
+  const response = await apiFetch<StripeFinalizeResponse, { paymentIntentId: string }>(
+    `/events/${eventId}/stripe/finalize`,
+    {
+      method: "POST",
+      token,
+      body: { paymentIntentId },
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to confirm card payment");
   }
 
   return response;

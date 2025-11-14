@@ -26,6 +26,16 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Divider from "@mui/material/Divider";
+import Tooltip from "@mui/material/Tooltip";
+import PeopleIcon from "@mui/icons-material/PeopleAltRounded";
+import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import CircularProgress from "@mui/material/CircularProgress";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -35,6 +45,8 @@ import {
   fetchMyWorkshops,
   updateWorkshop,
   deleteWorkshop,
+  fetchWorkshopParticipants,
+  sendWorkshopCertificates,
   type WorkshopPayload,
 } from "@/lib/services/workshops";
 import {
@@ -44,6 +56,7 @@ import {
   Location,
   UserRole,
   type ProfessorSummary,
+  type Workshop,
 } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
 import { fetchProfessors } from "@/lib/services/users";
@@ -80,6 +93,7 @@ const workshopSchema = z
       .array(z.string().min(1, "Professor selection is required"))
       .min(1, "Select at least one participating professor."),
     requiredBudget: z.coerce.number().min(0, "Budget must be a positive value"),
+    price: z.coerce.number().min(0, "Price must be a non-negative value"),
     fundingSource: z.nativeEnum(FundingSource, {
       message: "Select a funding source",
     }),
@@ -157,6 +171,10 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [participantsDialog, setParticipantsDialog] = useState<{
+    workshopId: string;
+    workshopName: string;
+  } | null>(null);
 
   const canCreate = isEventsOfficeVariant
     ? Boolean(isAdmin)
@@ -230,6 +248,26 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     },
   });
 
+  const certificateMutation = useMutation({
+    mutationFn: (workshopId: string) =>
+      sendWorkshopCertificates(workshopId, token ?? undefined),
+    onSuccess: (result) => {
+      enqueueSnackbar(result.message ?? "Certificates sent successfully.", {
+        variant: "success",
+      });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const participantsQuery = useQuery({
+    queryKey: ["workshop-participants", participantsDialog?.workshopId, token],
+    queryFn: () =>
+      fetchWorkshopParticipants(participantsDialog!.workshopId, token ?? undefined),
+    enabled: Boolean(participantsDialog?.workshopId && token),
+  });
+
   const workshops = useMemo(() => data ?? [], [data]);
   const professorOptions = useMemo<ProfessorSummary[]>(
     () => professorsQuery.data ?? [],
@@ -283,6 +321,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         : Faculty.MET) as Faculty,
       participatingProfessorIds: workshop.participatingProfessorIds,
       requiredBudget: workshop.requiredBudget,
+      price: workshop.price ?? 0,
       fundingSource: workshop.fundingSource,
       extraRequiredResources: workshop.extraRequiredResources ?? "",
       capacity: workshop.capacity,
@@ -302,6 +341,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
       faculty: values.faculty,
       participatingProfessorIds: values.participatingProfessorIds,
       requiredBudget: values.requiredBudget,
+      price: values.price,
       fundingSource: values.fundingSource,
       extraRequiredResources:
         values.extraRequiredResources?.trim() || undefined,
@@ -339,6 +379,21 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         : false;
     if (!confirmed) return;
     deleteMutation.mutate(workshopId);
+  };
+
+  const handleViewParticipants = (workshop: Workshop) => {
+    setParticipantsDialog({
+      workshopId: workshop.id,
+      workshopName: workshop.name,
+    });
+  };
+
+  const handleParticipantsDialogClose = () => {
+    setParticipantsDialog(null);
+  };
+
+  const handleSendCertificates = (workshop: Workshop) => {
+    certificateMutation.mutate(workshop.id);
   };
 
   return (
@@ -426,6 +481,16 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                 : "Created by faculty";
             const canEditWorkshopCard = isProfessor || isEventsOfficeVariant;
             const canDeleteWorkshopCard = isProfessor || isEventsOfficeVariant;
+            const statusLabel = workshop.workshopStatus ?? "Pending";
+            const statusColor =
+              statusLabel === "Approved"
+                ? "success"
+                : statusLabel === "Rejected"
+                  ? "error"
+                  : "warning";
+            const canViewParticipants = createdByYou || isEventsOfficeVariant;
+            const eventHasEnded = dayjs(workshop.endDate).isBefore(dayjs());
+            const canSendCertificates = createdByYou && eventHasEnded;
 
             return (
               <Grid key={workshop.id} size={{ xs: 12, md: 6, lg: 4 }}>
@@ -475,6 +540,11 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                             }}
                           />
                         ) : null}
+                        <Chip
+                          label={`${statusLabel} status`}
+                          size="small"
+                          color={statusColor as "default" | "success" | "warning" | "error"}
+                        />
                       </Stack>
                       <Typography variant="h6" fontWeight={700}>
                         {workshop.name}
@@ -482,6 +552,11 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       <Typography variant="body2" color="text.secondary">
                         {workshop.description}
                       </Typography>
+                      {workshop.requestedEdits ? (
+                        <Alert severity="warning" variant="outlined">
+                          Requested edits: {workshop.requestedEdits}
+                        </Alert>
+                      ) : null}
                       <Stack spacing={0.5}>
                         <Typography variant="subtitle2" color="text.secondary">
                           Faculty
@@ -531,6 +606,9 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                           Required budget: EGP{" "}
                           {workshop.requiredBudget.toLocaleString()}
                         </Typography>
+                        <Typography variant="body2">
+                          Ticket price: EGP {workshop.price?.toLocaleString() ?? "0"}
+                        </Typography>
                         {workshop.extraRequiredResources ? (
                           <Typography variant="body2" color="text.secondary">
                             Extras: {workshop.extraRequiredResources}
@@ -539,10 +617,44 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       </Stack>
                     </Stack>
                   </CardContent>
-                  <CardActions
-                    sx={{ justifyContent: "flex-end", px: 3, pb: 3 }}
-                  >
-                    <Stack direction="row" spacing={1}>
+                  <CardActions sx={{ px: 3, pb: 3 }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      flexWrap="wrap"
+                      rowGap={1}
+                      justifyContent="flex-end"
+                      width="100%"
+                    >
+                      {canViewParticipants ? (
+                        <Button
+                          startIcon={<PeopleIcon />}
+                          onClick={() => handleViewParticipants(workshop)}
+                        >
+                          Participants
+                        </Button>
+                      ) : null}
+                      {createdByYou ? (
+                        <Tooltip
+                          title={
+                            canSendCertificates
+                              ? "Send certificates to everyone who attended."
+                              : "Certificates can be sent after the workshop ends."
+                          }
+                        >
+                          <span>
+                            <Button
+                              startIcon={<WorkspacePremiumIcon />}
+                              disabled={
+                                !canSendCertificates || certificateMutation.isPending
+                              }
+                              onClick={() => handleSendCertificates(workshop)}
+                            >
+                              Send certificates
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      ) : null}
                       <Button
                         startIcon={<EditIcon />}
                         onClick={() => handleEditClick(workshop.id)}
@@ -842,6 +954,20 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
                   <TextField
+                    type="number"
+                    label="Ticket price (EGP)"
+                    fullWidth
+                    inputProps={{ min: 0, step: 10 }}
+                    {...register("price", { valueAsNumber: true })}
+                    error={Boolean(errors.price)}
+                    helperText={
+                      errors.price?.message ??
+                      "Set to 0 if attendance is free."
+                    }
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField
                     select
                     label="Funding source"
                     fullWidth
@@ -883,6 +1009,80 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
           </DialogActions>
         </form>
       </Dialog>
+
+      <Dialog
+        open={Boolean(participantsDialog)}
+        onClose={handleParticipantsDialogClose}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Participants{" "}
+          {participantsDialog ? `— ${participantsDialog.workshopName}` : ""}
+        </DialogTitle>
+        <DialogContent dividers>
+          {participantsQuery.isLoading ? (
+            <Stack alignItems="center" py={3}>
+              <CircularProgress />
+            </Stack>
+          ) : participantsQuery.isError ? (
+            <Alert severity="error">
+              Unable to load participant details right now.
+            </Alert>
+          ) : participantsQuery.data ? (
+            <Stack spacing={2}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                justifyContent="space-between"
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Capacity: {participantsQuery.data.capacity}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Registered: {participantsQuery.data.registeredCount} · Remaining:{" "}
+                  {participantsQuery.data.remainingSpots}
+                </Typography>
+              </Stack>
+              <Divider />
+              {participantsQuery.data.participants.length === 0 ? (
+                <Alert severity="info">
+                  No participants have registered for this workshop yet.
+                </Alert>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Role</TableCell>
+                      <TableCell>ID</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {participantsQuery.data.participants.map((participant) => {
+                      const fullName = `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim() ||
+                        "Participant";
+                      const gucId = participant.studentId ?? participant.staffId ?? "—";
+                      return (
+                        <TableRow key={participant.id}>
+                          <TableCell>{fullName}</TableCell>
+                          <TableCell>{participant.email}</TableCell>
+                          <TableCell>{participant.role ?? "—"}</TableCell>
+                          <TableCell>{gucId}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </Stack>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleParticipantsDialogClose}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
@@ -900,6 +1100,7 @@ function defaultWorkshopValues(): WorkshopFormValues {
     faculty: Faculty.MET,
     participatingProfessorIds: [],
     requiredBudget: 0,
+    price: 0,
     fundingSource: FundingSource.GUC,
     extraRequiredResources: "",
     capacity: 20,

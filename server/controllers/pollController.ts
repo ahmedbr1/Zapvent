@@ -3,6 +3,7 @@ import type { AuthRequest } from "../middleware/authMiddleware";
 import {
   createVendorBoothPoll,
   voteForVendor,
+  listVendorBoothPolls,
   type CreateVendorBoothPollInput,
 } from "../services/pollService";
 
@@ -38,6 +39,30 @@ class PollController {
     return res
       .status(result.statusCode ?? (result.success ? 200 : 400))
       .json(result);
+  }
+
+  async listPolls(req: AuthRequest, res: Response) {
+    try {
+      const result = await listVendorBoothPolls(req.user?.id);
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          message: result.message ?? "Failed to load polls.",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        polls: result.polls,
+      });
+    } catch (error) {
+      console.error("List polls error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load polls.",
+      });
+    }
   }
 }
 

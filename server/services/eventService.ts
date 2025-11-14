@@ -362,6 +362,7 @@ export interface ICreateWorkshopInput {
   faculty: string;
   participatingProfessorIds: string[];
   requiredBudget: number;
+  price?: number;
   fundingSource: FundingSource;
   extraRequiredResources?: string;
   capacity: number;
@@ -385,6 +386,7 @@ export interface IEditWorkshopInput {
   faculty?: string;
   participatingProfessorIds?: string[];
   requiredBudget?: number;
+  price?: number;
   fundingSource?: FundingSource;
   extraRequiredResources?: string;
   capacity?: number;
@@ -582,6 +584,7 @@ export async function createWorkshop(
       faculty,
       participatingProfessorIds,
       requiredBudget,
+      price,
       fundingSource,
       extraRequiredResources,
       capacity,
@@ -651,6 +654,15 @@ export async function createWorkshop(
       };
     }
 
+    if (price !== undefined && price < 0) {
+      return {
+        success: false,
+        message: "Price must be a non-negative number.",
+      };
+    }
+
+    const normalizedPrice = typeof price === "number" ? price : undefined;
+
     // Create the workshop
     const workshop = await EventModel.create({
       name,
@@ -666,6 +678,7 @@ export async function createWorkshop(
       faculty,
       participatingProfessors: professorIds,
       requiredBudget,
+      price: normalizedPrice,
       fundingSource,
       extraRequiredResources: extraRequiredResources || "",
       createdBy,
@@ -684,6 +697,7 @@ export async function createWorkshop(
       | "fullAgenda"
       | "faculty"
       | "requiredBudget"
+      | "price"
       | "fundingSource"
       | "extraRequiredResources"
       | "capacity"
@@ -822,6 +836,17 @@ export async function editWorkshop(
         success: false,
         message: "Required budget must be a non-negative number.",
       };
+    }
+
+    if (updates.price !== undefined) {
+      const parsedPrice = Number(updates.price);
+      if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+        return {
+          success: false,
+          message: "Price must be a non-negative number.",
+        };
+      }
+      updates.price = parsedPrice;
     }
 
     let updatePayload: Partial<IEvent> & {
@@ -1055,11 +1080,19 @@ function buildAdminName(admin: Pick<IAdmin, "firstName" | "lastName">): string {
   return [admin.firstName, admin.lastName].filter(Boolean).join(" ").trim();
 }
 
+function buildNotificationEntry(message: string) {
+  return {
+    message,
+    seen: false,
+    createdAt: new Date(),
+  };
+}
+
 async function notifyEventOffice(message: string): Promise<void> {
   try {
     await AdminModel.updateMany(
       { adminType: "EventOffice", status: "Active" },
-      { $push: { notifications: message } }
+      { $push: { notifications: buildNotificationEntry(message) } }
     );
   } catch (error) {
     console.error("Error sending notification to Event Office:", error);
@@ -1087,7 +1120,7 @@ async function notifyProfessorWorkshopStatus(
     }
 
     await UserModel.findByIdAndUpdate(professorId, {
-      $push: { notifications: message },
+      $push: { notifications: buildNotificationEntry(message) },
     });
   } catch (error) {
     console.error("Error sending notification to professor:", error);
@@ -1109,6 +1142,7 @@ type WorkshopRecordInput = Pick<
   | "fullAgenda"
   | "faculty"
   | "requiredBudget"
+  | "price"
   | "fundingSource"
   | "extraRequiredResources"
   | "capacity"
@@ -1140,6 +1174,7 @@ function serializeWorkshopRecord<T extends WorkshopRecordInput>(
     participatingProfessorIds: workshop.participatingProfessorIds,
     participatingProfessors: workshop.participatingProfessors,
     requiredBudget: workshop.requiredBudget ?? 0,
+    price: workshop.price ?? 0,
     fundingSource: workshop.fundingSource,
     extraRequiredResources: workshop.extraRequiredResources ?? "",
     capacity: workshop.capacity ?? 0,

@@ -2,6 +2,12 @@ import mongoose, { Schema } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 import bcrypt from "bcrypt";
 
+export interface IAdminNotification {
+  message: string;
+  seen: boolean;
+  createdAt?: Date;
+}
+
 export interface IAdmin extends IBaseModel {
   // could maybe be under users?
   firstName: string;
@@ -10,8 +16,17 @@ export interface IAdmin extends IBaseModel {
   password: string;
   status: "Active" | "Blocked";
   adminType: string; // "Event Office" or "Admin"
-  notifications?: string[];
+  notifications?: IAdminNotification[];
 }
+
+const NotificationSchema = new Schema<IAdminNotification>(
+  {
+    message: { type: String, required: true },
+    seen: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const AdminSchema = new Schema<IAdmin>(
   {
@@ -25,7 +40,7 @@ const AdminSchema = new Schema<IAdmin>(
       enum: ["EventOffice", "Admin"],
       required: true,
     },
-    notifications: [{ type: String }],
+    notifications: { type: [NotificationSchema], default: [] },
   },
   { timestamps: true }
 );

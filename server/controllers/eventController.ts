@@ -43,6 +43,8 @@ import { userRole } from "../models/User";
 import {
   payByWallet as payByWalletService,
   cancelRegistrationAndRefund as cancelRegistrationAndRefundService,
+  createStripePaymentIntent as createStripePaymentIntentService,
+  finalizeStripePayment as finalizeStripePaymentService,
   PayByWalletInput,
 } from "../services/paymentService";
 
@@ -641,6 +643,7 @@ export class EventController {
         participatingProfessorIds,
         participatingProfessors,
         requiredBudget,
+        price,
         fundingSource,
         extraRequiredResources,
         capacity,
@@ -684,6 +687,7 @@ export class EventController {
         !faculty ||
         professorIds.length === 0 ||
         requiredBudget === undefined ||
+        price === undefined ||
         !fundingSource ||
         !capacity ||
         !registrationDeadline
@@ -691,7 +695,7 @@ export class EventController {
         return res.status(400).json({
           success: false,
           message:
-            "All required fields must be provided: name, location, startDate, endDate, description, fullAgenda, faculty, participatingProfessorIds, requiredBudget, fundingSource, capacity, and registrationDeadline.",
+            "All required fields must be provided: name, location, startDate, endDate, description, fullAgenda, faculty, participatingProfessorIds, requiredBudget, price, fundingSource, capacity, and registrationDeadline.",
         });
       }
 
@@ -705,6 +709,7 @@ export class EventController {
         faculty,
         participatingProfessorIds: professorIds,
         requiredBudget,
+        price,
         fundingSource,
         extraRequiredResources,
         capacity,
@@ -1293,6 +1298,84 @@ export class EventController {
       });
     }
   }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async createStripePaymentIntentController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const result = await createStripePaymentIntentService(id, userId);
+      const status = result.statusCode ?? (result.success ? 200 : 400);
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("createStripePaymentIntent controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to initiate card payment.",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  async finalizeStripePaymentController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      const paymentIntentIdRaw = req.body?.paymentIntentId;
+      const paymentIntentId =
+        typeof paymentIntentIdRaw === "string" && paymentIntentIdRaw.trim().length > 0
+          ? paymentIntentIdRaw.trim()
+          : undefined;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required.",
+        });
+      }
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      if (!paymentIntentId) {
+        return res.status(400).json({
+          success: false,
+          message: "Stripe paymentIntentId is required.",
+        });
+      }
+
+      const result = await finalizeStripePaymentService(id, userId, paymentIntentId);
+      const status = result.statusCode ?? (result.success ? 200 : 400);
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("finalizeStripePayment controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to confirm card payment.",
+      });
+    }
+  }
 }
 // Create an instance and export the bound methods for use in routes
 const eventController = new EventController();
@@ -1313,5 +1396,9 @@ export const payByWalletController =
   eventController.payByWalletController.bind(eventController);
 export const cancelRegistrationAndRefundController =
   eventController.cancelRegistrationAndRefundController.bind(eventController);
+export const createStripePaymentIntentController =
+  eventController.createStripePaymentIntentController.bind(eventController);
+export const finalizeStripePaymentController =
+  eventController.finalizeStripePaymentController.bind(eventController);
 
 export default eventController;

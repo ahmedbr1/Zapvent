@@ -28,6 +28,11 @@ router.get(
   "/notifications",
   adminController.getMyNotifications.bind(adminController)
 );
+router.patch(
+  "/notifications/seen",
+  allowedRoles(["EventOffice"]),
+  adminController.markMyNotificationsSeen.bind(adminController)
+);
 
 router.post(
   "/polls",

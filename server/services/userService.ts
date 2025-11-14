@@ -1,8 +1,39 @@
-import UserModel, { IUser, userRole } from "../models/User";
+import UserModel, { IUser, IUserNotification, userRole } from "../models/User";
 import { z } from "zod";
 import { Types } from "mongoose";
 import EventModel, { IEvent } from "../models/Event";
 import { issueStudentVerification } from "./emailVerificationService";
+
+function normalizeUserNotifications(
+  notifications?: unknown[]
+): IUserNotification[] {
+  if (!Array.isArray(notifications)) {
+    return [];
+  }
+
+  return notifications.map((entry) => {
+    if (entry && typeof entry === "object" && "message" in entry) {
+      const candidate = entry as IUserNotification;
+      return {
+        message: String(candidate.message ?? ""),
+        seen: typeof candidate.seen === "boolean" ? candidate.seen : false,
+        createdAt: candidate.createdAt,
+      };
+    }
+
+    const fallback =
+      typeof entry === "string"
+        ? entry
+        : entry !== null && entry !== undefined
+          ? String(entry)
+          : "";
+
+    return {
+      message: fallback,
+      seen: false,
+    };
+  });
+}
 
 export async function findAll() {
   return UserModel.find().lean();
@@ -397,7 +428,7 @@ export async function getProfessorNotifications(
 ): Promise<{
   success: boolean;
   message: string;
-  data?: { notifications: string[] };
+  data?: { notifications: IUserNotification[] };
 }> {
   try {
     if (!Types.ObjectId.isValid(userId)) {
@@ -422,7 +453,7 @@ export async function getProfessorNotifications(
       success: true,
       message: "Notifications retrieved successfully.",
       data: {
-        notifications: user.notifications ?? [],
+        notifications: normalizeUserNotifications(user.notifications),
       },
     };
   } catch (error) {
@@ -430,6 +461,53 @@ export async function getProfessorNotifications(
     return {
       success: false,
       message: "An error occurred while retrieving notifications.",
+    };
+  }
+}
+
+export async function markNotificationsAsSeen(
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!Types.ObjectId.isValid(userId)) {
+      return {
+        success: false,
+        message: "Invalid user ID.",
+      };
+    }
+
+    const user = await UserModel.findById(userId)
+      .select("notifications")
+      .lean<IUser | null>();
+
+    if (!user) {
+      return {
+        success: false,
+        message: "User not found.",
+      };
+    }
+
+    const normalized = normalizeUserNotifications(user.notifications).map(
+      (notification) => ({
+        ...notification,
+        seen: true,
+      })
+    );
+
+    await UserModel.updateOne(
+      { _id: userId },
+      { $set: { notifications: normalized } }
+    );
+
+    return {
+      success: true,
+      message: "Notifications marked as seen.",
+    };
+  } catch (error) {
+    console.error("Error marking notifications as seen:", error);
+    return {
+      success: false,
+      message: "Failed to mark notifications as seen.",
     };
   }
 }

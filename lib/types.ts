@@ -124,6 +124,7 @@ export interface Workshop {
   participatingProfessorIds: string[];
   participatingProfessors: string[];
   requiredBudget: number;
+  price: number;
   fundingSource: FundingSource;
   extraRequiredResources?: string;
   capacity: number;
@@ -131,6 +132,8 @@ export interface Workshop {
   createdBy?: string;
   createdByName?: string;
   createdByRole?: string;
+  workshopStatus?: string;
+  requestedEdits?: string | null;
 }
 
 export interface ProfessorSummary {
@@ -180,6 +183,9 @@ export interface GymSession {
   type: GymSessionType;
   maxParticipants: number;
   registeredCount?: number;
+  registeredUsers?: string[];
+  isRegistered?: boolean;
+  remainingSpots?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -187,4 +193,145 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export interface FavoriteEvent {
+  id: string;
+  name: string;
+  description: string;
+  eventType: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  price?: number;
+}
+
+export interface EventRatingEntry {
+  id: string;
+  rating: number;
+  comment?: string;
+  eventId: string;
+  user?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    role?: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EventRatingsSummary {
+  event: {
+    id: string;
+    name: string;
+    startDate?: string;
+    endDate?: string;
+  };
+  averageRating: number;
+  totalRatings: number;
+  ratings: EventRatingEntry[];
+}
+
+export interface EventComment {
+  id: string;
+  content: string;
+  eventId: string;
+  user?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    role?: string;
+  };
+  parentCommentId?: string;
+  status?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventFeedbackPayload {
+  ratings: EventRatingsSummary;
+  comments: EventComment[];
+}
+
+export interface WorkshopParticipant {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role?: string;
+  studentId?: string;
+  staffId?: string;
+}
+
+export interface WorkshopParticipantsSnapshot {
+  workshopId: string;
+  workshopName: string;
+  capacity: number;
+  registeredCount: number;
+  remainingSpots: number;
+  participants: WorkshopParticipant[];
+}
+
+export interface LoyaltyProgramDetails {
+  discountRate: number;
+  promoCode: string;
+  termsAndConditions: string;
+  status: string;
+  appliedAt?: string;
+  cancelledAt?: string;
+}
+
+export interface LoyaltyPartner {
+  id: string;
+  companyName: string;
+  email: string;
+  logo?: string;
+  loyaltyProgram: LoyaltyProgramDetails;
+}
+
+export interface VendorPollDuration {
+  start: string;
+  end: string;
+}
+
+export interface VendorPollOption {
+  vendorId: string;
+  vendorName: string;
+  votes: number;
+  logo?: string;
+}
+
+export interface VendorPoll {
+  id: string;
+  boothName: string;
+  durations: VendorPollDuration[];
+  options: VendorPollOption[];
+  totalVotes: number;
+  selectedVendorId?: string;
+}
+
+export interface NotificationEntry {
+  message: string;
+  seen: boolean;
+  createdAt?: string;
+}
+
+export interface NotificationList {
+  notifications: NotificationEntry[];
+}
+
+export interface WalletRefundRecord {
+  eventId: string;
+  eventName?: string;
+  amount: number;
+  refundedAt?: string;
+  receiptNumber?: string;
+  refundReference?: string;
+}
+
+export interface WalletSummary {
+  balance: number;
+  totalRefunded: number;
+  refunds: WalletRefundRecord[];
 }

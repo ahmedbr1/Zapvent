@@ -14,6 +14,12 @@ export enum userStatus {
   BLOCKED = "Blocked",
 }
 
+export interface IUserNotification {
+  message: string;
+  seen: boolean;
+  createdAt?: Date;
+}
+
 export interface IUser extends IBaseModel {
   firstName: string;
   lastName: string;
@@ -27,11 +33,20 @@ export interface IUser extends IBaseModel {
   balance?: number;
   verified: boolean;
   favorites?: string[];
-  notifications?: string[];
+  notifications?: IUserNotification[];
   workshops?: string[];
   registeredGymSessions?: string[];
   reservedCourts?: string[];
 }
+
+const NotificationSchema = new Schema<IUserNotification>(
+  {
+    message: { type: String, required: true },
+    seen: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const UserSchema = new Schema<IUser>(
   {
@@ -75,7 +90,7 @@ const UserSchema = new Schema<IUser>(
       default: false,
     },
     favorites: [{ type: String }],
-    notifications: [{ type: String }],
+    notifications: { type: [NotificationSchema], default: [] },
     workshops: [{ type: String }],
     registeredGymSessions: [{ type: String }],
     reservedCourts: [{ type: String }],

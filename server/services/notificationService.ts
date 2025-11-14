@@ -16,6 +16,14 @@ const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const REMINDER_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const REMINDER_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
+function buildNotification(message: string) {
+  return {
+    message,
+    seen: false,
+    createdAt: new Date(),
+  };
+}
+
 async function pushNotificationsToUsers(
   userIds: Types.ObjectId[],
   message: string
@@ -30,7 +38,7 @@ async function pushNotificationsToUsers(
       role: { $in: TARGET_USER_ROLES },
     },
     {
-      $addToSet: { notifications: message },
+      $push: { notifications: buildNotification(message) },
     }
   ).exec();
 }
@@ -49,7 +57,7 @@ async function pushNotificationsToEventOfficeAdmins(
       adminType: "EventOffice",
     },
     {
-      $addToSet: { notifications: message },
+      $push: { notifications: buildNotification(message) },
     }
   ).exec();
 }
@@ -57,7 +65,7 @@ async function pushNotificationsToEventOfficeAdmins(
 async function broadcastToEventOffice(message: string): Promise<void> {
   await AdminModel.updateMany(
     { adminType: "EventOffice" },
-    { $addToSet: { notifications: message } }
+    { $push: { notifications: buildNotification(message) } }
   ).exec();
 }
 
@@ -97,7 +105,7 @@ export async function notifyUsersOfNewEvent(
     await Promise.all([
       UserModel.updateMany(
         { role: { $in: TARGET_USER_ROLES } },
-        { $addToSet: { notifications: message } }
+        { $push: { notifications: buildNotification(message) } }
       ).exec(),
       broadcastToEventOffice(message),
     ]);
@@ -118,7 +126,7 @@ export async function notifyUsersOfNewLoyaltyPartner(options: {
 
     await UserModel.updateMany(
       { role: { $in: TARGET_USER_ROLES } },
-      { $addToSet: { notifications: message } }
+      { $push: { notifications: buildNotification(message) } }
     ).exec();
   } catch (error) {
     console.error("Failed to send loyalty partner notification:", error);
@@ -136,7 +144,7 @@ export async function notifyAdminsOfPendingVendors(
 
     await AdminModel.updateMany(
       { adminType: { $in: ["Admin", "EventOffice"] } },
-      { $addToSet: { notifications: message } }
+      { $push: { notifications: buildNotification(message) } }
     ).exec();
   } catch (error) {
     console.error("Failed to send pending vendor notification:", error);
