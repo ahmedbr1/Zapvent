@@ -16,6 +16,7 @@ import FlightIcon from "@mui/icons-material/FlightTakeoffRounded";
 import SchoolIcon from "@mui/icons-material/SchoolRounded";
 import ConferenceIcon from "@mui/icons-material/CampaignRounded";
 import ChecklistIcon from "@mui/icons-material/ChecklistRtlRounded";
+import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
 import { AuthRole, UserRole } from "@/lib/types";
 
 export interface NavItem {
@@ -146,6 +147,12 @@ export const navItems: NavItem[] = [
     label: "Workshop Management",
     href: "/events-office/workshops",
     icon: SchoolIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Event Feedback",
+    href: "/events-office/feedback",
+    icon: RateReviewIcon,
     roles: [AuthRole.EventOffice],
   },
   {

@@ -43,6 +43,18 @@ interface WorkshopMutationResponse {
   data?: WorkshopApiItem | null;
 }
 
+interface WorkshopStatusResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    id: string;
+    name: string;
+    status?: string;
+    reason?: string;
+    requestedEdits?: string | null;
+  } | null;
+}
+
 export interface WorkshopPayload {
   name: string;
   location: Location;
@@ -125,6 +137,87 @@ export async function deleteWorkshop(id: string, token?: string): Promise<void> 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to delete workshop.");
   }
+}
+
+export async function approveWorkshopRequest(id: string, token?: string): Promise<WorkshopStatusResponse> {
+  const response = await apiFetch<WorkshopStatusResponse>(`/events/workshop/${id}/approve`, {
+    method: "PATCH",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to approve workshop.");
+  }
+
+  return response;
+}
+
+export async function rejectWorkshopRequest(
+  id: string,
+  payload?: { reason?: string },
+  token?: string
+): Promise<WorkshopStatusResponse> {
+  const response = await apiFetch<WorkshopStatusResponse, { reason?: string }>(
+    `/events/workshop/${id}/reject`,
+    {
+      method: "PATCH",
+      body: payload,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to reject workshop.");
+  }
+
+  return response;
+}
+
+export async function requestWorkshopEdits(
+  id: string,
+  payload: { message: string },
+  token?: string
+): Promise<WorkshopStatusResponse> {
+  const response = await apiFetch<WorkshopStatusResponse, { message: string }>(
+    `/events/workshop/${id}/request-edits`,
+    {
+      method: "PATCH",
+      body: payload,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to request edits.");
+  }
+
+  return response;
+}
+
+export async function setWorkshopToPending(
+  id: string,
+  token?: string
+): Promise<WorkshopStatusResponse> {
+  const endpoint = `${API_BASE}/api/events/workshop/${id}/set-pending`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const resp = await fetch(endpoint, {
+    method: "PATCH",
+    headers,
+  });
+
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.message ?? "Failed to set workshop to pending.");
+  }
+
+  const response = (await resp.json()) as WorkshopStatusResponse;
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to set workshop to pending.");
+  }
+
+  return response;
 }
 
 function mapWorkshop(item: WorkshopApiItem): Workshop {

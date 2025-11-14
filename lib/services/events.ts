@@ -53,6 +53,16 @@ interface EventMutationResponse {
   data?: unknown;
 }
 
+interface ArchiveEventResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    id: string;
+    name: string;
+    archived: boolean;
+  };
+}
+
 interface RegisterEventResponse {
   success: boolean;
   message: string;
@@ -432,6 +442,19 @@ export async function deleteEvent(id: string, token?: string): Promise<void> {
     method: "DELETE",
     token,
   });
+}
+
+export async function archiveEventById(id: string, token?: string): Promise<ArchiveEventResponse> {
+  const response = await apiFetch<ArchiveEventResponse>(`/events/${id}/archive`, {
+    method: "PATCH",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to archive event");
+  }
+
+  return response;
 }
 
 function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {

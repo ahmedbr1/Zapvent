@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,6 +36,11 @@ import Tooltip from "@mui/material/Tooltip";
 import PeopleIcon from "@mui/icons-material/PeopleAltRounded";
 import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import CircularProgress from "@mui/material/CircularProgress";
+import LoadingButton from "@mui/lab/LoadingButton";
+import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
+import BlockIcon from "@mui/icons-material/BlockRounded";
+import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
+import ArchiveIcon from "@mui/icons-material/ArchiveRounded";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -47,8 +52,12 @@ import {
   deleteWorkshop,
   fetchWorkshopParticipants,
   sendWorkshopCertificates,
+  approveWorkshopRequest,
+  rejectWorkshopRequest,
+  requestWorkshopEdits,
   type WorkshopPayload,
 } from "@/lib/services/workshops";
+import { archiveEventById } from "@/lib/services/events";
 import {
   AuthRole,
   Faculty,
@@ -175,6 +184,22 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     workshopId: string;
     workshopName: string;
   } | null>(null);
+  const [moderationDialog, setModerationDialog] = useState<{
+    type: "reject" | "request-edits";
+    workshopId: string;
+    workshopName: string;
+  } | null>(null);
+  const [moderationMessage, setModerationMessage] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{
+    workshopId: string;
+    workshopName: string;
+  } | null>(null);
+  const [recentlyApproved, setRecentlyApproved] = useState<Set<string>>(
+    new Set()
+  );
+  const [recentlyRejected, setRecentlyRejected] = useState<Set<string>>(
+    new Set()
+  );
 
   const canCreate = isEventsOfficeVariant
     ? Boolean(isAdmin)
@@ -242,6 +267,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     onSuccess: () => {
       enqueueSnackbar("Workshop deleted.", { variant: "success" });
       queryClient.invalidateQueries({ queryKey });
+      setDeleteDialog(null);
     },
     onError: (mutationError: unknown) => {
       enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
@@ -266,6 +292,73 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     queryFn: () =>
       fetchWorkshopParticipants(participantsDialog!.workshopId, token ?? undefined),
     enabled: Boolean(participantsDialog?.workshopId && token),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (workshopId: string) =>
+      approveWorkshopRequest(workshopId, token ?? undefined),
+    onSuccess: (response, workshopId) => {
+      enqueueSnackbar(
+        response.message ?? "Workshop approved and published.",
+        {
+          variant: "success",
+        }
+      );
+      setRecentlyApproved((prev) => new Set(prev).add(workshopId));
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      rejectWorkshopRequest(
+        id,
+        reason ? { reason } : undefined,
+        token ?? undefined
+      ),
+    onSuccess: (response, variables) => {
+      enqueueSnackbar(response.message ?? "Workshop rejected.", {
+        variant: "success",
+      });
+      setRecentlyRejected((prev) => new Set(prev).add(variables.id));
+      queryClient.invalidateQueries({ queryKey });
+      closeModerationDialog();
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const requestEditsMutation = useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) =>
+      requestWorkshopEdits(id, { message }, token ?? undefined),
+    onSuccess: (response) => {
+      enqueueSnackbar(response.message ?? "Edit request sent.", {
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey });
+      closeModerationDialog();
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (workshopId: string) =>
+      archiveEventById(workshopId, token ?? undefined),
+    onSuccess: (response) => {
+      enqueueSnackbar(response.message ?? "Workshop archived.", {
+        variant: "info",
+      });
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
   });
 
   const workshops = useMemo(() => data ?? [], [data]);
@@ -295,6 +388,29 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     [workshops, filters]
   );
   const submitting = createMutation.isPending || updateMutation.isPending;
+
+  // Clear tracking sets once data is updated
+  useEffect(() => {
+    if (data && recentlyApproved.size > 0) {
+      const updated = data.filter(
+        (w) => recentlyApproved.has(w.id) && w.workshopStatus === "Approved"
+      );
+      if (updated.length > 0) {
+        setRecentlyApproved(new Set());
+      }
+    }
+  }, [data, recentlyApproved]);
+
+  useEffect(() => {
+    if (data && recentlyRejected.size > 0) {
+      const updated = data.filter(
+        (w) => recentlyRejected.has(w.id) && w.workshopStatus === "Rejected"
+      );
+      if (updated.length > 0) {
+        setRecentlyRejected(new Set());
+      }
+    }
+  }, [data, recentlyRejected]);
   const actionLabel = editingId ? "Save changes" : "Create workshop";
 
   const handleCreateClick = () => {
@@ -370,15 +486,74 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     reset(defaultWorkshopValues());
   };
 
-  const handleDeleteClick = (workshopId: string, workshopName: string) => {
+  const closeModerationDialog = () => {
+    setModerationDialog(null);
+    setModerationMessage("");
+  };
+
+  const handleOpenRejectDialog = (workshop: Workshop) => {
+    setModerationDialog({
+      type: "reject",
+      workshopId: workshop.id,
+      workshopName: workshop.name,
+    });
+    setModerationMessage("");
+  };
+
+  const handleOpenRequestEditsDialog = (workshop: Workshop) => {
+    setModerationDialog({
+      type: "request-edits",
+      workshopId: workshop.id,
+      workshopName: workshop.name,
+    });
+    setModerationMessage(workshop.requestedEdits ?? "");
+  };
+
+  const handleModerationSubmit = () => {
+    if (!moderationDialog) return;
+    if (moderationDialog.type === "reject") {
+      rejectMutation.mutate({
+        id: moderationDialog.workshopId,
+        reason: moderationMessage.trim() || undefined,
+      });
+      return;
+    }
+    const trimmed = moderationMessage.trim();
+    if (!trimmed) {
+      enqueueSnackbar("Please describe the edits you need.", {
+        variant: "info",
+      });
+      return;
+    }
+    requestEditsMutation.mutate({
+      id: moderationDialog.workshopId,
+      message: trimmed,
+    });
+  };
+
+  const handleArchiveWorkshop = (workshop: Workshop) => {
     const confirmed =
       typeof window !== "undefined"
         ? window.confirm(
-            `Delete "${workshopName}"? This action cannot be undone.`
+            `Archive "${workshop.name}"? Attendees will no longer see it in listings.`
           )
         : false;
     if (!confirmed) return;
-    deleteMutation.mutate(workshopId);
+    archiveMutation.mutate(workshop.id);
+  };
+
+  const handleDeleteClick = (workshopId: string, workshopName: string) => {
+    setDeleteDialog({ workshopId, workshopName });
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleteMutation.isPending) return;
+    setDeleteDialog(null);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteDialog) return;
+    deleteMutation.mutate(deleteDialog.workshopId);
   };
 
   const handleViewParticipants = (workshop: Workshop) => {
@@ -491,6 +666,22 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
             const canViewParticipants = createdByYou || isEventsOfficeVariant;
             const eventHasEnded = dayjs(workshop.endDate).isBefore(dayjs());
             const canSendCertificates = createdByYou && eventHasEnded;
+            const isApproved = statusLabel === "Approved";
+            const isRejected = statusLabel === "Rejected";
+            const canModerateWorkshops =
+              isEventsOfficeVariant && (isEventsOffice || isAdmin);
+            const approvingThis =
+              approveMutation.isPending &&
+              approveMutation.variables === workshop.id;
+            const rejectingThis =
+              rejectMutation.isPending &&
+              rejectMutation.variables?.id === workshop.id;
+            const requestingEditsThis =
+              requestEditsMutation.isPending &&
+              requestEditsMutation.variables?.id === workshop.id;
+            const archivingThis =
+              archiveMutation.isPending &&
+              archiveMutation.variables === workshop.id;
 
             return (
               <Grid key={workshop.id} size={{ xs: 12, md: 6, lg: 4 }}>
@@ -618,72 +809,169 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                     </Stack>
                   </CardContent>
                   <CardActions sx={{ px: 3, pb: 3 }}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      flexWrap="wrap"
-                      rowGap={1}
-                      justifyContent="flex-end"
-                      width="100%"
-                    >
-                      {canViewParticipants ? (
+                    <Stack spacing={1} width="100%">
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        flexWrap="wrap"
+                        rowGap={1}
+                        justifyContent="flex-end"
+                      >
+                        {canViewParticipants ? (
+                          <Button
+                            startIcon={<PeopleIcon />}
+                            onClick={() => handleViewParticipants(workshop)}
+                          >
+                            Participants
+                          </Button>
+                        ) : null}
+                        {createdByYou ? (
+                          <Tooltip
+                            title={
+                              canSendCertificates
+                                ? "Send certificates to everyone who attended."
+                                : "Certificates can be sent after the workshop ends."
+                            }
+                          >
+                            <span>
+                              <Button
+                                startIcon={<WorkspacePremiumIcon />}
+                                disabled={
+                                  !canSendCertificates ||
+                                  certificateMutation.isPending
+                                }
+                                onClick={() => handleSendCertificates(workshop)}
+                              >
+                                Send certificates
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        ) : null}
                         <Button
-                          startIcon={<PeopleIcon />}
-                          onClick={() => handleViewParticipants(workshop)}
-                        >
-                          Participants
-                        </Button>
-                      ) : null}
-                      {createdByYou ? (
-                        <Tooltip
+                          startIcon={<EditIcon />}
+                          onClick={() => handleEditClick(workshop.id)}
+                          disabled={!canEditWorkshopCard}
                           title={
-                            canSendCertificates
-                              ? "Send certificates to everyone who attended."
-                              : "Certificates can be sent after the workshop ends."
+                            !canEditWorkshopCard
+                              ? "Editing is restricted to authorized roles."
+                              : undefined
                           }
                         >
-                          <span>
-                            <Button
-                              startIcon={<WorkspacePremiumIcon />}
-                              disabled={
-                                !canSendCertificates || certificateMutation.isPending
+                          Edit
+                        </Button>
+                        <Button
+                          color="error"
+                          variant="outlined"
+                          onClick={() =>
+                            handleDeleteClick(workshop.id, workshop.name)
+                          }
+                          disabled={
+                            !canDeleteWorkshopCard || deleteMutation.isPending
+                          }
+                          title={
+                            !canDeleteWorkshopCard
+                              ? "Deleting is restricted to authorized roles."
+                              : undefined
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </Stack>
+                      {canModerateWorkshops ? (
+                        <Stack spacing={1} width="100%">
+                          {/* Accept/Reject Buttons */}
+                          {isApproved || isRejected ? (
+                            <LoadingButton
+                              variant="contained"
+                              fullWidth
+                              disabled
+                              color={isApproved ? "success" : "warning"}
+                              startIcon={
+                                isApproved ? <CheckCircleIcon /> : <BlockIcon />
                               }
-                              onClick={() => handleSendCertificates(workshop)}
                             >
-                              Send certificates
-                            </Button>
-                          </span>
-                        </Tooltip>
+                              {isApproved ? "Accepted" : "Disabled"}
+                            </LoadingButton>
+                          ) : (
+                            <Stack spacing={1}>
+                              <LoadingButton
+                                variant="contained"
+                                color="success"
+                                fullWidth
+                                startIcon={<CheckCircleIcon />}
+                                onClick={() => approveMutation.mutate(workshop.id)}
+                                disabled={
+                                  approvingThis ||
+                                rejectingThis ||
+                                recentlyApproved.has(workshop.id) ||
+                                recentlyRejected.has(workshop.id)
+                                }
+                                loading={approvingThis}
+                              >
+                                Accept
+                              </LoadingButton>
+                              <LoadingButton
+                                variant="outlined"
+                                color="error"
+                                fullWidth
+                                startIcon={<BlockIcon />}
+                                onClick={() => handleOpenRejectDialog(workshop)}
+                                disabled={
+                                rejectingThis ||
+                                approvingThis ||
+                                recentlyRejected.has(workshop.id) ||
+                                recentlyApproved.has(workshop.id)
+                                }
+                                loading={rejectingThis}
+                              >
+                                Reject
+                              </LoadingButton>
+                            </Stack>
+                          )}
+                          
+                          {/* Other Actions */}
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            flexWrap="wrap"
+                            rowGap={1}
+                            justifyContent="flex-end"
+                          >
+                            <LoadingButton
+                              variant="outlined"
+                              color="secondary"
+                              startIcon={<RateReviewIcon />}
+                              onClick={() =>
+                                handleOpenRequestEditsDialog(workshop)
+                              }
+                              disabled={isApproved || requestingEditsThis}
+                              loading={requestingEditsThis}
+                            >
+                              Request edits
+                            </LoadingButton>
+                            <Tooltip
+                              title={
+                                eventHasEnded
+                                  ? "Archive workshops after they finish."
+                                  : "Archiving unlocks after the workshop ends."
+                              }
+                            >
+                              <span>
+                                <LoadingButton
+                                  variant="text"
+                                  color="inherit"
+                                  startIcon={<ArchiveIcon />}
+                                  disabled={!eventHasEnded || archivingThis}
+                                  loading={archivingThis}
+                                  onClick={() => handleArchiveWorkshop(workshop)}
+                                >
+                                  Archive
+                                </LoadingButton>
+                              </span>
+                            </Tooltip>
+                          </Stack>
+                        </Stack>
                       ) : null}
-                      <Button
-                        startIcon={<EditIcon />}
-                        onClick={() => handleEditClick(workshop.id)}
-                        disabled={!canEditWorkshopCard}
-                        title={
-                          !canEditWorkshopCard
-                            ? "Editing is restricted to authorized roles."
-                            : undefined
-                        }
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        color="error"
-                        variant="outlined"
-                        onClick={() =>
-                          handleDeleteClick(workshop.id, workshop.name)
-                        }
-                        disabled={
-                          !canDeleteWorkshopCard || deleteMutation.isPending
-                        }
-                        title={
-                          !canDeleteWorkshopCard
-                            ? "Deleting is restricted to authorized roles."
-                            : undefined
-                        }
-                      >
-                        Delete
-                      </Button>
                     </Stack>
                   </CardActions>
                 </Card>
@@ -1083,6 +1371,105 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
           <Button onClick={handleParticipantsDialogClose}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={Boolean(moderationDialog)}
+        onClose={closeModerationDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          {moderationDialog?.type === "reject"
+            ? `Reject "${moderationDialog?.workshopName ?? ""}"`
+            : `Request edits — ${moderationDialog?.workshopName ?? ""}`}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} mt={1}>
+            <Alert severity="info">
+              {moderationDialog?.type === "reject"
+                ? "Let the professor know why this workshop is not moving forward."
+                : "Share concrete details that will help the professor update their submission."}
+            </Alert>
+            <TextField
+              label={
+                moderationDialog?.type === "reject"
+                  ? "Reason (optional)"
+                  : "What needs to change?"
+              }
+              multiline
+              minRows={4}
+              value={moderationMessage}
+              onChange={(event) => setModerationMessage(event.target.value)}
+              placeholder={
+                moderationDialog?.type === "reject"
+                  ? "Example: Conflicts with another workshop on the same day."
+                  : "Example: Please attach the updated agenda and confirm resource needs."
+              }
+              helperText={
+                moderationDialog?.type === "reject"
+                  ? "This note is shared with the requesting professor."
+                  : "Your note appears in the professor dashboard instantly."
+              }
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeModerationDialog}
+            disabled={rejectMutation.isPending || requestEditsMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            onClick={handleModerationSubmit}
+            loading={
+              moderationDialog?.type === "reject"
+                ? rejectMutation.isPending
+                : requestEditsMutation.isPending
+            }
+          >
+            {moderationDialog?.type === "reject"
+              ? "Reject workshop"
+              : "Send request"}
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteDialog)}
+        onClose={closeDeleteDialog}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete workshop</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Alert severity="warning">
+              This will permanently remove{" "}
+              <strong>{deleteDialog?.workshopName}</strong> from all portals.
+              Registered attendees will lose access to this workshop.
+            </Alert>
+            <Typography variant="body2" color="text.secondary">
+              This action cannot be undone.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog} disabled={deleteMutation.isPending}>
+            Cancel
+          </Button>
+          <LoadingButton
+            color="error"
+            variant="contained"
+            onClick={confirmDelete}
+            loading={deleteMutation.isPending}
+          >
+            Delete workshop
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+
     </Stack>
   );
 }

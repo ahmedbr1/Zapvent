@@ -103,6 +103,10 @@ router.patch(
   "/workshop/:id/request-edits",
   eventController.requestWorkshopEditsController
 );
+router.patch(
+  "/workshop/:id/set-pending",
+  eventController.setWorkshopToPendingController
+);
 
 // Event Office route for archiving events
 router.patch("/:id/archive", eventController.archiveEventController);

@@ -202,11 +202,7 @@ export async function deleteEventById(eventId: string) {
     Comment.deleteMany({ event: event._id }),
     Rating.deleteMany({ event: event._id }),
   ]);
-  if (event.registeredUsers.length == 0) {
-    await event.deleteOne(); // or Event.findByIdAndDelete(eventId)
-  } else {
-    throw new Error("Cannot delete event with registered users");
-  }
+  await event.deleteOne(); // always allow deletion, even if attendees exist
 
   return event;
 }
@@ -1797,6 +1793,72 @@ export async function rejectWorkshop(
     return {
       success: false,
       message: "An error occurred while rejecting the workshop.",
+    };
+  }
+}
+
+export async function setWorkshopToPending(
+  workshopId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.PENDING) {
+      return {
+        success: false,
+        message: "Workshop is already pending.",
+      };
+    }
+
+    workshop.workshopStatus = WorkshopStatus.PENDING;
+    // Clear any requested edits since status is being reset
+    workshop.requestedEdits = undefined;
+    await workshop.save();
+
+    // Notify the professor about status change
+    if (workshop.createdBy) {
+      await notifyProfessorWorkshopStatus(
+        workshop.createdBy,
+        workshop.name,
+        "pending"
+      );
+    }
+
+    return {
+      success: true,
+      message: "Workshop status set to pending.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus,
+      },
+    };
+  } catch (error) {
+    console.error("Error setting workshop to pending:", error);
+    return {
+      success: false,
+      message: "An error occurred while updating workshop status.",
     };
   }
 }

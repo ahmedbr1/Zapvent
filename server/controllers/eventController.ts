@@ -15,6 +15,7 @@ import {
   approveWorkshop,
   rejectWorkshop,
   requestWorkshopEdits,
+  setWorkshopToPending,
   getWorkshopStatus,
   archiveEvent,
   setEventRoleRestrictions,
@@ -1050,7 +1051,10 @@ export class EventController {
   async rejectWorkshopController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const { reason } = req.body;
+      const reason =
+        typeof req.body === "object" && req.body !== null
+          ? (req.body as { reason?: string }).reason
+          : undefined;
 
       if (!id) {
         return res.status(400).json({
@@ -1128,6 +1132,30 @@ export class EventController {
       return res.status(status).json(result);
     } catch (error) {
       console.error("Get workshop status controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async setWorkshopToPendingController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const result = await setWorkshopToPending(id);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Set workshop to pending controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
