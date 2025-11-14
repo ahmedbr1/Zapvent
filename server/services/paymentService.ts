@@ -12,7 +12,7 @@ import { registerUserForWorkshop } from "./eventService";
 const DEFAULT_CURRENCY = process.env.EVENT_PAYMENT_CURRENCY || "EGP";
 const stripeClient = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2024-04-10",
+      apiVersion: "2023-10-16",
     })
   : null;
 
@@ -67,6 +67,10 @@ export type WalletRefundSummary = {
 type StripeIntentData = {
   clientSecret: string;
   paymentIntentId: string;
+};
+
+type PaymentIntentWithOptionalCharges = Stripe.PaymentIntent & {
+  charges?: Stripe.ApiList<Stripe.Charge>;
 };
 
 
@@ -593,9 +597,9 @@ export async function finalizeStripePayment(
     }
     const { event, user } = resolved;
 
-    const paymentIntent = await stripeClient.paymentIntents.retrieve(
+    const paymentIntent = (await stripeClient.paymentIntents.retrieve(
       paymentIntentId
-    );
+    )) as PaymentIntentWithOptionalCharges;
 
     if (!paymentIntent || typeof paymentIntent.metadata !== "object") {
       return {
@@ -626,7 +630,7 @@ export async function finalizeStripePayment(
 
     const existingPayment = await UserPaymentModel.findOne({
       transactionReference: paymentIntent.id,
-    }).lean();
+    }).lean<IUserPayment | null>();
 
     if (existingPayment) {
       return {
@@ -642,7 +646,8 @@ export async function finalizeStripePayment(
           eventId: existingPayment.eventId.toString(),
           eventName: event.name,
           balance: user.balance ?? 0,
-          transactionReference: existingPayment.transactionReference,
+          transactionReference:
+            existingPayment.transactionReference ?? paymentIntent.id,
         },
       };
     }
