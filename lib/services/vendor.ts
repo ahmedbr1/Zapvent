@@ -1,4 +1,5 @@
 import { apiFetch } from "../api-client";
+import type { LoyaltyPartner } from "@/lib/types";
 
 export interface VendorProfile {
   email: string;
@@ -44,4 +45,49 @@ export async function updateVendorProfile(
       token: token ?? undefined,
     }
   );
+}
+
+interface LoyaltyVendorsResponse {
+  success: boolean;
+  message: string;
+  vendors?: Array<{
+    id: string;
+    companyName: string;
+    email: string;
+    logo?: string;
+    loyaltyProgram?: {
+      discountRate: number;
+      promoCode: string;
+      termsAndConditions: string;
+      status: string;
+      appliedAt?: string;
+      cancelledAt?: string;
+    };
+  }>;
+}
+
+export async function fetchLoyaltyVendors(token?: string): Promise<LoyaltyPartner[]> {
+  const response = await apiFetch<LoyaltyVendorsResponse>("/vendors/loyalty", {
+    method: "GET",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to load loyalty partners");
+  }
+
+  return (response.vendors ?? []).map((vendor) => ({
+    id: vendor.id,
+    companyName: vendor.companyName,
+    email: vendor.email,
+    logo: vendor.logo,
+    loyaltyProgram: {
+      discountRate: vendor.loyaltyProgram?.discountRate ?? 0,
+      promoCode: vendor.loyaltyProgram?.promoCode ?? "",
+      termsAndConditions: vendor.loyaltyProgram?.termsAndConditions ?? "",
+      status: vendor.loyaltyProgram?.status ?? "pending",
+      appliedAt: vendor.loyaltyProgram?.appliedAt,
+      cancelledAt: vendor.loyaltyProgram?.cancelledAt,
+    },
+  }));
 }

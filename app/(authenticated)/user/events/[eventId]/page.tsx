@@ -11,6 +11,7 @@ import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
+import Tooltip from "@mui/material/Tooltip";
 import CalendarIcon from "@mui/icons-material/CalendarMonthRounded";
 import LocationIcon from "@mui/icons-material/FmdGoodRounded";
 import PeopleIcon from "@mui/icons-material/PeopleAltRounded";
@@ -18,13 +19,28 @@ import MonetizationIcon from "@mui/icons-material/MonetizationOnRounded";
 import EventIcon from "@mui/icons-material/EventAvailableRounded";
 import EventBusyIcon from "@mui/icons-material/EventBusyRounded";
 import BlockIcon from "@mui/icons-material/BlockRounded";
+import FavoriteIcon from "@mui/icons-material/FavoriteRounded";
+import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorderRounded";
 import dayjs from "dayjs";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
-import { fetchEventById, registerForWorkshop } from "@/lib/services/events";
-import { EventType } from "@/lib/types";
+import {
+  fetchEventById,
+  registerForWorkshop,
+  payForEventByWallet,
+  cancelEventRegistration,
+  createStripePaymentIntent,
+  finalizeStripePayment,
+} from "@/lib/services/events";
+import { EventType, type EventSummary } from "@/lib/types";
 import { formatDateTime, formatRelative } from "@/lib/date";
+import EventPaymentDialog from "@/components/events/EventPaymentDialog";
+import EventCancellationDialog from "@/components/events/EventCancellationDialog";
+import { fetchFavoriteEvents, addEventToFavorites } from "@/lib/services/users";
+import { EventFeedbackSection } from "@/components/events/EventFeedbackSection";
+
+const CANCELLATION_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 export default function EventDetailsPage() {
   const params = useParams<{ eventId: string }>();
@@ -34,11 +50,30 @@ export default function EventDetailsPage() {
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [isRegistered, setIsRegistered] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentEvent, setPaymentEvent] = useState<EventSummary | null>(null);
+  const [paymentStep, setPaymentStep] = useState<"method" | "card">("method");
+  const [stripeIntent, setStripeIntent] = useState<
+    { clientSecret: string; paymentIntentId: string } | null
+  >(null);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const resetPaymentFlow = () => {
+    setPaymentStep("method");
+    setStripeIntent(null);
+    setCardError(null);
+  };
 
   const query = useQuery({
     queryKey: ["event", eventId, user?.id, token],
     queryFn: () => fetchEventById(eventId!, token ?? undefined, user?.id),
     enabled: Boolean(eventId && token),
+  });
+
+  const favoritesQuery = useQuery({
+    queryKey: ["favorite-events", user?.id, token],
+    queryFn: () => fetchFavoriteEvents(token ?? undefined),
+    enabled: Boolean(token),
   });
 
   const event = query.data;
@@ -52,6 +87,7 @@ export default function EventDetailsPage() {
   const registrationDeadlinePassed = event?.registrationDeadline
     ? dayjs(event.registrationDeadline).isBefore(dayjs())
     : false;
+  const eventHasStarted = event?.startDate ? dayjs(event.startDate).isBefore(dayjs()) : false;
 
   useEffect(() => {
     setIsRegistered(Boolean(event?.isRegistered));
@@ -80,6 +116,11 @@ export default function EventDetailsPage() {
     }));
   }, [event]);
 
+  const isFavorite = useMemo(() => {
+    if (!eventId || !favoritesQuery.data) return false;
+    return favoritesQuery.data.some((favorite) => favorite.id === eventId);
+  }, [eventId, favoritesQuery.data]);
+
   const registerMutation = useMutation({
     mutationFn: () => registerForWorkshop(eventId!, token ?? undefined),
     onSuccess: (response) => {
@@ -102,7 +143,68 @@ export default function EventDetailsPage() {
     },
   });
 
-  const handleRegister = () => {
+  const walletPaymentMutation = useMutation({
+    mutationFn: () => payForEventByWallet(eventId!, token ?? undefined),
+    onSuccess: (response) => {
+      enqueueSnackbar(response.message ?? "Payment completed successfully.", {
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: ["wallet-summary", token] });
+      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
+    },
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error, "Failed to process wallet payment.");
+      enqueueSnackbar(message, { variant: "error" });
+    },
+  });
+
+  const createStripeIntentMutation = useMutation({
+    mutationFn: () => createStripePaymentIntent(eventId!, token ?? undefined),
+  });
+
+  const finalizeStripePaymentMutation = useMutation({
+    mutationFn: (paymentIntentId: string) =>
+      finalizeStripePayment(eventId!, paymentIntentId, token ?? undefined),
+  });
+
+  const favoriteMutation = useMutation({
+    mutationFn: () => addEventToFavorites(eventId!, token ?? undefined),
+    onSuccess: (response) => {
+      enqueueSnackbar(response.message ?? "Event saved to favorites.", {
+        variant: "success",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["favorite-events", user?.id, token],
+      });
+    },
+    onError: (error: unknown) => {
+      enqueueSnackbar(
+        getErrorMessage(error, "Unable to save this event to favorites."),
+        { variant: "error" }
+      );
+    },
+  });
+
+  const handleAddFavorite = () => {
+    if (!eventId) {
+      return;
+    }
+    if (!token) {
+      enqueueSnackbar("You must be signed in to save favorites.", {
+        variant: "info",
+      });
+      return;
+    }
+    if (isFavorite) {
+      enqueueSnackbar("This event is already in your favorites.", {
+        variant: "info",
+      });
+      return;
+    }
+    favoriteMutation.mutate();
+  };
+
+  const handleStartRegistration = () => {
     if (!event || !eventId) return;
     if (!token) {
       enqueueSnackbar("You must be signed in to register for events.", {
@@ -135,8 +237,141 @@ export default function EventDetailsPage() {
       return;
     }
 
-    registerMutation.mutate();
+    resetPaymentFlow();
+    setPaymentEvent(event);
+    setPaymentDialogOpen(true);
   };
+
+  const closePaymentDialog = () => {
+    if (
+      registerMutation.isPending ||
+      walletPaymentMutation.isPending ||
+      createStripeIntentMutation.isPending ||
+      finalizeStripePaymentMutation.isPending
+    ) {
+      return;
+    }
+    setPaymentDialogOpen(false);
+    setPaymentEvent(null);
+    resetPaymentFlow();
+  };
+
+  const handleWalletPayment = async () => {
+    if (!event) return;
+    setCardError(null);
+    try {
+      await registerMutation.mutateAsync();
+      if ((event.price ?? 0) > 0) {
+        await walletPaymentMutation.mutateAsync();
+      } else {
+        enqueueSnackbar(`Registration confirmed for ${event.name}.`, {
+          variant: "success",
+        });
+      }
+      setPaymentDialogOpen(false);
+      setPaymentEvent(null);
+    } catch (error) {
+      const message = getErrorMessage(error, "Unable to complete registration.");
+      enqueueSnackbar(message, { variant: "error" });
+    }
+  };
+
+  const handleStartCardPayment = async () => {
+    if (!event) return;
+    if ((event.price ?? 0) <= 0) {
+      enqueueSnackbar("Card payments are only required for paid events.", {
+        variant: "info",
+      });
+      return;
+    }
+
+    try {
+      setCardError(null);
+      const intent = await createStripeIntentMutation.mutateAsync();
+      setStripeIntent(intent);
+      setPaymentStep("card");
+    } catch (error) {
+      const message = getErrorMessage(error, "Unable to start card payment.");
+      setCardError(message);
+      enqueueSnackbar(message, { variant: "error" });
+    }
+  };
+
+  const handleCardPaymentSuccess = async (paymentIntentId: string) => {
+    if (!event) return;
+    try {
+      setCardError(null);
+      const response = await finalizeStripePaymentMutation.mutateAsync(paymentIntentId);
+      enqueueSnackbar(response.message ?? `Payment confirmed for ${event.name}.`, {
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
+      queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
+      setPaymentDialogOpen(false);
+      setPaymentEvent(null);
+      resetPaymentFlow();
+    } catch (error) {
+      const message = getErrorMessage(error, "Unable to confirm card payment.");
+      setCardError(message);
+      enqueueSnackbar(message, { variant: "error" });
+    }
+  };
+
+  const handleCardError = (message: string) => {
+    setCardError(message);
+  };
+
+  const handleBackToMethods = () => {
+    if (finalizeStripePaymentMutation.isPending) {
+      return;
+    }
+    setPaymentStep("method");
+    setStripeIntent(null);
+    setCardError(null);
+  };
+
+  const handleCancelRegistration = () => {
+    if (!event) return;
+    if (!canCancelRegistration) {
+      enqueueSnackbar("Cancellations are only available until 14 days before the event.", {
+        variant: "info",
+      });
+      return;
+    }
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancellation = () => {
+    if (cancelRegistrationMutation.isPending) {
+      return;
+    }
+    cancelRegistrationMutation.mutate();
+  };
+
+  const closeCancellationDialog = () => {
+    if (cancelRegistrationMutation.isPending) {
+      return;
+    }
+    setCancelDialogOpen(false);
+  };
+
+  const cancelRegistrationMutation = useMutation({
+    mutationFn: () => cancelEventRegistration(eventId!, token ?? undefined),
+    onSuccess: (response) => {
+      enqueueSnackbar(response.message ?? "Registration cancelled and refunded", {
+        variant: "success",
+      });
+      setIsRegistered(false);
+      setCancelDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["wallet-summary", token] });
+      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
+      queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
+    },
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error, "Unable to cancel registration.");
+      enqueueSnackbar(message, { variant: "error" });
+    },
+  });
 
   if (query.isLoading) {
     return (
@@ -164,6 +399,8 @@ export default function EventDetailsPage() {
     );
   }
 
+  const cancellationWindowRemaining = event ? new Date(event.startDate).getTime() - Date.now() : 0;
+  const canCancelRegistration = isRegistered && cancellationWindowRemaining >= CANCELLATION_WINDOW_MS;
   const registerDisabledReason = registrationDeadlinePassed
     ? "deadline"
     : capacityReached
@@ -187,6 +424,9 @@ export default function EventDetailsPage() {
       : registerDisabledReason === "capacity"
         ? <BlockIcon />
         : <EventIcon />;
+  const canSubmitFeedback = Boolean(isRegistered && eventHasStarted);
+
+  const paymentLoading = registerMutation.isPending || walletPaymentMutation.isPending;
 
   return (
     <Stack spacing={3}>
@@ -211,19 +451,52 @@ export default function EventDetailsPage() {
           </Typography>
           <Typography variant="h6">{formatDateTime(event.registrationDeadline)}</Typography>
           {supportsRegistration ? (
-            <Button
-              variant="contained"
-              onClick={handleRegister}
-              startIcon={registerButtonIcon}
-              disabled={Boolean(registerDisabledReason) || registerMutation.isPending}
-            >
-              {registerButtonLabel}
-            </Button>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button
+                variant="contained"
+                onClick={handleStartRegistration}
+                startIcon={registerButtonIcon}
+                disabled={Boolean(registerDisabledReason) || paymentLoading}
+              >
+                {paymentLoading ? "Processing..." : registerButtonLabel}
+              </Button>
+              {isRegistered ? (
+                <Tooltip
+                  title={
+                    canCancelRegistration
+                      ? "Cancel registration"
+                      : "Cancellations are only available until 14 days before the event."
+                  }
+                >
+                  <span>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      disabled={!canCancelRegistration || cancelRegistrationMutation.isPending}
+                      onClick={handleCancelRegistration}
+                    >
+                      {cancelRegistrationMutation.isPending ? "Cancelling..." : "Cancel & refund"}
+                    </Button>
+                  </span>
+                </Tooltip>
+              ) : null}
+            </Stack>
           ) : (
             <Typography variant="body2" color="text.secondary">
               Registration is managed offline for this event.
             </Typography>
           )}
+          <Button
+            variant="text"
+            color="secondary"
+            startIcon={
+              isFavorite ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />
+            }
+            disabled={isFavorite || favoriteMutation.isPending}
+            onClick={handleAddFavorite}
+          >
+            {isFavorite ? "Saved to favorites" : "Add to favorites"}
+          </Button>
         </Stack>
       </Stack>
 
@@ -308,6 +581,41 @@ export default function EventDetailsPage() {
           </Stack>
         </Grid>
       </Grid>
+
+      <Box id="feedback">
+        <EventFeedbackSection
+          eventId={event.id}
+          currentUserId={user?.id}
+          token={token}
+          canSubmitFeedback={canSubmitFeedback}
+        />
+      </Box>
+
+      <EventPaymentDialog
+        open={paymentDialogOpen}
+        event={paymentEvent ?? event}
+        loading={paymentLoading}
+        step={paymentStep}
+        cardClientSecret={stripeIntent?.clientSecret}
+        cardSelectionLoading={
+          registerMutation.isPending || createStripeIntentMutation.isPending
+        }
+        cardFinalizing={finalizeStripePaymentMutation.isPending}
+        cardError={cardError}
+        onClose={closePaymentDialog}
+        onPayWithWallet={handleWalletPayment}
+        onStartCardFlow={handleStartCardPayment}
+        onCardPaymentSuccess={handleCardPaymentSuccess}
+        onCardError={handleCardError}
+        onBackToMethods={handleBackToMethods}
+      />
+      <EventCancellationDialog
+        open={cancelDialogOpen}
+        event={event}
+        loading={cancelRegistrationMutation.isPending}
+        onConfirm={confirmCancellation}
+        onClose={closeCancellationDialog}
+      />
     </Stack>
   );
 }

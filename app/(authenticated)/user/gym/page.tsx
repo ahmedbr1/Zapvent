@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import localeData from "dayjs/plugin/localeData";
 import Box from "@mui/material/Box";
@@ -21,6 +21,11 @@ import Divider from "@mui/material/Divider";
 import Alert from "@mui/material/Alert";
 import Skeleton from "@mui/material/Skeleton";
 import Tooltip from "@mui/material/Tooltip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import ArrowBackIcon from "@mui/icons-material/ArrowBackIosNewRounded";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForwardIosRounded";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenterRounded";
@@ -31,9 +36,11 @@ import FlagIcon from "@mui/icons-material/FlagRounded";
 import StadiumIcon from "@mui/icons-material/StadiumRounded";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
-import { fetchGymSchedule } from "@/lib/services/gym";
+import { fetchGymSchedule, registerForGymSession } from "@/lib/services/gym";
 import { type GymSession, GymSessionType, CourtType, UserRole } from "@/lib/types";
-import { fetchCourts } from "@/lib/services/courts";
+import { fetchCourts, fetchCourtAvailabilitySlots, reserveCourtSlot } from "@/lib/services/courts";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { useSnackbar } from "notistack";
 
 dayjs.extend(localeData);
 
@@ -98,9 +105,24 @@ export default function UserGymPage() {
   const token = useAuthToken();
   const user = useSessionUser();
   const isStudent = user?.userRole === UserRole.Student;
+  const canRegisterForGym = Boolean(
+    user?.userRole &&
+      [UserRole.Student, UserRole.Staff, UserRole.Professor, UserRole.TA].includes(
+        user.userRole
+      )
+  );
+  const { enqueueSnackbar } = useSnackbar();
   const [selectedMonth, setSelectedMonth] = useState(TODAY.month());
   const [selectedYear, setSelectedYear] = useState(TODAY.year());
   const [courtTypeFilter, setCourtTypeFilter] = useState<"all" | CourtType>("all");
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  const [reservationDialog, setReservationDialog] = useState<{
+    courtId: string;
+    courtLabel: string;
+  } | null>(null);
+  const [reservationDate, setReservationDate] = useState(dayjs());
+  const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
+  const reservationDateKey = reservationDate.format("YYYY-MM-DD");
 
   const scheduleQuery = useQuery({
     queryKey: ["gym-schedule", selectedYear, selectedMonth, token],
@@ -114,8 +136,78 @@ export default function UserGymPage() {
     enabled: Boolean(token && isStudent),
   });
 
-  const groupedSessions = useMemo(() => {
+  useEffect(() => {
+    setSelectedSlot(null);
+  }, [reservationDateKey, reservationDialog?.courtId]);
+
+  const availabilityQuery = useQuery({
+    queryKey: ["court-availability", reservationDialog?.courtId, reservationDateKey, token],
+    queryFn: () =>
+      fetchCourtAvailabilitySlots(
+        reservationDialog!.courtId,
+        reservationDateKey,
+        token ?? undefined
+      ),
+    enabled: Boolean(reservationDialog && token),
+  });
+  const availabilitySlots = availabilityQuery.data ?? [];
+
+  const registerMutation = useMutation({
+    mutationFn: (sessionId: string) => registerForGymSession(sessionId, token ?? undefined),
+    onMutate: (sessionId) => {
+      setPendingSessionId(sessionId);
+    },
+    onSuccess: (result) => {
+      enqueueSnackbar(result.message ?? "Successfully registered for the session.", {
+        variant: "success",
+      });
+      scheduleQuery.refetch();
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : "Failed to register for this session.";
+      enqueueSnackbar(message, { variant: "error" });
+    },
+    onSettled: () => setPendingSessionId(null),
+  });
+
+  const reservationMutation = useMutation({
+    mutationFn: (payload: { courtId: string; date: string; startTime: string; endTime: string }) =>
+      reserveCourtSlot(
+        payload.courtId,
+        { date: payload.date, startTime: payload.startTime, endTime: payload.endTime },
+        token ?? undefined
+      ),
+    onSuccess: (message) => {
+      enqueueSnackbar(message ?? "Court reserved successfully.", { variant: "success" });
+      setReservationDialog(null);
+      setSelectedSlot(null);
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : "Failed to reserve this court slot.";
+      enqueueSnackbar(message, { variant: "error" });
+    },
+  });
+
+  const sessionsWithFlags = useMemo(() => {
     const sessions = scheduleQuery.data ?? [];
+    return sessions.map((session) => {
+      const registeredUsers = session.registeredUsers ?? [];
+      const registeredCount = session.registeredCount ?? registeredUsers.length;
+      const isRegistered = user?.id ? registeredUsers.includes(user.id) : false;
+      return {
+        ...session,
+        registeredUsers,
+        registeredCount,
+        isRegistered,
+        remainingSpots: Math.max(session.maxParticipants - registeredCount, 0),
+      };
+    });
+  }, [scheduleQuery.data, user?.id]);
+
+  const groupedSessions = useMemo(() => {
+    const sessions = sessionsWithFlags;
     const map = new Map<string, GymSession[]>();
 
     sessions.forEach((session) => {
@@ -132,10 +224,10 @@ export default function UserGymPage() {
         date,
         sessions: list.sort((a, b) => (a.time > b.time ? 1 : -1)),
       }));
-  }, [scheduleQuery.data]);
+  }, [sessionsWithFlags]);
 
   const sessionStats = useMemo(() => {
-    const sessions = scheduleQuery.data ?? [];
+    const sessions = sessionsWithFlags;
     const totals = new Map<GymSessionType, number>();
 
     sessions.forEach((session) => {
@@ -146,7 +238,7 @@ export default function UserGymPage() {
       total: sessions.length,
       totals,
     };
-  }, [scheduleQuery.data]);
+  }, [sessionsWithFlags]);
 
   const courts = useMemo(() => courtsQuery.data ?? [], [courtsQuery.data]);
   const courtCounts = useMemo(() => {
@@ -171,8 +263,47 @@ export default function UserGymPage() {
     setSelectedMonth(next.month());
   };
 
+  const handleRegisterSession = (sessionId: string) => {
+    if (!canRegisterForGym) {
+      enqueueSnackbar("Only student, staff, professor, or TA accounts can register.", {
+        variant: "info",
+      });
+      return;
+    }
+
+    registerMutation.mutate(sessionId);
+  };
+
+  const handleOpenReservationDialog = (courtId: string, label: string) => {
+    setReservationDialog({ courtId, courtLabel: label });
+    setReservationDate(dayjs());
+    setSelectedSlot(null);
+  };
+
+  const handleCloseReservationDialog = () => {
+    setReservationDialog(null);
+    setSelectedSlot(null);
+  };
+
+  const handleSubmitReservation = () => {
+    if (!reservationDialog || !selectedSlot) {
+      enqueueSnackbar("Select an available slot to continue.", { variant: "info" });
+      return;
+    }
+
+    reservationMutation.mutate({
+      courtId: reservationDialog.courtId,
+      date: reservationDateKey,
+      startTime: selectedSlot.startTime,
+      endTime: selectedSlot.endTime,
+    });
+  };
+
+  const reservationLoading = availabilityQuery.isLoading || availabilityQuery.isFetching;
+
   return (
-    <Stack spacing={4}>
+    <>
+      <Stack spacing={4}>
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={2}
@@ -280,6 +411,19 @@ export default function UserGymPage() {
                       const capacity = session.maxParticipants;
                       const progress =
                         capacity > 0 ? Math.min((registered / capacity) * 100, 100) : undefined;
+                      const isRegistered = session.isRegistered ?? false;
+                      const remainingSpots = session.remainingSpots ?? Math.max(capacity - registered, 0);
+                      const isProcessing = pendingSessionId === session.id && registerMutation.isPending;
+                      const buttonLabel = isRegistered
+                        ? "Registered"
+                        : isProcessing
+                          ? "Registering..."
+                          : "Register";
+                      const disableRegisterButton =
+                        isRegistered ||
+                        !canRegisterForGym ||
+                        remainingSpots === 0 ||
+                        isProcessing;
                       return (
                         <Box
                           key={session.id}
@@ -322,6 +466,25 @@ export default function UserGymPage() {
                               />
                             </Tooltip>
                           )}
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            alignItems={{ sm: "center" }}
+                            justifyContent="space-between"
+                            mt={1.5}
+                          >
+                            <Typography variant="caption" color="text.secondary">
+                              {remainingSpots} spot{remainingSpots === 1 ? "" : "s"} left
+                            </Typography>
+                            <Button
+                              variant={isRegistered ? "outlined" : "contained"}
+                              size="small"
+                              disabled={disableRegisterButton}
+                              onClick={() => handleRegisterSession(session.id)}
+                            >
+                              {buttonLabel}
+                            </Button>
+                          </Stack>
                         </Box>
                       );
                     })}
@@ -475,6 +638,18 @@ export default function UserGymPage() {
                               </Stack>
                             </Alert>
                           )}
+                          <Button
+                            variant="contained"
+                            sx={{ mt: 3 }}
+                            onClick={() =>
+                              handleOpenReservationDialog(
+                                court.id,
+                                COURT_LABELS[courtType] ?? court.venue
+                              )
+                            }
+                          >
+                            Reserve this court
+                          </Button>
                         </CardContent>
                       </Card>
                     </Grid>
@@ -486,5 +661,78 @@ export default function UserGymPage() {
         </>
       ) : null}
     </Stack>
+      <Dialog
+        open={Boolean(reservationDialog)}
+        onClose={handleCloseReservationDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Reserve {reservationDialog?.courtLabel ?? "court"}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <DatePicker
+              label="Choose a date"
+              disablePast
+              value={reservationDate}
+              onChange={(value) => {
+                if (value) {
+                  setReservationDate(value);
+                }
+              }}
+            />
+            {reservationLoading ? (
+              <Stack alignItems="center" py={3}>
+                <CircularProgress size={28} />
+              </Stack>
+            ) : availabilitySlots.length === 0 ? (
+              <Alert severity="info">
+                No available slots for the selected date. Try another day.
+              </Alert>
+            ) : (
+              <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                {availabilitySlots.map((slot) => {
+                  const isSelected =
+                    selectedSlot?.startTime === slot.startTime &&
+                    selectedSlot?.endTime === slot.endTime;
+                  return (
+                    <Chip
+                      key={`${slot.startTime}-${slot.endTime}`}
+                      label={`${slot.startTime} – ${slot.endTime}`}
+                      color={
+                        !slot.isAvailable
+                          ? "default"
+                          : isSelected
+                            ? "secondary"
+                            : "primary"
+                      }
+                      variant={slot.isAvailable ? (isSelected ? "filled" : "outlined") : "outlined"}
+                      disabled={!slot.isAvailable}
+                      onClick={() => slot.isAvailable && setSelectedSlot(slot)}
+                    />
+                  );
+                })}
+              </Stack>
+            )}
+            {selectedSlot ? (
+              <Alert severity="success" variant="outlined">
+                Selected slot: {selectedSlot.startTime} – {selectedSlot.endTime}
+              </Alert>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseReservationDialog}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitReservation}
+            disabled={!selectedSlot || reservationMutation.isPending}
+          >
+            {reservationMutation.isPending ? "Reserving..." : "Reserve"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

@@ -12,6 +12,7 @@ interface GymScheduleResponse {
     type: GymSessionType;
     maxParticipants: number;
     registeredCount?: number;
+    registeredUsers?: string[];
   }>;
 }
 
@@ -45,8 +46,38 @@ export async function fetchGymSchedule(year: number, month: number, token?: stri
     duration: session.duration,
     type: session.type,
     maxParticipants: session.maxParticipants,
-    registeredCount: session.registeredCount,
+    registeredUsers: Array.isArray(session.registeredUsers) ? session.registeredUsers : [],
+    registeredCount:
+      typeof session.registeredCount === "number"
+        ? session.registeredCount
+        : Array.isArray(session.registeredUsers)
+          ? session.registeredUsers.length
+          : 0,
   }));
+}
+
+interface RegisterResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    remainingSlots: number;
+  };
+}
+
+export async function registerForGymSession(sessionId: string, token?: string) {
+  const response = await apiFetch<RegisterResponse>(`/gym-sessions/${sessionId}/register`, {
+    method: "POST",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to register for gym session");
+  }
+
+  return {
+    remainingSlots: response.data?.remainingSlots,
+    message: response.message,
+  };
 }
 
 export async function createGymSession(payload: CreateGymSessionRequest, token?: string) {

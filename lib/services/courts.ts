@@ -77,3 +77,63 @@ export async function fetchCourts(token?: string): Promise<CourtAvailability[]> 
       : [],
   }));
 }
+
+interface CourtAvailabilityResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    courtId: string;
+    date: string;
+    slots: Array<{
+      startTime: string;
+      endTime: string;
+      isAvailable: boolean;
+    }>;
+  };
+}
+
+interface CourtReservationResponse {
+  success: boolean;
+  message: string;
+}
+
+export async function fetchCourtAvailabilitySlots(
+  courtId: string,
+  date: string,
+  token?: string
+) {
+  const response = await apiFetch<CourtAvailabilityResponse>(
+    `/courts/${courtId}/availability?date=${encodeURIComponent(date)}`,
+    {
+      method: "GET",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to load court availability");
+  }
+
+  return response.data?.slots ?? [];
+}
+
+export async function reserveCourtSlot(
+  courtId: string,
+  payload: { date: string; startTime: string; endTime?: string },
+  token?: string
+) {
+  const response = await apiFetch<CourtReservationResponse, typeof payload>(
+    `/courts/${courtId}/reservations`,
+    {
+      method: "POST",
+      body: payload,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to reserve court");
+  }
+
+  return response.message;
+}

@@ -2,6 +2,10 @@ import type { SvgIconComponent } from "@mui/icons-material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardRounded";
 import EventIcon from "@mui/icons-material/EventAvailableRounded";
 import AssignmentIcon from "@mui/icons-material/AssignmentTurnedInRounded";
+import FavoriteIcon from "@mui/icons-material/FavoriteRounded";
+import WalletIcon from "@mui/icons-material/AccountBalanceWalletRounded";
+import LoyaltyIcon from "@mui/icons-material/CardGiftcardRounded";
+import PollIcon from "@mui/icons-material/HowToVoteRounded";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenterRounded";
 import GroupIcon from "@mui/icons-material/GroupsRounded";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettingsRounded";
@@ -40,6 +44,30 @@ export const navItems: NavItem[] = [
     label: "My Registrations",
     href: "/user/registrations",
     icon: AssignmentIcon,
+    roles: [AuthRole.User],
+  },
+  {
+    label: "Favorites",
+    href: "/user/favorites",
+    icon: FavoriteIcon,
+    roles: [AuthRole.User],
+  },
+  {
+    label: "Wallet",
+    href: "/user/wallet",
+    icon: WalletIcon,
+    roles: [AuthRole.User],
+  },
+  {
+    label: "Loyalty Partners",
+    href: "/user/loyalty",
+    icon: LoyaltyIcon,
+    roles: [AuthRole.User],
+  },
+  {
+    label: "Vendor Polls",
+    href: "/user/polls",
+    icon: PollIcon,
     roles: [AuthRole.User],
   },
   {

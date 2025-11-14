@@ -4,6 +4,13 @@ import { loginRequired, allowedRoles } from "../middleware/authMiddleware";
 
 const router = Router();
 
+router.get(
+  "/",
+  loginRequired,
+  allowedRoles(["Student", "Staff", "Professor", "TA"]),
+  pollController.listPolls.bind(pollController)
+);
+
 router.post(
   "/:pollId/vote",
   loginRequired,

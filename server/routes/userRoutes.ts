@@ -23,6 +23,12 @@ router.get(
   "/professor-notifications",
   userController.getMyNotifications.bind(userController)
 );
+router.patch(
+  "/professor-notifications/seen",
+  loginRequired,
+  allowedRoles(["Student", "Staff", "TA", "Professor"]),
+  userController.markMyNotificationsSeen.bind(userController)
+);
 router.get(
   "/wallet/refunds",
   userController.getWalletRefundSummary.bind(userController)

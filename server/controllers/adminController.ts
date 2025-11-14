@@ -488,6 +488,32 @@ export class AdminController {
       });
     }
   }
+
+  @LoginRequired()
+  @AllowedRoles(["EventOffice"])
+  async markMyNotificationsSeen(req: AuthRequest, res: Response) {
+    try {
+      const adminId = req.user?.id;
+
+      if (!adminId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const result = await adminService.markEventOfficeNotificationsSeen(adminId);
+      const status = result.success ? 200 : 400;
+
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Mark notifications seen error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update notifications",
+      });
+    }
+  }
 }
 
 export const adminController = new AdminController();

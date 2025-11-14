@@ -215,3 +215,55 @@ export async function voteForVendor(
     };
   }
 }
+
+export async function listVendorBoothPolls(userId?: string) {
+  try {
+    const polls = await PollModel.find()
+      .sort({ createdAt: -1 })
+      .populate("vendorsWithVotes.vendor", ["companyName", "logo"])
+      .lean();
+
+    const userObjectId =
+      userId && isValidObjectId(userId) ? new Types.ObjectId(userId) : null;
+
+    const normalized = polls.map((poll) => {
+      const selectedVote = userObjectId
+        ? poll.votesByUser?.find((vote) => vote.user.equals(userObjectId))
+        : undefined;
+
+      return {
+        id: poll._id.toString(),
+        boothName: poll.boothName,
+        durations: poll.durations.map((duration) => ({
+          start: duration.start.toISOString(),
+          end: duration.end.toISOString(),
+        })),
+        vendors: poll.vendorsWithVotes.map((entry) => {
+          const vendorDoc =
+            typeof entry.vendor === "object" && "companyName" in entry.vendor
+              ? (entry.vendor as { _id: Types.ObjectId; companyName?: string; logo?: string })
+              : null;
+          return {
+            vendorId: vendorDoc ? vendorDoc._id.toString() : entry.vendor.toString(),
+            vendorName: vendorDoc?.companyName ?? "Vendor",
+            logo: vendorDoc?.logo,
+            votes: entry.votes,
+          };
+        }),
+        totalVotes: poll.vendorsWithVotes.reduce((sum, entry) => sum + entry.votes, 0),
+        selectedVendorId: selectedVote ? selectedVote.vendor.toString() : undefined,
+      };
+    });
+
+    return {
+      success: true,
+      polls: normalized,
+    };
+  } catch (error) {
+    console.error("Error listing vendor polls:", error);
+    return {
+      success: false,
+      message: "Failed to load vendor polls",
+    };
+  }
+}

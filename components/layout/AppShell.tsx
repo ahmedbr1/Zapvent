@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import {
   AppBar,
   Avatar,
-  Badge,
   Box,
   Divider,
   Drawer,
@@ -22,7 +21,6 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/MenuRounded";
-import NotificationsIcon from "@mui/icons-material/NotificationsRounded";
 import LogoutIcon from "@mui/icons-material/LogoutRounded";
 import PersonIcon from "@mui/icons-material/PersonRounded";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeftRounded";
@@ -39,6 +37,7 @@ import {
   getDefaultDashboardRoute,
 } from "@/lib/routing";
 import { useBlockedUserCheck } from "@/hooks/useBlockedUserCheck";
+import { NotificationsMenu } from "./NotificationsMenu";
 
 const drawerWidth = 264;
 
@@ -255,17 +254,7 @@ export function AppShell({
                 <BreadcrumbsTrail />
               </Box>
               {actions}
-              <Tooltip title="Notifications">
-                <IconButton
-                  size="large"
-                  sx={{ ml: 1 }}
-                  aria-label="Notifications"
-                >
-                  <Badge badgeContent={2} color="secondary">
-                    <NotificationsIcon />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
+              <NotificationsMenu />
               <Tooltip title="Account settings">
                 <IconButton
                   sx={{ ml: 1 }}

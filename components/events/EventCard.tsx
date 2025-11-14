@@ -22,6 +22,10 @@ interface EventCardProps {
   event: EventSummary;
   onRegister?: (event: EventSummary) => void;
   disableRegister?: boolean;
+  onCancelRegistration?: (event: EventSummary) => void;
+  cancelDisabled?: boolean;
+  cancelLabel?: string;
+  cancelDisabledReason?: string;
 }
 
 const typeColorMap: Record<EventType, "primary" | "secondary" | "default"> = {
@@ -32,7 +36,15 @@ const typeColorMap: Record<EventType, "primary" | "secondary" | "default"> = {
   [EventType.Bazaar]: "secondary",
 };
 
-export function EventCard({ event, onRegister, disableRegister }: EventCardProps) {
+export function EventCard({
+  event,
+  onRegister,
+  disableRegister,
+  onCancelRegistration,
+  cancelDisabled,
+  cancelLabel = "Cancel registration",
+  cancelDisabledReason,
+}: EventCardProps) {
   const isBazaar = event.eventType === EventType.Bazaar;
   const chipLabel = event.eventType ?? "Event";
   const chipColor =
@@ -132,6 +144,21 @@ export function EventCard({ event, onRegister, disableRegister }: EventCardProps
             {buttonLabel}
           </Button>
         )}
+        {onCancelRegistration ? (
+          <Tooltip title={cancelDisabled ? cancelDisabledReason ?? "" : ""}>
+            <span>
+              <Button
+                onClick={() => onCancelRegistration(event)}
+                disabled={Boolean(cancelDisabled)}
+                variant="text"
+                size="small"
+                color="error"
+              >
+                {cancelLabel}
+              </Button>
+            </span>
+          </Tooltip>
+        ) : null}
         <Box flexGrow={1} />
         <Typography variant="caption" color="text.secondary">
           Register by {formatDateTime(event.registrationDeadline, "MMM D, h:mm A")}
