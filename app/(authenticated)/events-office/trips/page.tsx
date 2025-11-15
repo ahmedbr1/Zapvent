@@ -23,11 +23,14 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import Skeleton from "@mui/material/Skeleton";
+import Tooltip from "@mui/material/Tooltip";
 import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
 import DeleteIcon from "@mui/icons-material/DeleteRounded";
+import ArchiveIcon from "@mui/icons-material/ArchiveRounded";
+import LoadingButton from "@mui/lab/LoadingButton";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -42,6 +45,7 @@ import {
   createTrip,
   updateTrip,
   deleteEvent,
+  archiveEventById,
   type TripPayload,
 } from "@/lib/services/events";
 import { formatDateTime } from "@/lib/date";
@@ -99,6 +103,9 @@ export default function TripManagementPage() {
     sortOrder: "asc",
   });
   const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
+  const [archivedTripIds, setArchivedTripIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "trips", token ?? "public"],
@@ -169,6 +176,24 @@ export default function TripManagementPage() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) => archiveEventById(id, token ?? undefined),
+    onSuccess: (response, id) => {
+      enqueueSnackbar(response.message ?? "Trip archived.", {
+        variant: "info",
+      });
+      queryClient.invalidateQueries({ queryKey: ["events", "trips"] });
+      setArchivedTripIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
   const handleCreateClick = () => {
     setEditingTripId(null);
     reset(defaultTripValues());
@@ -215,6 +240,14 @@ export default function TripManagementPage() {
       setEditingTripId(null);
     }
     deleteMutation.mutate(tripId);
+  };
+
+  const handleArchiveTrip = (tripId: string, tripName: string) => {
+    const confirmed = window.confirm(
+      `Archive "${tripName}"? It will move out of active listings.`
+    );
+    if (!confirmed) return;
+    archiveMutation.mutate(tripId);
   };
 
   const closeDialog = () => {
@@ -304,11 +337,25 @@ export default function TripManagementPage() {
 
         {trips.map((trip) => {
           const tripHasStarted = !dayjs(trip.startDate).isAfter(dayjs());
+          const tripHasEnded = dayjs(trip.endDate).isBefore(dayjs());
           const baseActionsDisabled =
             !isEventsOfficeUser || (isEventsOfficeUser && tripHasStarted);
           const disableActions =
             baseActionsDisabled ||
             (deleteMutation.isPending && pendingDeleteId === trip.id);
+          const archivingThis =
+            archiveMutation.isPending && archiveMutation.variables === trip.id;
+          const serverArchived = Boolean(trip.archived);
+          const isArchived = serverArchived || archivedTripIds.has(trip.id);
+          const archiveEligible = isEventsOfficeUser && tripHasEnded;
+          const archiveDisabled =
+            isArchived || !archiveEligible || archivingThis;
+          const archiveTooltip = isArchived
+            ? "Trip already archived."
+            : archiveEligible
+              ? "Archive this trip to hide it from upcoming lists."
+              : "Archiving unlocks after the trip ends.";
+          const archiveLabel = isArchived ? "Archived" : "Archive";
           return (
             <Grid item xs={12} md={6} lg={4} key={trip.id}>
               <Card
@@ -359,7 +406,22 @@ export default function TripManagementPage() {
                   </Stack>
                 </CardContent>
                 <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
-                  <Stack direction="row" spacing={1}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {isEventsOfficeUser ? (
+                      <Tooltip title={archiveTooltip}>
+                        <span>
+                          <LoadingButton
+                            startIcon={<ArchiveIcon />}
+                            color="inherit"
+                            onClick={() => handleArchiveTrip(trip.id, trip.name)}
+                            loading={archivingThis}
+                            disabled={archiveDisabled}
+                          >
+                            {archiveLabel}
+                          </LoadingButton>
+                        </span>
+                      </Tooltip>
+                    ) : null}
                     <Button
                       startIcon={<EditIcon />}
                       onClick={() => handleEditClick(trip.id)}

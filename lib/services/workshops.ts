@@ -43,6 +43,12 @@ interface WorkshopMutationResponse {
   data?: WorkshopApiItem | null;
 }
 
+interface WorkshopDeleteResponse {
+  success: boolean;
+  message?: string;
+  data?: { id: string };
+}
+
 interface WorkshopStatusResponse {
   success: boolean;
   message?: string;
@@ -129,7 +135,7 @@ export async function updateWorkshop(
 }
 
 export async function deleteWorkshop(id: string, token?: string): Promise<void> {
-  const response = await apiFetch<WorkshopMutationResponse>(`/events/${id}`, {
+  const response = await apiFetch<WorkshopDeleteResponse>(`/events/workshop/${id}`, {
     method: "DELETE",
     token,
   });

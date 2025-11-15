@@ -22,6 +22,7 @@ import {
   exportEventRegistrations,
   generateEventQRCode,
   sendWorkshopCertificates,
+  deleteWorkshopById,
 } from "../services/eventService";
 import { IEvent, EventType } from "../models/Event";
 import {
@@ -992,7 +993,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Professor"])
+  @AllowedRoles(["Professor", "EventOffice", "Admin"])
   async getWorkshopParticipantsController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -1010,11 +1011,44 @@ export class EventController {
           .json({ success: false, message: "Unauthorized" });
       }
 
-      const result = await getWorkshopParticipants(id, userId);
+      const actorRole = req.user?.role;
+      const result = await getWorkshopParticipants(id, userId, actorRole);
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
     } catch (error) {
       console.error("Get workshop participants controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Professor", "EventOffice", "Admin"])
+  async deleteWorkshopController(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "Workshop ID is required.",
+        });
+      }
+
+      const userId = extractUserId(req.user);
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      const actorRole = req.user?.role;
+      const result = await deleteWorkshopById(id, userId, actorRole);
+      const status = result.success ? 200 : 400;
+      return res.status(status).json(result);
+    } catch (error) {
+      console.error("Delete workshop controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

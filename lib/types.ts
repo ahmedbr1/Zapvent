@@ -110,6 +110,7 @@ export interface EventSummary {
   websiteLink?: string;
   extraRequiredResources?: string;
   requiredBudget?: number;
+  archived?: boolean;
 }
 
 export interface Workshop {

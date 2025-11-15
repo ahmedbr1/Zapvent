@@ -33,6 +33,7 @@ interface EventApiItem {
   websiteLink?: string;
   extraRequiredResources?: string;
   requiredBudget?: number;
+  archived?: boolean;
 }
 
 interface UpcomingBazaarsResponse {
@@ -491,5 +492,6 @@ function mapEvent(event: EventApiItem, currentUserId?: string): EventSummary {
     websiteLink: event.websiteLink,
     extraRequiredResources: event.extraRequiredResources,
     requiredBudget: event.requiredBudget,
+    archived: Boolean(event.archived),
   };
 }

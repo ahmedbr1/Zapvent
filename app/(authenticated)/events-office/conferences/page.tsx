@@ -24,12 +24,15 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import Skeleton from "@mui/material/Skeleton";
+import Tooltip from "@mui/material/Tooltip";
 import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
 import LinkIcon from "@mui/icons-material/LinkRounded";
 import DeleteIcon from "@mui/icons-material/DeleteRounded";
+import ArchiveIcon from "@mui/icons-material/ArchiveRounded";
+import LoadingButton from "@mui/lab/LoadingButton";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
@@ -43,6 +46,7 @@ import {
   createConference,
   updateConference,
   deleteEvent,
+  archiveEventById,
   type ConferencePayload,
 } from "@/lib/services/events";
 import { AuthRole, FundingSource } from "@/lib/types";
@@ -98,6 +102,10 @@ export default function ConferenceManagementPage() {
     endDate: null,
     sortOrder: "asc",
   });
+  const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
+  const [archivedConferenceIds, setArchivedConferenceIds] = useState<
+    Set<string>
+  >(() => new Set());
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "conferences", token ?? "public"],
@@ -188,6 +196,24 @@ export default function ConferenceManagementPage() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) => archiveEventById(id, token ?? undefined),
+    onSuccess: (response, id) => {
+      enqueueSnackbar(response.message ?? "Conference archived.", {
+        variant: "info",
+      });
+      queryClient.invalidateQueries({ queryKey: ["events", "conferences"] });
+      setArchivedConferenceIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
   const handleCreateClick = () => {
     setEditingConferenceId(null);
     reset(defaultConferenceValues());
@@ -223,6 +249,19 @@ export default function ConferenceManagementPage() {
       closeDialog();
     }
     deleteMutation.mutate(conferenceId);
+  };
+
+  const handleArchiveConference = (
+    conferenceId: string,
+    conferenceName: string
+  ) => {
+    const confirmed = window.confirm(
+      `Archive "${conferenceName}"? It will move out of upcoming events.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    archiveMutation.mutate(conferenceId);
   };
 
   const closeDialog = () => {
@@ -320,103 +359,139 @@ export default function ConferenceManagementPage() {
           </Grid>
         ) : null}
 
-        {conferences.map((conference) => (
-          <Grid item xs={12} md={6} lg={4} key={conference.id}>
-            <Card
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="h6" fontWeight={700}>
-                      {conference.name}
-                    </Typography>
-                    <Chip
-                      label={conference.location}
-                      size="small"
-                      color="primary"
-                    />
-                    {conference.fundingSource ? (
+        {conferences.map((conference) => {
+          const eventHasEnded = dayjs(conference.endDate).isBefore(dayjs());
+          const archivingThis =
+            archiveMutation.isPending &&
+            archiveMutation.variables === conference.id;
+          const serverArchived = Boolean(conference.archived);
+          const isArchived =
+            serverArchived || archivedConferenceIds.has(conference.id);
+          const archiveEligible = isEventsOfficeUser && eventHasEnded;
+          const archiveDisabled =
+            isArchived || !archiveEligible || archivingThis;
+          const archiveTooltip = isArchived
+            ? "Conference already archived."
+            : archiveEligible
+              ? "Archive this conference to retire it from listings."
+              : "Archiving unlocks after the conference ends.";
+          const archiveLabel = isArchived ? "Archived" : "Archive";
+
+          return (
+            <Grid item xs={12} md={6} lg={4} key={conference.id}>
+              <Card
+                sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+              >
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Stack spacing={1.5}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="h6" fontWeight={700}>
+                        {conference.name}
+                      </Typography>
                       <Chip
-                        label={conference.fundingSource}
+                        label={conference.location}
                         size="small"
-                        color="secondary"
+                        color="primary"
                       />
-                    ) : null}
+                      {conference.fundingSource ? (
+                        <Chip
+                          label={conference.fundingSource}
+                          size="small"
+                          color="secondary"
+                        />
+                      ) : null}
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {conference.description}
+                    </Typography>
+                    <Divider />
+                    <Stack spacing={1}>
+                      <Detail
+                        label="Start"
+                        value={formatDateTime(conference.startDate)}
+                      />
+                      <Detail
+                        label="End"
+                        value={formatDateTime(conference.endDate)}
+                      />
+                      <Detail
+                        label="Registration deadline"
+                        value={formatDateTime(conference.registrationDeadline)}
+                      />
+                      {conference.requiredBudget !== undefined ? (
+                        <Detail
+                          label="Budget allocation"
+                          value={formatCurrency(conference.requiredBudget)}
+                        />
+                      ) : null}
+                      {conference.websiteLink ? (
+                        <Detail
+                          label="Website"
+                          value={conference.websiteLink}
+                          icon={<LinkIcon fontSize="small" color="action" />}
+                        />
+                      ) : null}
+                      {conference.fullAgenda ? (
+                        <Detail label="Agenda" value={conference.fullAgenda} />
+                      ) : null}
+                      {conference.extraRequiredResources ? (
+                        <Detail
+                          label="Resources"
+                          value={conference.extraRequiredResources}
+                        />
+                      ) : null}
+                    </Stack>
                   </Stack>
-                  <Typography variant="body2" color="text.secondary">
-                    {conference.description}
-                  </Typography>
-                  <Divider />
-                  <Stack spacing={1}>
-                    <Detail
-                      label="Start"
-                      value={formatDateTime(conference.startDate)}
-                    />
-                    <Detail
-                      label="End"
-                      value={formatDateTime(conference.endDate)}
-                    />
-                    <Detail
-                      label="Registration deadline"
-                      value={formatDateTime(conference.registrationDeadline)}
-                    />
-                    {conference.requiredBudget !== undefined ? (
-                      <Detail
-                        label="Budget allocation"
-                        value={formatCurrency(conference.requiredBudget)}
-                      />
+                </CardContent>
+                <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {isEventsOfficeUser ? (
+                      <Tooltip title={archiveTooltip}>
+                        <span>
+                          <LoadingButton
+                            startIcon={<ArchiveIcon />}
+                            color="inherit"
+                            onClick={() =>
+                              handleArchiveConference(conference.id, conference.name)
+                            }
+                            loading={archivingThis}
+                            disabled={archiveDisabled}
+                          >
+                            {archiveLabel}
+                          </LoadingButton>
+                        </span>
+                      </Tooltip>
                     ) : null}
-                    {conference.websiteLink ? (
-                      <Detail
-                        label="Website"
-                        value={conference.websiteLink}
-                        icon={<LinkIcon fontSize="small" color="action" />}
-                      />
-                    ) : null}
-                    {conference.fullAgenda ? (
-                      <Detail label="Agenda" value={conference.fullAgenda} />
-                    ) : null}
-                    {conference.extraRequiredResources ? (
-                      <Detail
-                        label="Resources"
-                        value={conference.extraRequiredResources}
-                      />
-                    ) : null}
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={() => handleEditClick(conference.id)}
+                      variant="outlined"
+                      disabled={
+                        deleteMutation.isPending &&
+                        pendingDeleteId === conference.id
+                      }
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      color="error"
+                      startIcon={<DeleteIcon />}
+                      onClick={() =>
+                        handleDeleteClick(conference.id, conference.name)
+                      }
+                      disabled={
+                        deleteMutation.isPending &&
+                        pendingDeleteId === conference.id
+                      }
+                    >
+                      Delete
+                    </Button>
                   </Stack>
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    startIcon={<EditIcon />}
-                    onClick={() => handleEditClick(conference.id)}
-                    variant="outlined"
-                    disabled={
-                      deleteMutation.isPending &&
-                      pendingDeleteId === conference.id
-                    }
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    color="error"
-                    startIcon={<DeleteIcon />}
-                    onClick={() =>
-                      handleDeleteClick(conference.id, conference.name)
-                    }
-                    disabled={
-                      deleteMutation.isPending &&
-                      pendingDeleteId === conference.id
-                    }
-                  >
-                    Delete
-                  </Button>
-                </Stack>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
+                </CardActions>
+              </Card>
+            </Grid>
+          );
+        })}
       </Grid>
 
       {user?.role === AuthRole.EventOffice ? (
