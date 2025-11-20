@@ -18,18 +18,25 @@ let mongoServer: MongoMemoryServer;
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
-// Mock console.error to suppress error logs during testing
 beforeAll(async () => {
+  // Ensure deterministic secrets and faster hashing for tests
+  process.env.JWT_SECRET = process.env.JWT_SECRET || JWT_SECRET;
+  process.env.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "86400";
+  process.env.ENCRYPTION_SALT_ROUNDS =
+    process.env.ENCRYPTION_SALT_ROUNDS || "4";
+
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
 });
 
+beforeEach(() => {
+  jest.spyOn(console, "error").mockImplementation(() => undefined);
+});
+
 afterAll(async () => {
   await mongoose.disconnect();
   await mongoServer.stop();
-  // Restore console.error
-  jest.restoreAllMocks();
 });
 
 afterEach(async () => {
@@ -37,6 +44,7 @@ afterEach(async () => {
   for (const key in collections) {
     await collections[key].deleteMany({});
   }
+  jest.restoreAllMocks();
 });
 
 describe("loginUser", () => {
