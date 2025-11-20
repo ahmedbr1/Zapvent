@@ -365,8 +365,10 @@ export async function create(data: Partial<IVendor>) {
 // Vendor signup service function
 export async function signup(vendorData: vendorSignupData) {
   // Validate with Zod
+  // Drop confirmPassword after validation
   const { confirmPassword, ...validatedData } =
     vendorSignupSchema.parse(vendorData);
+  void confirmPassword;
 
   const email = validatedData.email.toLowerCase();
 
