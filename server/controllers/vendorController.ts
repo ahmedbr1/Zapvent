@@ -42,6 +42,7 @@ function parseAttendeesFromRequest(
 
   const filesField = (req as AuthRequest & { files?: MulterFilesField }).files;
   let idFiles: UploadedFile[] = [];
+  let nextFileIndex = 0;
 
   if (Array.isArray(filesField)) {
     idFiles = filesField;
@@ -112,7 +113,17 @@ function parseAttendeesFromRequest(
 
     const fallbackEmail = req.user?.email ?? "";
     const attendeeEmail = (email ?? fallbackEmail).trim();
-    let assignedPath = idDocumentPath || idFiles[index]?.path;
+    let assignedPath = typeof idDocumentPath === "string" && idDocumentPath.trim()
+      ? idDocumentPath.trim()
+      : undefined;
+
+    if (!assignedPath && nextFileIndex < idFiles.length) {
+      const candidate = idFiles[nextFileIndex];
+      if (candidate?.path) {
+        assignedPath = candidate.path;
+      }
+      nextFileIndex += 1;
+    }
 
     if (!assignedPath) {
       // Generate a QR image for this attendee and save it to uploads/
@@ -164,11 +175,11 @@ export class VendorController {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const files = (req as any).files as Record<string, any[]> | undefined;
 
-      if (!files || !files.logo || !files.taxCard || !files.documents) {
+      if (!files || !files.logo || !files.taxCard) {
         return res.status(400).json({
           success: false,
           message:
-            "All required documents must be uploaded (logo, tax card, and documents)",
+            "Logo and tax card are required. Supporting documents are optional.",
         });
       }
 
