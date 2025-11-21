@@ -288,7 +288,7 @@ export default function AdminManagementPage() {
               {row.lastName?.charAt(0) ?? ""}
             </Avatar>
             <Stack spacing={0.25}>
-              <Typography
+              <Typography component="div"
                 variant="body1"
                 fontWeight={600}
                 sx={{ fontSize: "0.95rem" }}
@@ -305,7 +305,7 @@ export default function AdminManagementPage() {
               </Typography>
               <Stack direction="row" spacing={0.5} alignItems="center">
                 <EmailIcon sx={{ fontSize: 14, color: "text.secondary" }} />
-                <Typography
+                <Typography component="div"
                   variant="body2"
                   color="text.secondary"
                   sx={{ fontSize: "0.85rem" }}
@@ -377,7 +377,7 @@ export default function AdminManagementPage() {
                       color: "error.main",
                     }}
                   />
-                  <Typography
+                  <Typography component="div"
                     variant="body2"
                     fontWeight={600}
                     sx={{ fontSize: "0.875rem" }}
@@ -385,7 +385,7 @@ export default function AdminManagementPage() {
                     {formattedDate}
                   </Typography>
                 </Stack>
-                <Typography
+                <Typography component="div"
                   variant="caption"
                   color="text.secondary"
                   sx={{
@@ -486,10 +486,10 @@ export default function AdminManagementPage() {
   return (
     <Stack spacing={4}>
       <Stack spacing={1.5}>
-        <Typography variant="h3" fontWeight={800} sx={{ fontSize: "2rem" }}>
+        <Typography component="div" variant="h3" fontWeight={800} sx={{ fontSize: "2rem" }}>
           Admin Accounts
         </Typography>
-        <Typography
+        <Typography component="div"
           variant="body1"
           color="text.secondary"
           sx={{ fontSize: "1rem" }}
@@ -549,10 +549,10 @@ export default function AdminManagementPage() {
 
       {isError ? (
         <Alert severity="warning">
-          <Typography variant="body2" fontWeight={600} gutterBottom>
+          <Typography component="div" variant="body2" fontWeight={600} gutterBottom>
             Could not load admin accounts
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography component="div" variant="body2" color="text.secondary">
             {error instanceof Error && error.message.includes("fetch")
               ? "Unable to connect to the server. Please check that the backend is running."
               : error instanceof Error
@@ -633,10 +633,10 @@ export default function AdminManagementPage() {
                     <AdminPanelSettingsIcon sx={{ fontSize: 32 }} />
                   </Avatar>
                   <Stack spacing={0.5} alignItems="center">
-                    <Typography variant="h6" fontWeight={600}>
+                    <Typography component="div" variant="h6" fontWeight={600}>
                       No admin accounts yet
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography component="div" variant="body2" color="text.secondary">
                       Create an admin account to manage the system.
                     </Typography>
                   </Stack>
@@ -670,17 +670,17 @@ export default function AdminManagementPage() {
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h5" fontWeight={700}>
+          <Typography component="div" variant="h5" fontWeight={700}>
             Create Admin Account
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography component="div" variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             Add a new administrator with full system access
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Grid container spacing={2.5}>
             <Grid size={12}>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              <Typography component="div" variant="subtitle2" fontWeight={600} gutterBottom>
                 Personal Information
               </Typography>
             </Grid>
@@ -710,7 +710,7 @@ export default function AdminManagementPage() {
               />
             </Grid>
             <Grid size={12}>
-              <Typography
+              <Typography component="div"
                 variant="subtitle2"
                 fontWeight={600}
                 gutterBottom
@@ -785,10 +785,10 @@ export default function AdminManagementPage() {
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h5" fontWeight={700}>
+          <Typography component="div" variant="h5" fontWeight={700}>
             Edit Admin Account
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography component="div" variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             Update account information for {selectedAdmin?.firstName}{" "}
             {selectedAdmin?.lastName}
           </Typography>
@@ -796,7 +796,7 @@ export default function AdminManagementPage() {
         <DialogContent sx={{ pt: 2 }}>
           <Grid container spacing={2.5}>
             <Grid size={12}>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              <Typography component="div" variant="subtitle2" fontWeight={600} gutterBottom>
                 Personal Information
               </Typography>
             </Grid>
@@ -826,7 +826,7 @@ export default function AdminManagementPage() {
               />
             </Grid>
             <Grid size={12}>
-              <Typography
+              <Typography component="div"
                 variant="subtitle2"
                 fontWeight={600}
                 gutterBottom
@@ -887,12 +887,12 @@ export default function AdminManagementPage() {
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h6" fontWeight={700} color="error.main">
+          <Typography component="div" variant="h6" fontWeight={700} color="error.main">
             Delete Admin Account
           </Typography>
         </DialogTitle>
         <DialogContent>
-          <Typography>
+          <Typography component="div">
             Are you sure you want to delete the admin account for{" "}
             <strong>
               {selectedAdmin?.firstName} {selectedAdmin?.lastName}
