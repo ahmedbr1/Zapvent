@@ -29,11 +29,11 @@ import { useAuthToken } from "@/hooks/useAuthToken";
 
 const eventTypeOptions: Array<{ label: string; value: EventType | "" }> = [
   { label: "All event types", value: "" },
-  { label: "Bazaars", value: "Bazaar" },
-  { label: "Trips", value: "Trip" },
-  { label: "Workshops", value: "Workshop" },
-  { label: "Conferences", value: "Conference" },
-  { label: "Seminars", value: "Seminar" },
+  { label: "Bazaars", value: EventType.Bazaar },
+  { label: "Trips", value: EventType.Trip },
+  { label: "Workshops", value: EventType.Workshop },
+  { label: "Conferences", value: EventType.Conference },
+  { label: "Seminars", value: EventType.Seminar },
 ];
 
 interface SalesReportProps {
