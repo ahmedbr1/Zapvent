@@ -111,10 +111,12 @@ export interface EventSummary {
   extraRequiredResources?: string;
   requiredBudget?: number;
   archived?: boolean;
+  allowedRoles?: UserRole[];
 }
 
 export interface Workshop {
   id: string;
+  eventType: EventType;
   name: string;
   location: Location;
   startDate: string;
@@ -135,6 +137,7 @@ export interface Workshop {
   createdByRole?: string;
   workshopStatus?: string;
   requestedEdits?: string | null;
+  allowedRoles?: UserRole[];
 }
 
 export interface ProfessorSummary {
@@ -335,4 +338,32 @@ export interface WalletSummary {
   balance: number;
   totalRefunded: number;
   refunds: WalletRefundRecord[];
+}
+
+export interface AttendanceReportEvent {
+  eventId: string;
+  name: string;
+  eventType: EventType;
+  startDate: string;
+  endDate: string;
+  totalAttendees: number;
+}
+
+export interface AttendanceReportData {
+  events: AttendanceReportEvent[];
+  totalAttendees: number;
+}
+
+export interface SalesReportEvent {
+  eventId: string;
+  name: string;
+  eventType: EventType;
+  startDate: string;
+  endDate: string;
+  revenue: number;
+}
+
+export interface SalesReportData {
+  events: SalesReportEvent[];
+  totalRevenue: number;
 }

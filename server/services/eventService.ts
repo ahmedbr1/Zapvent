@@ -1098,7 +1098,7 @@ async function notifyEventOffice(message: string): Promise<void> {
 async function notifyProfessorWorkshopStatus(
   professorId: string,
   workshopName: string,
-  status: "approved" | "rejected",
+  status: "approved" | "rejected" | "pending",
   reason?: string
 ): Promise<void> {
   try {
@@ -1109,10 +1109,12 @@ async function notifyProfessorWorkshopStatus(
     let message: string;
     if (status === "approved") {
       message = `Your workshop "${workshopName}" has been approved and published by the Event Office.`;
-    } else {
+    } else if (status === "rejected") {
       message = reason
         ? `Your workshop "${workshopName}" has been rejected by the Event Office. Reason: ${reason}`
         : `Your workshop "${workshopName}" has been rejected by the Event Office.`;
+    } else {
+      message = `Your workshop "${workshopName}" has been moved back to pending for further review.`;
     }
 
     await UserModel.findOneAndUpdate(

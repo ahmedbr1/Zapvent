@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActions from "@mui/material/CardActions";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -39,6 +40,7 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
+import { EventOfficeEventActions } from "@/components/events/EventOfficeEventActions";
 import { filterAndSortEvents } from "@/lib/events/filters";
 import {
   fetchTrips,
@@ -403,6 +405,20 @@ export default function TripManagementPage() {
                         value={formatPrice(trip.price ?? 0)}
                       />
                     </Stack>
+                    {isEventsOfficeUser ? (
+                      <Box mt={1}>
+                        <EventOfficeEventActions
+                          eventId={trip.id}
+                          eventName={trip.name}
+                          eventType={trip.eventType}
+                          allowedRoles={trip.allowedRoles}
+                          token={token}
+                          onRestrictionsUpdated={() => {
+                            void refetch();
+                          }}
+                        />
+                      </Box>
+                    ) : null}
                   </Stack>
                 </CardContent>
                 <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>

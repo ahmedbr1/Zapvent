@@ -76,6 +76,7 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
+import { EventOfficeEventActions } from "@/components/events/EventOfficeEventActions";
 import { filterAndSortEvents } from "@/lib/events/filters";
 
 const WORKSHOP_QUERY_SETTINGS = {
@@ -1287,6 +1288,18 @@ export default function WorkshopManager({
                             </Typography>
                           ) : null}
                         </Stack>
+                      ) : null}
+                      {isEventsOfficeVariant ? (
+                        <EventOfficeEventActions
+                          eventId={workshop.id}
+                          eventName={workshop.name}
+                          eventType={workshop.eventType}
+                          allowedRoles={workshop.allowedRoles}
+                          token={token}
+                          onRestrictionsUpdated={() => {
+                            queryClient.invalidateQueries({ queryKey });
+                          }}
+                        />
                       ) : null}
                     </Stack>
                   </CardContent>

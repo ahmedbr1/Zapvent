@@ -50,6 +50,7 @@ import {
 } from "@/lib/services/events";
 import { formatDateTime } from "@/lib/date";
 import { AuthRole, Location } from "@/lib/types";
+import { EventOfficeEventActions } from "@/components/events/EventOfficeEventActions";
 
 const bazaarSchema = z
   .object({
@@ -375,6 +376,20 @@ export default function BazaarManagementPage() {
                       <Typography variant="caption" color="text.secondary">
                         Vendors assigned: {bazaar.vendors?.length ?? 0}
                       </Typography>
+                      {isEventsOfficeUser ? (
+                        <Box mt={1}>
+                          <EventOfficeEventActions
+                            eventId={bazaar.id}
+                            eventName={bazaar.name}
+                            eventType={bazaar.eventType}
+                            allowedRoles={bazaar.allowedRoles}
+                            token={token}
+                            onRestrictionsUpdated={() => {
+                              void refetch();
+                            }}
+                          />
+                        </Box>
+                      ) : null}
                     </Stack>
                   </CardContent>
                   <CardActions sx={{ px: 3, pb: 3, alignItems: "center" }}>

@@ -1,18 +1,18 @@
 import WorkshopManager from "@/components/workshops/WorkshopManager";
 
 interface ProfessorWorkshopDetailsPageProps {
-  params: { workshopId: string };
+  params: Promise<{ workshopId: string }>;
 }
 
-export default function ProfessorWorkshopDetailsPage({
+export default async function ProfessorWorkshopDetailsPage({
   params,
 }: ProfessorWorkshopDetailsPageProps) {
+  const { workshopId } = await params;
   return (
     <WorkshopManager
       variant="professor"
       viewMode="detail"
-      focusWorkshopId={params.workshopId}
+      focusWorkshopId={workshopId}
     />
   );
 }
-

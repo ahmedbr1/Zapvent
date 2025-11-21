@@ -17,6 +17,7 @@ import SchoolIcon from "@mui/icons-material/SchoolRounded";
 import ConferenceIcon from "@mui/icons-material/CampaignRounded";
 import ChecklistIcon from "@mui/icons-material/ChecklistRtlRounded";
 import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
+import RevenueIcon from "@mui/icons-material/MonetizationOnRounded";
 import { AuthRole, UserRole } from "@/lib/types";
 
 export interface NavItem {
@@ -120,6 +121,12 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.EventOffice],
   },
   {
+    label: "Loyalty Partners",
+    href: "/events-office/loyalty",
+    icon: LoyaltyIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
     label: "Bazaar Management",
     href: "/events-office/bazaars",
     icon: StorefrontIcon,
@@ -154,6 +161,30 @@ export const navItems: NavItem[] = [
     href: "/events-office/feedback",
     icon: RateReviewIcon,
     roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Attendance Report",
+    href: "/events-office/reports/attendance",
+    icon: ChecklistIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Attendance Report",
+    href: "/admin/reports/attendance",
+    icon: ChecklistIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
+    label: "Sales Report",
+    href: "/events-office/reports/sales",
+    icon: RevenueIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Sales Report",
+    href: "/admin/reports/sales",
+    icon: RevenueIcon,
+    roles: [AuthRole.Admin],
   },
   {
     label: "Workshop Management",

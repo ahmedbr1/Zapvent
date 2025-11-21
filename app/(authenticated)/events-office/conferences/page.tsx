@@ -40,6 +40,7 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
+import { EventOfficeEventActions } from "@/components/events/EventOfficeEventActions";
 import { filterAndSortEvents } from "@/lib/events/filters";
 import {
   fetchConferences,
@@ -441,6 +442,18 @@ export default function ConferenceManagementPage() {
                         />
                       ) : null}
                     </Stack>
+                    {isEventsOfficeUser ? (
+                      <EventOfficeEventActions
+                        eventId={conference.id}
+                        eventName={conference.name}
+                        eventType={conference.eventType}
+                        allowedRoles={conference.allowedRoles}
+                        token={token}
+                        onRestrictionsUpdated={() => {
+                          void refetch();
+                        }}
+                      />
+                    ) : null}
                   </Stack>
                 </CardContent>
                 <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
