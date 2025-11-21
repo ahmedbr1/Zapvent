@@ -1137,17 +1137,17 @@ describe("Edge Cases and Security", () => {
     expect(result.success).toBe(true);
   });
 
-  //   it("should reject invalid leap year date", async () => {
-  //     const court = new CourtModel(validCourtData);
-  //     await court.save();
+  it("should reject invalid leap year date", async () => {
+    const court = new CourtModel(validCourtData);
+    await court.save();
 
-  //     const result = await getCourtAvailability(
-  //       court._id.toString(),
-  //       "2023-02-29"
-  //     );
+    const result = await getCourtAvailability(
+      court._id.toString(),
+      "2023-02-29"
+    );
 
-  //     console.log(result);
+    console.log(result);
 
-  //     expect(result.success).toBe(false);
-  //   });
+    expect(result.success).toBe(false);
+  });
 });
