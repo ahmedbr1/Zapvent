@@ -24,6 +24,18 @@ interface VoteResponse {
   message: string;
 }
 
+interface CreatePollResponse {
+  success: boolean;
+  message?: string;
+  data?: unknown;
+}
+
+export interface CreateVendorPollInput {
+  boothName: string;
+  durations: Array<{ start: string; end: string }>;
+  vendorIds: string[];
+}
+
 export async function fetchVendorPolls(token?: string): Promise<VendorPoll[]> {
   const response = await apiFetch<PollsResponse>("/polls", {
     method: "GET",
@@ -61,4 +73,18 @@ export async function voteForVendorPoll(pollId: string, vendorId: string, token?
   }
 
   return response.message;
+}
+
+export async function createVendorPoll(data: CreateVendorPollInput, token?: string) {
+  const response = await apiFetch<CreatePollResponse, CreateVendorPollInput>("/admin/polls", {
+    method: "POST",
+    body: data,
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to create poll");
+  }
+
+  return response;
 }
