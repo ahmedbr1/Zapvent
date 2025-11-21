@@ -75,7 +75,7 @@ export function EventFeedbackExplorer({
   const averageRating = feedbackQuery.data?.ratings?.averageRating ?? 0;
   const totalRatings = feedbackQuery.data?.ratings?.totalRatings ?? 0;
 
-  const ratingColumns = useMemo<GridColDef<EventRatingEntry, any, any>[]>(
+  const ratingColumns = useMemo<GridColDef<EventRatingEntry>[]>(
     () => [
       {
         field: "user",
@@ -96,8 +96,8 @@ export function EventFeedbackExplorer({
         field: "rating",
         headerName: "Rating",
         flex: 0.6,
-        renderCell: (params) => (
-          <Rating value={params.value as number} precision={0.5} readOnly size="small" />
+        renderCell: ({ value }) => (
+          <Rating value={value ?? 0} precision={0.5} readOnly size="small" />
         ),
       },
       {
@@ -109,8 +109,9 @@ export function EventFeedbackExplorer({
         field: "createdAt",
         headerName: "Submitted",
         flex: 0.8,
-        valueFormatter: (params: any) =>
-          params.value ? formatDateTime(params.value as string) : "—",
+        valueFormatter: (
+          params: GridRenderCellParams<EventRatingEntry, string | null | undefined>
+        ) => (params.value ? formatDateTime(params.value) : "—"),
       },
     ],
     []
