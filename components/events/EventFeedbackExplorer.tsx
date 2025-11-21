@@ -92,7 +92,9 @@ export function EventFeedbackExplorer({
         field: "rating",
         headerName: "Rating",
         flex: 0.6,
-        renderCell: (params) => <Rating value={params.value} precision={0.5} readOnly size="small" />,
+        renderCell: ({ value }) => (
+          <Rating value={value ?? 0} precision={0.5} readOnly size="small" />
+        ),
       },
       {
         field: "comment",
