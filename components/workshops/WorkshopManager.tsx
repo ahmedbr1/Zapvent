@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,6 +37,12 @@ import Tooltip from "@mui/material/Tooltip";
 import PeopleIcon from "@mui/icons-material/PeopleAltRounded";
 import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import CircularProgress from "@mui/material/CircularProgress";
+import LoadingButton from "@mui/lab/LoadingButton";
+import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
+import BlockIcon from "@mui/icons-material/BlockRounded";
+import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
+import ArchiveIcon from "@mui/icons-material/ArchiveRounded";
+import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -47,8 +54,12 @@ import {
   deleteWorkshop,
   fetchWorkshopParticipants,
   sendWorkshopCertificates,
+  approveWorkshopRequest,
+  rejectWorkshopRequest,
+  requestWorkshopEdits,
   type WorkshopPayload,
 } from "@/lib/services/workshops";
+import { archiveEventById } from "@/lib/services/events";
 import {
   AuthRole,
   Faculty,
@@ -65,6 +76,7 @@ import {
   EventFiltersBar,
   type EventFilters,
 } from "@/components/events/EventFiltersBar";
+import { EventOfficeEventActions } from "@/components/events/EventOfficeEventActions";
 import { filterAndSortEvents } from "@/lib/events/filters";
 
 const WORKSHOP_QUERY_SETTINGS = {
@@ -118,9 +130,15 @@ export type WorkshopManagerVariant = "professor" | "events-office";
 
 export interface WorkshopManagerProps {
   variant: WorkshopManagerVariant;
+  viewMode?: "grid" | "detail";
+  focusWorkshopId?: string;
 }
 
-export default function WorkshopManager({ variant }: WorkshopManagerProps) {
+export default function WorkshopManager({
+  variant,
+  viewMode = "grid",
+  focusWorkshopId,
+}: WorkshopManagerProps) {
   const token = useAuthToken();
   const user = useSessionUser();
   const userId = user?.id ?? null;
@@ -128,6 +146,10 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
   const isEventsOffice = user?.role === AuthRole.EventOffice;
   const isAdmin = user?.role === AuthRole.Admin;
   const isEventsOfficeVariant = variant === "events-office";
+  const isDetailView = viewMode === "detail";
+  const detailBasePath = isEventsOfficeVariant
+    ? "/events-office/workshops"
+    : "/user/workshops";
   const canManage = isEventsOfficeVariant
     ? Boolean(isEventsOffice || isAdmin)
     : Boolean(isProfessor);
@@ -175,10 +197,30 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     workshopId: string;
     workshopName: string;
   } | null>(null);
+  const [moderationDialog, setModerationDialog] = useState<{
+    type: "reject" | "request-edits";
+    workshopId: string;
+    workshopName: string;
+  } | null>(null);
+  const [moderationMessage, setModerationMessage] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{
+    workshopId: string;
+    workshopName: string;
+  } | null>(null);
+  const [recentlyApproved, setRecentlyApproved] = useState<Set<string>>(
+    new Set()
+  );
+  const [recentlyRejected, setRecentlyRejected] = useState<Set<string>>(
+    new Set()
+  );
 
   const canCreate = isEventsOfficeVariant
     ? Boolean(isAdmin)
     : Boolean(isProfessor);
+  const canModerateWorkshops =
+    isEventsOfficeVariant && (isEventsOffice || isAdmin);
+  const canEditWorkshops = isProfessor || isEventsOfficeVariant;
+  const canDeleteWorkshops = isProfessor || isEventsOfficeVariant;
   const queryKey = ["workshops", variant, token];
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -242,6 +284,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     onSuccess: () => {
       enqueueSnackbar("Workshop deleted.", { variant: "success" });
       queryClient.invalidateQueries({ queryKey });
+      setDeleteDialog(null);
     },
     onError: (mutationError: unknown) => {
       enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
@@ -266,6 +309,73 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     queryFn: () =>
       fetchWorkshopParticipants(participantsDialog!.workshopId, token ?? undefined),
     enabled: Boolean(participantsDialog?.workshopId && token),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (workshopId: string) =>
+      approveWorkshopRequest(workshopId, token ?? undefined),
+    onSuccess: (response, workshopId) => {
+      enqueueSnackbar(
+        response.message ?? "Workshop approved and published.",
+        {
+          variant: "success",
+        }
+      );
+      setRecentlyApproved((prev) => new Set(prev).add(workshopId));
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      rejectWorkshopRequest(
+        id,
+        reason ? { reason } : undefined,
+        token ?? undefined
+      ),
+    onSuccess: (response, variables) => {
+      enqueueSnackbar(response.message ?? "Workshop rejected.", {
+        variant: "success",
+      });
+      setRecentlyRejected((prev) => new Set(prev).add(variables.id));
+      queryClient.invalidateQueries({ queryKey });
+      closeModerationDialog();
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const requestEditsMutation = useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) =>
+      requestWorkshopEdits(id, { message }, token ?? undefined),
+    onSuccess: (response) => {
+      enqueueSnackbar(response.message ?? "Edit request sent.", {
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey });
+      closeModerationDialog();
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (workshopId: string) =>
+      archiveEventById(workshopId, token ?? undefined),
+    onSuccess: (response) => {
+      enqueueSnackbar(response.message ?? "Workshop archived.", {
+        variant: "info",
+      });
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
   });
 
   const workshops = useMemo(() => data ?? [], [data]);
@@ -294,7 +404,36 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
       }),
     [workshops, filters]
   );
+  const focusedWorkshop = useMemo(() => {
+    if (!focusWorkshopId) {
+      return null;
+    }
+    return workshops.find((workshop) => workshop.id === focusWorkshopId) ?? null;
+  }, [focusWorkshopId, workshops]);
   const submitting = createMutation.isPending || updateMutation.isPending;
+
+  // Clear tracking sets once data is updated
+  useEffect(() => {
+    if (data && recentlyApproved.size > 0) {
+      const updated = data.filter(
+        (w) => recentlyApproved.has(w.id) && w.workshopStatus === "Approved"
+      );
+      if (updated.length > 0) {
+        setRecentlyApproved(new Set());
+      }
+    }
+  }, [data, recentlyApproved]);
+
+  useEffect(() => {
+    if (data && recentlyRejected.size > 0) {
+      const updated = data.filter(
+        (w) => recentlyRejected.has(w.id) && w.workshopStatus === "Rejected"
+      );
+      if (updated.length > 0) {
+        setRecentlyRejected(new Set());
+      }
+    }
+  }, [data, recentlyRejected]);
   const actionLabel = editingId ? "Save changes" : "Create workshop";
 
   const handleCreateClick = () => {
@@ -370,15 +509,74 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     reset(defaultWorkshopValues());
   };
 
-  const handleDeleteClick = (workshopId: string, workshopName: string) => {
+  const closeModerationDialog = () => {
+    setModerationDialog(null);
+    setModerationMessage("");
+  };
+
+  const handleOpenRejectDialog = (workshop: Workshop) => {
+    setModerationDialog({
+      type: "reject",
+      workshopId: workshop.id,
+      workshopName: workshop.name,
+    });
+    setModerationMessage("");
+  };
+
+  const handleOpenRequestEditsDialog = (workshop: Workshop) => {
+    setModerationDialog({
+      type: "request-edits",
+      workshopId: workshop.id,
+      workshopName: workshop.name,
+    });
+    setModerationMessage(workshop.requestedEdits ?? "");
+  };
+
+  const handleModerationSubmit = () => {
+    if (!moderationDialog) return;
+    if (moderationDialog.type === "reject") {
+      rejectMutation.mutate({
+        id: moderationDialog.workshopId,
+        reason: moderationMessage.trim() || undefined,
+      });
+      return;
+    }
+    const trimmed = moderationMessage.trim();
+    if (!trimmed) {
+      enqueueSnackbar("Please describe the edits you need.", {
+        variant: "info",
+      });
+      return;
+    }
+    requestEditsMutation.mutate({
+      id: moderationDialog.workshopId,
+      message: trimmed,
+    });
+  };
+
+  const handleArchiveWorkshop = (workshop: Workshop) => {
     const confirmed =
       typeof window !== "undefined"
         ? window.confirm(
-            `Delete "${workshopName}"? This action cannot be undone.`
+            `Archive "${workshop.name}"? Attendees will no longer see it in listings.`
           )
         : false;
     if (!confirmed) return;
-    deleteMutation.mutate(workshopId);
+    archiveMutation.mutate(workshop.id);
+  };
+
+  const handleDeleteClick = (workshopId: string, workshopName: string) => {
+    setDeleteDialog({ workshopId, workshopName });
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleteMutation.isPending) return;
+    setDeleteDialog(null);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteDialog) return;
+    deleteMutation.mutate(deleteDialog.workshopId);
   };
 
   const handleViewParticipants = (workshop: Workshop) => {
@@ -396,6 +594,479 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
     certificateMutation.mutate(workshop.id);
   };
 
+  const renderDetailSection = () => {
+    if (isLoading) {
+      return (
+        <Card sx={{ borderRadius: 3 }}>
+          <CardContent>
+            <Stack spacing={2}>
+              <Skeleton variant="text" height={36} width="60%" />
+              <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2 }} />
+              <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 2 }} />
+            </Stack>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (isError) {
+      return (
+        <Alert
+          severity="error"
+          action={<Button onClick={() => refetch()}>Retry</Button>}
+        >
+          {resolveErrorMessage(error)}
+        </Alert>
+      );
+    }
+
+    if (workshops.length === 0) {
+      return (
+        <Alert severity="info">
+          No workshops available yet. Return to the main list to create or approve a submission.
+        </Alert>
+      );
+    }
+
+    if (!focusWorkshopId) {
+      return (
+        <Alert severity="info">
+          Select a workshop from the list to view its complete details.
+        </Alert>
+      );
+    }
+
+    if (!focusedWorkshop) {
+      return (
+        <Alert
+          severity="warning"
+          action={
+            <Button component={Link} href={detailBasePath} variant="outlined">
+              Back to workshops
+            </Button>
+          }
+        >
+          We couldn&apos;t find the requested workshop. It may have been deleted or archived.
+        </Alert>
+      );
+    }
+
+    const createdByYou = Boolean(
+      focusedWorkshop.createdBy && userId && focusedWorkshop.createdBy === userId
+    );
+    const creatorChipLabel = createdByYou
+      ? "Created by you"
+      : focusedWorkshop.createdByName
+        ? `Created by ${focusedWorkshop.createdByName}`
+        : "Created by faculty";
+    const statusLabel = focusedWorkshop.workshopStatus ?? "Pending";
+    const statusColor =
+      statusLabel === "Approved"
+        ? "success"
+        : statusLabel === "Rejected"
+          ? "error"
+          : "warning";
+    const eventHasEnded = dayjs(focusedWorkshop.endDate).isBefore(dayjs());
+    const canSendCertificates = createdByYou && eventHasEnded;
+    const canViewParticipants = createdByYou || isEventsOfficeVariant;
+    const approvingThis =
+      approveMutation.isPending &&
+      approveMutation.variables === focusedWorkshop.id;
+    const rejectingThis =
+      rejectMutation.isPending &&
+      rejectMutation.variables?.id === focusedWorkshop.id;
+    const requestingEditsThis =
+      requestEditsMutation.isPending &&
+      requestEditsMutation.variables?.id === focusedWorkshop.id;
+    const archivingThis =
+      archiveMutation.isPending &&
+      archiveMutation.variables === focusedWorkshop.id;
+    const sendingCertificatesThis =
+      certificateMutation.isPending &&
+      certificateMutation.variables === focusedWorkshop.id;
+    const showModerationButtons =
+      canModerateWorkshops && statusLabel === "Pending";
+    const showRequestEditsButton =
+      canModerateWorkshops &&
+      (statusLabel === "Pending" || statusLabel === "Approved");
+    const showArchiveButton =
+      canModerateWorkshops && statusLabel === "Approved" && eventHasEnded;
+    const detailBackLabel = isEventsOfficeVariant
+      ? "Back to workshops"
+      : "Back to my workshops";
+    const detailActionTitle = isEventsOfficeVariant
+      ? "Action center"
+      : "Workshop tools";
+    const detailActionSubtitle = isEventsOfficeVariant
+      ? "Moderate submissions and manage lifecycle tasks."
+      : "Review the latest status and handle workshop operations.";
+    const statusAlertSeverity =
+      statusLabel === "Approved"
+        ? "success"
+        : statusLabel === "Rejected"
+          ? "error"
+          : "warning";
+
+    return (
+      <Stack spacing={3}>
+        <Button
+          component={Link}
+          href={detailBasePath}
+          startIcon={<ArrowBackIcon />}
+          sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
+        >
+          {detailBackLabel}
+        </Button>
+
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Card sx={{ borderRadius: 3, height: "100%" }}>
+              <CardContent>
+                <Stack spacing={3}>
+                  <Stack spacing={1}>
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      textTransform="uppercase"
+                    >
+                      Workshop overview
+                    </Typography>
+                    <Typography variant="h4" fontWeight={700}>
+                      {focusedWorkshop.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Submitted by {focusedWorkshop.createdByName ?? "faculty"} ·{" "}
+                      {formatDateTime(focusedWorkshop.startDate)}
+                    </Typography>
+                  </Stack>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    flexWrap="wrap"
+                    rowGap={1}
+                    sx={{ "& .MuiChip-root": { fontSize: "0.75rem" } }}
+                  >
+                    <Chip label={focusedWorkshop.location} color="primary" size="small" />
+                    <Chip
+                      label={focusedWorkshop.fundingSource}
+                      variant="outlined"
+                      color="primary"
+                      size="small"
+                    />
+                    <Chip
+                      label={`Capacity ${focusedWorkshop.capacity}`}
+                      variant="outlined"
+                      size="small"
+                      sx={{ borderColor: "rgba(148,163,184,0.4)" }}
+                    />
+                    <Chip
+                      label={creatorChipLabel}
+                      variant="outlined"
+                      size="small"
+                      color={createdByYou ? "success" : "default"}
+                      sx={{ borderStyle: createdByYou ? "solid" : "dashed" }}
+                    />
+                    <Chip
+                      label={`${statusLabel} status`}
+                      size="small"
+                      color={statusColor as "default" | "success" | "warning" | "error"}
+                    />
+                  </Stack>
+                  {focusedWorkshop.requestedEdits ? (
+                    <Alert severity="warning" variant="outlined">
+                      Requested edits: {focusedWorkshop.requestedEdits}
+                    </Alert>
+                  ) : null}
+                  <Divider />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Schedule & deadlines
+                    </Typography>
+                    <Typography variant="body1">
+                      {formatDateTime(focusedWorkshop.startDate)} &mdash;{" "}
+                      {formatDateTime(focusedWorkshop.endDate)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Registration closes {formatDateTime(focusedWorkshop.registrationDeadline)}
+                    </Typography>
+                  </Stack>
+                  <Divider />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Faculty & speakers
+                    </Typography>
+                    <Typography variant="body2">
+                      Faculty: {focusedWorkshop.faculty}
+                    </Typography>
+                    {focusedWorkshop.participatingProfessors.length > 0 ? (
+                      <Stack
+                        direction="row"
+                        spacing={0.5}
+                        flexWrap="wrap"
+                        rowGap={0.5}
+                      >
+                        {focusedWorkshop.participatingProfessors.map((professor) => (
+                          <Chip key={professor} label={professor} size="small" variant="outlined" />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Participating professors will be confirmed soon.
+                      </Typography>
+                    )}
+                  </Stack>
+                  <Divider />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Description
+                    </Typography>
+                    <Typography variant="body2">
+                      {focusedWorkshop.description || "No description provided."}
+                    </Typography>
+                  </Stack>
+                  <Divider />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Agenda
+                    </Typography>
+                    <Typography variant="body2">
+                      {focusedWorkshop.fullAgenda || "Agenda details will be shared later."}
+                    </Typography>
+                  </Stack>
+                  <Divider />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Budget & resources
+                    </Typography>
+                    <Typography variant="body2">
+                      Required budget: EGP{" "}
+                      {focusedWorkshop.requiredBudget.toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2">
+                      Ticket price: EGP {focusedWorkshop.price?.toLocaleString() ?? "0"}
+                    </Typography>
+                    {focusedWorkshop.extraRequiredResources ? (
+                      <Typography variant="body2" color="text.secondary">
+                        Extras: {focusedWorkshop.extraRequiredResources}
+                      </Typography>
+                    ) : null}
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card
+              sx={{
+                borderRadius: 3,
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Stack spacing={2}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="h6">{detailActionTitle}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {detailActionSubtitle}
+                    </Typography>
+                  </Stack>
+                  <Divider />
+                  {isEventsOfficeVariant ? (
+                    <>
+                      {showModerationButtons ? (
+                        <Stack spacing={1}>
+                          <LoadingButton
+                            variant="contained"
+                            color="success"
+                            startIcon={<CheckCircleIcon />}
+                            onClick={() => approveMutation.mutate(focusedWorkshop.id)}
+                            loading={approvingThis}
+                            disabled={
+                              approvingThis ||
+                              rejectingThis ||
+                              recentlyApproved.has(focusedWorkshop.id) ||
+                              recentlyRejected.has(focusedWorkshop.id)
+                            }
+                          >
+                            Accept
+                          </LoadingButton>
+                          <LoadingButton
+                            variant="outlined"
+                            color="error"
+                            startIcon={<BlockIcon />}
+                            onClick={() => handleOpenRejectDialog(focusedWorkshop)}
+                            loading={rejectingThis}
+                            disabled={
+                              rejectingThis ||
+                              approvingThis ||
+                              recentlyRejected.has(focusedWorkshop.id) ||
+                              recentlyApproved.has(focusedWorkshop.id)
+                            }
+                          >
+                            Reject
+                          </LoadingButton>
+                        </Stack>
+                      ) : (
+                        <Alert
+                          severity={
+                            statusLabel === "Approved"
+                              ? "success"
+                              : statusLabel === "Rejected"
+                                ? "error"
+                                : "info"
+                          }
+                        >
+                          Status: {statusLabel}
+                        </Alert>
+                      )}
+                      {showRequestEditsButton ? (
+                        <LoadingButton
+                          variant="outlined"
+                          color="secondary"
+                          startIcon={<RateReviewIcon />}
+                          onClick={() => handleOpenRequestEditsDialog(focusedWorkshop)}
+                          loading={requestingEditsThis}
+                          disabled={requestingEditsThis}
+                        >
+                          Request edits
+                        </LoadingButton>
+                      ) : null}
+                      {showArchiveButton ? (
+                        <LoadingButton
+                          variant="text"
+                          color="inherit"
+                          startIcon={<ArchiveIcon />}
+                          onClick={() => handleArchiveWorkshop(focusedWorkshop)}
+                          loading={archivingThis}
+                          disabled={archivingThis}
+                        >
+                          Archive workshop
+                        </LoadingButton>
+                      ) : null}
+                      <Divider />
+                      <Stack spacing={1}>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          Workshop tools
+                        </Typography>
+                        {canViewParticipants ? (
+                          <Button
+                            startIcon={<PeopleIcon />}
+                            onClick={() => handleViewParticipants(focusedWorkshop)}
+                          >
+                            View participants
+                          </Button>
+                        ) : null}
+                        {createdByYou ? (
+                          <Tooltip
+                            title={
+                              canSendCertificates
+                                ? "Send certificates to attendees."
+                                : "Certificates can be sent after the workshop ends."
+                            }
+                          >
+                            <span>
+                              <LoadingButton
+                                startIcon={<WorkspacePremiumIcon />}
+                                loading={sendingCertificatesThis}
+                                disabled={!canSendCertificates || sendingCertificatesThis}
+                                onClick={() => handleSendCertificates(focusedWorkshop)}
+                              >
+                                Send certificates
+                              </LoadingButton>
+                            </span>
+                          </Tooltip>
+                        ) : null}
+                        {canEditWorkshops ? (
+                          <Button
+                            startIcon={<EditIcon />}
+                            onClick={() => handleEditClick(focusedWorkshop.id)}
+                          >
+                            Edit workshop
+                          </Button>
+                        ) : null}
+                        {canDeleteWorkshops ? (
+                          <Button
+                            color="error"
+                            variant="outlined"
+                            onClick={() =>
+                              handleDeleteClick(focusedWorkshop.id, focusedWorkshop.name)
+                            }
+                            disabled={deleteMutation.isPending}
+                          >
+                            Delete workshop
+                          </Button>
+                        ) : null}
+                      </Stack>
+                    </>
+                  ) : (
+                    <Stack spacing={1}>
+                      <Alert severity={statusAlertSeverity}>Status: {statusLabel}</Alert>
+                      {focusedWorkshop.requestedEdits ? (
+                        <Alert severity="warning" variant="outlined">
+                          Requested edits: {focusedWorkshop.requestedEdits}
+                        </Alert>
+                      ) : null}
+                      {canViewParticipants ? (
+                        <Button
+                          startIcon={<PeopleIcon />}
+                          onClick={() => handleViewParticipants(focusedWorkshop)}
+                        >
+                          View participants
+                        </Button>
+                      ) : null}
+                      {createdByYou ? (
+                        <Tooltip
+                          title={
+                            canSendCertificates
+                              ? "Send certificates to attendees."
+                              : "Certificates can be sent after the workshop ends."
+                          }
+                        >
+                          <span>
+                            <LoadingButton
+                              startIcon={<WorkspacePremiumIcon />}
+                              loading={sendingCertificatesThis}
+                              disabled={!canSendCertificates || sendingCertificatesThis}
+                              onClick={() => handleSendCertificates(focusedWorkshop)}
+                            >
+                              Send certificates
+                            </LoadingButton>
+                          </span>
+                        </Tooltip>
+                      ) : null}
+                      {canEditWorkshops ? (
+                        <Button
+                          startIcon={<EditIcon />}
+                          onClick={() => handleEditClick(focusedWorkshop.id)}
+                        >
+                          Edit workshop
+                        </Button>
+                      ) : null}
+                      {canDeleteWorkshops ? (
+                        <Button
+                          color="error"
+                          variant="outlined"
+                          onClick={() =>
+                            handleDeleteClick(focusedWorkshop.id, focusedWorkshop.name)
+                          }
+                          disabled={deleteMutation.isPending}
+                        >
+                          Delete workshop
+                        </Button>
+                      ) : null}
+                    </Stack>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Stack>
+    );
+  };
+
   return (
     <Stack spacing={4}>
       <Stack spacing={1}>
@@ -410,7 +1081,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         </Typography>
       </Stack>
 
-      {canManage ? (
+      {canManage && !isDetailView ? (
         <EventFiltersBar
           value={filters}
           onChange={setFilters}
@@ -434,6 +1105,8 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
 
       {!canManage ? (
         <Alert severity="info">{copy.restriction}</Alert>
+      ) : isDetailView ? (
+        renderDetailSection()
       ) : isLoading ? (
         <Grid container spacing={3}>
           {Array.from({ length: 3 }).map((_, index) => (
@@ -479,8 +1152,8 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
               : workshop.createdByName
                 ? `Created by ${workshop.createdByName}`
                 : "Created by faculty";
-            const canEditWorkshopCard = isProfessor || isEventsOfficeVariant;
-            const canDeleteWorkshopCard = isProfessor || isEventsOfficeVariant;
+            const canDeleteWorkshopCard = canDeleteWorkshops;
+            const showFullCardDetails = false;
             const statusLabel = workshop.workshopStatus ?? "Pending";
             const statusColor =
               statusLabel === "Approved"
@@ -488,9 +1161,6 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                 : statusLabel === "Rejected"
                   ? "error"
                   : "warning";
-            const canViewParticipants = createdByYou || isEventsOfficeVariant;
-            const eventHasEnded = dayjs(workshop.endDate).isBefore(dayjs());
-            const canSendCertificates = createdByYou && eventHasEnded;
 
             return (
               <Grid key={workshop.id} size={{ xs: 12, md: 6, lg: 4 }}>
@@ -549,9 +1219,11 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                       <Typography variant="h6" fontWeight={700}>
                         {workshop.name}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {workshop.description}
-                      </Typography>
+                      {showFullCardDetails ? (
+                        <Typography variant="body2" color="text.secondary">
+                          {workshop.description}
+                        </Typography>
+                      ) : null}
                       {workshop.requestedEdits ? (
                         <Alert severity="warning" variant="outlined">
                           Requested edits: {workshop.requestedEdits}
@@ -598,92 +1270,73 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
                           {formatDateTime(workshop.registrationDeadline)}
                         </Typography>
                       </Stack>
-                      <Stack spacing={0.5}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Budget &amp; requirements
-                        </Typography>
-                        <Typography variant="body2">
-                          Required budget: EGP{" "}
-                          {workshop.requiredBudget.toLocaleString()}
-                        </Typography>
-                        <Typography variant="body2">
-                          Ticket price: EGP {workshop.price?.toLocaleString() ?? "0"}
-                        </Typography>
-                        {workshop.extraRequiredResources ? (
-                          <Typography variant="body2" color="text.secondary">
-                            Extras: {workshop.extraRequiredResources}
+                      {showFullCardDetails ? (
+                        <Stack spacing={0.5}>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            Budget &amp; requirements
                           </Typography>
-                        ) : null}
-                      </Stack>
+                          <Typography variant="body2">
+                            Required budget: EGP{" "}
+                            {workshop.requiredBudget.toLocaleString()}
+                          </Typography>
+                          <Typography variant="body2">
+                            Ticket price: EGP {workshop.price?.toLocaleString() ?? "0"}
+                          </Typography>
+                          {workshop.extraRequiredResources ? (
+                            <Typography variant="body2" color="text.secondary">
+                              Extras: {workshop.extraRequiredResources}
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      ) : null}
+                      {isEventsOfficeVariant ? (
+                        <EventOfficeEventActions
+                          eventId={workshop.id}
+                          eventName={workshop.name}
+                          eventType={workshop.eventType}
+                          allowedRoles={workshop.allowedRoles}
+                          token={token}
+                          onRestrictionsUpdated={() => {
+                            queryClient.invalidateQueries({ queryKey });
+                          }}
+                        />
+                      ) : null}
                     </Stack>
                   </CardContent>
                   <CardActions sx={{ px: 3, pb: 3 }}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      flexWrap="wrap"
-                      rowGap={1}
-                      justifyContent="flex-end"
-                      width="100%"
-                    >
-                      {canViewParticipants ? (
+                    <Stack spacing={1} width="100%">
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        width="100%"
+                      >
                         <Button
-                          startIcon={<PeopleIcon />}
-                          onClick={() => handleViewParticipants(workshop)}
-                        >
-                          Participants
-                        </Button>
-                      ) : null}
-                      {createdByYou ? (
-                        <Tooltip
+                          color="error"
+                          variant="outlined"
+                          fullWidth
+                          onClick={() =>
+                            handleDeleteClick(workshop.id, workshop.name)
+                          }
+                          disabled={
+                            !canDeleteWorkshopCard || deleteMutation.isPending
+                          }
                           title={
-                            canSendCertificates
-                              ? "Send certificates to everyone who attended."
-                              : "Certificates can be sent after the workshop ends."
+                            !canDeleteWorkshopCard
+                              ? "Deleting is restricted to authorized roles."
+                              : undefined
                           }
                         >
-                          <span>
-                            <Button
-                              startIcon={<WorkspacePremiumIcon />}
-                              disabled={
-                                !canSendCertificates || certificateMutation.isPending
-                              }
-                              onClick={() => handleSendCertificates(workshop)}
-                            >
-                              Send certificates
-                            </Button>
-                          </span>
-                        </Tooltip>
-                      ) : null}
-                      <Button
-                        startIcon={<EditIcon />}
-                        onClick={() => handleEditClick(workshop.id)}
-                        disabled={!canEditWorkshopCard}
-                        title={
-                          !canEditWorkshopCard
-                            ? "Editing is restricted to authorized roles."
-                            : undefined
-                        }
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        color="error"
-                        variant="outlined"
-                        onClick={() =>
-                          handleDeleteClick(workshop.id, workshop.name)
-                        }
-                        disabled={
-                          !canDeleteWorkshopCard || deleteMutation.isPending
-                        }
-                        title={
-                          !canDeleteWorkshopCard
-                            ? "Deleting is restricted to authorized roles."
-                            : undefined
-                        }
-                      >
-                        Delete
-                      </Button>
+                          Delete
+                        </Button>
+                        <Button
+                          component={Link}
+                          href={`${detailBasePath}/${workshop.id}`}
+                          variant="contained"
+                          fullWidth
+                        >
+                          Details
+                        </Button>
+                      </Stack>
                     </Stack>
                   </CardActions>
                 </Card>
@@ -693,7 +1346,7 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
         </Grid>
       )}
 
-      {canCreate && canManage ? (
+      {canCreate && canManage && !isDetailView ? (
         <Fab
           color="primary"
           aria-label="Create workshop"
@@ -1083,6 +1736,105 @@ export default function WorkshopManager({ variant }: WorkshopManagerProps) {
           <Button onClick={handleParticipantsDialogClose}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={Boolean(moderationDialog)}
+        onClose={closeModerationDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          {moderationDialog?.type === "reject"
+            ? `Reject "${moderationDialog?.workshopName ?? ""}"`
+            : `Request edits — ${moderationDialog?.workshopName ?? ""}`}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} mt={1}>
+            <Alert severity="info">
+              {moderationDialog?.type === "reject"
+                ? "Let the professor know why this workshop is not moving forward."
+                : "Share concrete details that will help the professor update their submission."}
+            </Alert>
+            <TextField
+              label={
+                moderationDialog?.type === "reject"
+                  ? "Reason (optional)"
+                  : "What needs to change?"
+              }
+              multiline
+              minRows={4}
+              value={moderationMessage}
+              onChange={(event) => setModerationMessage(event.target.value)}
+              placeholder={
+                moderationDialog?.type === "reject"
+                  ? "Example: Conflicts with another workshop on the same day."
+                  : "Example: Please attach the updated agenda and confirm resource needs."
+              }
+              helperText={
+                moderationDialog?.type === "reject"
+                  ? "This note is shared with the requesting professor."
+                  : "Your note appears in the professor dashboard instantly."
+              }
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeModerationDialog}
+            disabled={rejectMutation.isPending || requestEditsMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            onClick={handleModerationSubmit}
+            loading={
+              moderationDialog?.type === "reject"
+                ? rejectMutation.isPending
+                : requestEditsMutation.isPending
+            }
+          >
+            {moderationDialog?.type === "reject"
+              ? "Reject workshop"
+              : "Send request"}
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteDialog)}
+        onClose={closeDeleteDialog}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete workshop</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Alert severity="warning">
+              This will permanently remove{" "}
+              <strong>{deleteDialog?.workshopName}</strong> from all portals.
+              Registered attendees will lose access to this workshop.
+            </Alert>
+            <Typography variant="body2" color="text.secondary">
+              This action cannot be undone.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog} disabled={deleteMutation.isPending}>
+            Cancel
+          </Button>
+          <LoadingButton
+            color="error"
+            variant="contained"
+            onClick={confirmDelete}
+            loading={deleteMutation.isPending}
+          >
+            Delete workshop
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+
     </Stack>
   );
 }

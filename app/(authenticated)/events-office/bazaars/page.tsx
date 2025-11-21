@@ -23,10 +23,13 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import Tooltip from "@mui/material/Tooltip";
 import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/AddRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import DeleteIcon from "@mui/icons-material/DeleteRounded";
+import ArchiveIcon from "@mui/icons-material/ArchiveRounded";
+import LoadingButton from "@mui/lab/LoadingButton";
 import dayjs from "dayjs";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSnackbar } from "notistack";
@@ -42,10 +45,12 @@ import {
   createBazaar,
   updateBazaar,
   deleteEvent,
+  archiveEventById,
   type BazaarPayload,
 } from "@/lib/services/events";
 import { formatDateTime } from "@/lib/date";
 import { AuthRole, Location } from "@/lib/types";
+import { EventOfficeEventActions } from "@/components/events/EventOfficeEventActions";
 
 const bazaarSchema = z
   .object({
@@ -86,6 +91,9 @@ export default function BazaarManagementPage() {
     sortOrder: "asc",
   });
   const isEventsOfficeUser = user?.role === AuthRole.EventOffice;
+  const [archivedBazaarIds, setArchivedBazaarIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "bazaars", token],
@@ -147,6 +155,24 @@ export default function BazaarManagementPage() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) => archiveEventById(id, token ?? undefined),
+    onSuccess: (response, id) => {
+      enqueueSnackbar(response.message ?? "Bazaar archived.", {
+        variant: "info",
+      });
+      queryClient.invalidateQueries({ queryKey: ["events", "bazaars"] });
+      setArchivedBazaarIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(resolveErrorMessage(mutationError), { variant: "error" });
+    },
+  });
+
   const bazaars = useMemo(
     () =>
       filterAndSortEvents(data, filters, {
@@ -198,6 +224,14 @@ export default function BazaarManagementPage() {
     }
 
     deleteMutation.mutate(bazaarId);
+  };
+
+  const handleArchiveClick = (bazaarId: string, bazaarName: string) => {
+    const confirmed = window.confirm(
+      `Archive "${bazaarName}"? Students will no longer see it in listings.`
+    );
+    if (!confirmed) return;
+    archiveMutation.mutate(bazaarId);
   };
 
   const closeDialog = () => {
@@ -281,9 +315,24 @@ export default function BazaarManagementPage() {
         <Grid container spacing={3}>
           {bazaars.map((bazaar) => {
             const hasStarted = !dayjs(bazaar.startDate).isAfter(dayjs());
+            const eventHasEnded = dayjs(bazaar.endDate).isBefore(dayjs());
             const isDeleting =
               deleteMutation.isPending && pendingDeleteId === bazaar.id;
             const disableActions = hasStarted || isDeleting;
+            const archivingThis =
+              archiveMutation.isPending && archiveMutation.variables === bazaar.id;
+            const serverArchived = Boolean(bazaar.archived);
+            const isArchived =
+              serverArchived || archivedBazaarIds.has(bazaar.id);
+            const archiveEligible = isEventsOfficeUser && eventHasEnded;
+            const archiveDisabled =
+              isArchived || !archiveEligible || archivingThis;
+            const archiveTooltip = isArchived
+              ? "Bazaar already archived."
+              : archiveEligible
+                ? "Archive this bazaar to hide it from future listings."
+                : "Archiving unlocks after the bazaar ends.";
+            const archiveLabel = isArchived ? "Archived" : "Archive";
 
             return (
               <Grid key={bazaar.id} size={{ xs: 12, md: 6, lg: 4 }}>
@@ -327,6 +376,20 @@ export default function BazaarManagementPage() {
                       <Typography variant="caption" color="text.secondary">
                         Vendors assigned: {bazaar.vendors?.length ?? 0}
                       </Typography>
+                      {isEventsOfficeUser ? (
+                        <Box mt={1}>
+                          <EventOfficeEventActions
+                            eventId={bazaar.id}
+                            eventName={bazaar.name}
+                            eventType={bazaar.eventType}
+                            allowedRoles={bazaar.allowedRoles}
+                            token={token}
+                            onRestrictionsUpdated={() => {
+                              void refetch();
+                            }}
+                          />
+                        </Box>
+                      ) : null}
                     </Stack>
                   </CardContent>
                   <CardActions sx={{ px: 3, pb: 3, alignItems: "center" }}>
@@ -342,7 +405,29 @@ export default function BazaarManagementPage() {
                     ) : (
                       <Box sx={{ flexGrow: 1 }} />
                     )}
-                    <Stack direction="row" spacing={1}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      flexWrap="wrap"
+                      justifyContent="flex-end"
+                    >
+                      {isEventsOfficeUser ? (
+                        <Tooltip title={archiveTooltip}>
+                          <span>
+                            <LoadingButton
+                              startIcon={<ArchiveIcon />}
+                              color="inherit"
+                              onClick={() =>
+                                handleArchiveClick(bazaar.id, bazaar.name)
+                              }
+                              loading={archivingThis}
+                              disabled={archiveDisabled}
+                            >
+                              {archiveLabel}
+                            </LoadingButton>
+                          </span>
+                        </Tooltip>
+                      ) : null}
                       <Button
                         startIcon={<EditIcon />}
                         onClick={() => handleEditClick(bazaar.id)}

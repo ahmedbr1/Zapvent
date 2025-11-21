@@ -4,7 +4,7 @@ import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import Card from "@mui/material/CardContent";
+import Card from "@mui/material/Card";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -14,6 +14,7 @@ import Box from "@mui/material/Box";
 import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
 import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelIcon from "@mui/icons-material/CancelRounded";
+import DownloadIcon from "@mui/icons-material/DownloadRounded";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
@@ -320,6 +321,48 @@ export default function VendorApplicationsDetailPage({
               </Stack>
             )}
           </Stack>
+        </Stack>
+      </Card>
+
+      <Card>
+        <Stack spacing={2} p={3}>
+          <Typography variant="h6" fontWeight={600}>
+            Supporting documents
+          </Typography>
+          {[
+            { label: "Company logo", path: vendor.logo },
+            { label: "Tax card", path: vendor.taxCard },
+            { label: "Business documents", path: vendor.documents },
+          ].map((file) => (
+            <Stack
+              key={file.label}
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              alignItems={{ xs: "flex-start", sm: "center" }}
+              justifyContent="space-between"
+            >
+              <Typography variant="body2" color="text.secondary">
+                {file.label}
+              </Typography>
+              {file.path ? (
+                <Button
+                  component="a"
+                  href={`/${file.path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  startIcon={<DownloadIcon />}
+                  variant="outlined"
+                  size="small"
+                >
+                  View / download
+                </Button>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Not provided
+                </Typography>
+              )}
+            </Stack>
+          ))}
         </Stack>
       </Card>
 

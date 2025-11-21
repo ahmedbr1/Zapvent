@@ -1,7 +1,10 @@
 import { apiFetch } from "@/lib/api-client";
+import { API_BASE_URL } from "@/lib/config";
 import {
+  EventType,
   FundingSource,
   Location,
+  UserRole,
   type Workshop,
   type WorkshopParticipantsSnapshot,
 } from "@/lib/types";
@@ -10,6 +13,7 @@ interface WorkshopApiItem {
   id?: string;
   _id?: string;
   name: string;
+  eventType?: string;
   location?: string;
   startDate?: string;
   endDate?: string;
@@ -29,6 +33,7 @@ interface WorkshopApiItem {
   createdByRole?: string;
   workshopStatus?: string;
   requestedEdits?: string | null;
+  allowedRoles?: string[];
 }
 
 interface WorkshopListResponse {
@@ -41,6 +46,24 @@ interface WorkshopMutationResponse {
   success: boolean;
   message?: string;
   data?: WorkshopApiItem | null;
+}
+
+interface WorkshopDeleteResponse {
+  success: boolean;
+  message?: string;
+  data?: { id: string };
+}
+
+interface WorkshopStatusResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    id: string;
+    name: string;
+    status?: string;
+    reason?: string;
+    requestedEdits?: string | null;
+  } | null;
 }
 
 export interface WorkshopPayload {
@@ -117,7 +140,7 @@ export async function updateWorkshop(
 }
 
 export async function deleteWorkshop(id: string, token?: string): Promise<void> {
-  const response = await apiFetch<WorkshopMutationResponse>(`/events/${id}`, {
+  const response = await apiFetch<WorkshopDeleteResponse>(`/events/workshop/${id}`, {
     method: "DELETE",
     token,
   });
@@ -125,6 +148,87 @@ export async function deleteWorkshop(id: string, token?: string): Promise<void> 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to delete workshop.");
   }
+}
+
+export async function approveWorkshopRequest(id: string, token?: string): Promise<WorkshopStatusResponse> {
+  const response = await apiFetch<WorkshopStatusResponse>(`/events/workshop/${id}/approve`, {
+    method: "PATCH",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to approve workshop.");
+  }
+
+  return response;
+}
+
+export async function rejectWorkshopRequest(
+  id: string,
+  payload?: { reason?: string },
+  token?: string
+): Promise<WorkshopStatusResponse> {
+  const response = await apiFetch<WorkshopStatusResponse, { reason?: string }>(
+    `/events/workshop/${id}/reject`,
+    {
+      method: "PATCH",
+      body: payload,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to reject workshop.");
+  }
+
+  return response;
+}
+
+export async function requestWorkshopEdits(
+  id: string,
+  payload: { message: string },
+  token?: string
+): Promise<WorkshopStatusResponse> {
+  const response = await apiFetch<WorkshopStatusResponse, { message: string }>(
+    `/events/workshop/${id}/request-edits`,
+    {
+      method: "PATCH",
+      body: payload,
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to request edits.");
+  }
+
+  return response;
+}
+
+export async function setWorkshopToPending(
+  id: string,
+  token?: string
+): Promise<WorkshopStatusResponse> {
+  const endpoint = `${API_BASE_URL}/events/workshop/${id}/set-pending`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const resp = await fetch(endpoint, {
+    method: "PATCH",
+    headers,
+  });
+
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.message ?? "Failed to set workshop to pending.");
+  }
+
+  const response = (await resp.json()) as WorkshopStatusResponse;
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to set workshop to pending.");
+  }
+
+  return response;
 }
 
 function mapWorkshop(item: WorkshopApiItem): Workshop {
@@ -136,6 +240,7 @@ function mapWorkshop(item: WorkshopApiItem): Workshop {
 
   return {
     id,
+    eventType: coerceEnumValue(item.eventType, EventType, EventType.Workshop),
     name: item.name ?? "Untitled workshop",
     location: coerceEnumValue(item.location, Location, Location.Cairo),
     startDate: item.startDate ?? new Date().toISOString(),
@@ -156,6 +261,7 @@ function mapWorkshop(item: WorkshopApiItem): Workshop {
     createdByRole: item.createdByRole,
     workshopStatus: item.workshopStatus,
     requestedEdits: item.requestedEdits ?? null,
+    allowedRoles: sanitizeAllowedRoles(item.allowedRoles),
   };
 }
 
@@ -198,6 +304,15 @@ interface CertificateResponse {
     sentCount: number;
     failedCount: number;
   };
+}
+
+const validRoles = new Set(Object.values(UserRole));
+
+function sanitizeAllowedRoles(raw?: string[]): UserRole[] {
+  if (!raw || raw.length === 0) {
+    return [];
+  }
+  return raw.filter((role): role is UserRole => validRoles.has(role as UserRole));
 }
 
 export async function fetchWorkshopParticipants(

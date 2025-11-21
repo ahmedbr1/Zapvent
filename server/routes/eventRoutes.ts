@@ -43,6 +43,12 @@ router.put("/conferences/:eventId", eventController.updateConferenceController);
 // quick check route
 router.get("/health", (_req, res) => res.json({ ok: true }));
 
+router.delete(
+  "/workshop/:id",
+  loginRequired,
+  allowedRoles(["Professor", "EventOffice", "Admin"]),
+  eventController.deleteWorkshopController
+);
 // Events Office/Admin deletes any event
 router.delete("/:eventId", (req, res) =>
   eventController.deleteAnyEvent(req, res)
@@ -102,6 +108,10 @@ router.patch("/workshop/:id/reject", eventController.rejectWorkshopController);
 router.patch(
   "/workshop/:id/request-edits",
   eventController.requestWorkshopEditsController
+);
+router.patch(
+  "/workshop/:id/set-pending",
+  eventController.setWorkshopToPendingController
 );
 
 // Event Office route for archiving events

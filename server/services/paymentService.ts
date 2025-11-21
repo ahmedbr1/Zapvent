@@ -168,20 +168,18 @@ export async function payByWallet(
       };
     }
 
-    if (userIsRegistered(event, userId)) {
-      return {
-        success: false,
-        message: "You are already registered for this event.",
-        statusCode: 409,
-      };
-    }
-
-    if (!userIsRegistered(event, userId)) {
-      return {
-        success: false,
-        message: "User is not registered for this event.",
-        statusCode: 400,
-      };
+    const alreadyRegistered = userIsRegistered(event, userId);
+    if (!alreadyRegistered) {
+      const registrationResult = await registerUserForWorkshop(eventId, userId);
+      if (!registrationResult.success) {
+        return {
+          success: false,
+          message:
+            registrationResult.message ??
+            "Unable to register for this event before processing payment.",
+          statusCode: registrationResult.statusCode ?? 400,
+        };
+      }
     }
 
     const priceRaw =
@@ -241,6 +239,7 @@ export async function payByWallet(
       receiptNumber,
       paidAt,
       transactionReference,
+      status: "Paid",
     });
 
     try {
@@ -328,9 +327,12 @@ export async function cancelRegistrationAndRefund(
       };
     }
 
+    const eventObjectId = new Types.ObjectId(eventId);
+    const userObjectId = new Types.ObjectId(userId);
+
     const payment = await UserPaymentModel.findOne({
-      eventId,
-      userId,
+      eventId: eventObjectId,
+      userId: userObjectId,
       status: "Paid",
     });
 
