@@ -119,6 +119,12 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.Admin],
   },
   {
+    label: "Attendance Report",
+    href: "/admin/reports/attendance",
+    icon: ChecklistIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
     label: "Event Feedback",
     href: "/admin/event-feedback",
     icon: PollIcon,
@@ -134,6 +140,12 @@ export const navItems: NavItem[] = [
     label: "Event Feedback",
     href: "/events-office/event-feedback",
     icon: PollIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Attendance Report",
+    href: "/events-office/reports/attendance",
+    icon: ChecklistIcon,
     roles: [AuthRole.EventOffice],
   },
   {
