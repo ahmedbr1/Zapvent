@@ -11,7 +11,7 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
 import InputAdornment from "@mui/material/InputAdornment";
