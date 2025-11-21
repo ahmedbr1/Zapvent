@@ -15,7 +15,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import DownloadIcon from "@mui/icons-material/DownloadRounded";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
-import type { EventType } from "@/lib/types";
+import { EventType } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
 import {
   fetchAttendanceReport,
@@ -30,11 +30,11 @@ interface AttendanceReportProps {
 
 const eventTypeOptions: Array<{ label: string; value: EventType | "" }> = [
   { label: "All event types", value: "" },
-  { label: "Bazaars", value: "Bazaar" },
-  { label: "Trips", value: "Trip" },
-  { label: "Workshops", value: "Workshop" },
-  { label: "Conferences", value: "Conference" },
-  { label: "Seminars", value: "Seminar" },
+  { label: "Bazaars", value: EventType.Bazaar },
+  { label: "Trips", value: EventType.Trip },
+  { label: "Workshops", value: EventType.Workshop },
+  { label: "Conferences", value: EventType.Conference },
+  { label: "Seminars", value: EventType.Seminar },
 ];
 
 export function AttendanceReport({
@@ -94,13 +94,13 @@ export function AttendanceReport({
         field: "startDate",
         headerName: "Start",
         flex: 0.8,
-        valueFormatter: (params) => formatDateTime(String(params.value)),
+        valueFormatter: (value) => (value ? formatDateTime(String(value)) : "—"),
       },
       {
         field: "endDate",
         headerName: "End",
         flex: 0.8,
-        valueFormatter: (params) => formatDateTime(String(params.value)),
+        valueFormatter: (value) => (value ? formatDateTime(String(value)) : "—"),
       },
       {
         field: "totalAttendees",
