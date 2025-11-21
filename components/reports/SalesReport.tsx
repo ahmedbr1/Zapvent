@@ -19,12 +19,9 @@ import RefreshIcon from "@mui/icons-material/RefreshRounded";
 import TrendingUpIcon from "@mui/icons-material/TrendingUpRounded";
 import TrendingDownIcon from "@mui/icons-material/TrendingDownRounded";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import type { EventType } from "@/lib/types";
+import { EventType } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
-import {
-  fetchSalesReport,
-  type SalesReportItem,
-} from "@/lib/services/reports";
+import { fetchSalesReport, type SalesReportItem } from "@/lib/services/reports";
 import { useAuthToken } from "@/hooks/useAuthToken";
 
 const eventTypeOptions: Array<{ label: string; value: EventType | "" }> = [
@@ -90,19 +87,22 @@ export function SalesReport({
         field: "startDate",
         headerName: "Start",
         flex: 0.8,
-        valueFormatter: (params) => formatDateTime(String(params.value)),
+        valueFormatter: (params: { value: string | number | Date }) =>
+          formatDateTime(String(params.value)),
       },
       {
         field: "endDate",
         headerName: "End",
         flex: 0.8,
-        valueFormatter: (params) => formatDateTime(String(params.value)),
+        valueFormatter: (params: { value: string | number | Date }) =>
+          formatDateTime(String(params.value)),
       },
       {
         field: "revenue",
         headerName: "Revenue",
         flex: 0.7,
-        valueFormatter: (params) => `${Number(params.value).toLocaleString()} EGP`,
+        valueFormatter: (params: { value: string | number | Date }) =>
+          `${Number(params.value).toLocaleString()} EGP`,
       },
     ],
     []
@@ -150,7 +150,9 @@ export function SalesReport({
               select
               label="Event type"
               value={eventType}
-              onChange={(event) => setEventType(event.target.value as EventType | "")}
+              onChange={(event) =>
+                setEventType(event.target.value as EventType | "")
+              }
               fullWidth
             >
               {eventTypeOptions.map((option) => (
@@ -185,7 +187,12 @@ export function SalesReport({
               fullWidth
             />
           </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} mt={2} alignItems="center">
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={1.5}
+            mt={2}
+            alignItems="center"
+          >
             <ToggleButtonGroup
               exclusive
               value={sortOrder}
@@ -199,7 +206,11 @@ export function SalesReport({
                 <TrendingDownIcon fontSize="small" sx={{ mr: 1 }} /> Low → High
               </ToggleButton>
             </ToggleButtonGroup>
-            <Stack direction="row" spacing={1} sx={{ ml: { xs: 0, md: "auto" } }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ ml: { xs: 0, md: "auto" } }}
+            >
               <Button
                 startIcon={<RefreshIcon />}
                 onClick={() => reportQuery.refetch()}
@@ -207,7 +218,11 @@ export function SalesReport({
               >
                 Refresh
               </Button>
-              <Button startIcon={<DownloadIcon />} onClick={handleExport} disabled={!rows.length}>
+              <Button
+                startIcon={<DownloadIcon />}
+                onClick={handleExport}
+                disabled={!rows.length}
+              >
                 Export CSV
               </Button>
             </Stack>
@@ -223,7 +238,8 @@ export function SalesReport({
             </Stack>
           ) : reportQuery.isError ? (
             <Alert severity="error">
-              Unable to load sales data. Please adjust filters or try again later.
+              Unable to load sales data. Please adjust filters or try again
+              later.
             </Alert>
           ) : rows.length === 0 ? (
             <Alert severity="info">No events match your filters.</Alert>
@@ -238,7 +254,11 @@ export function SalesReport({
                     {rows.length}
                   </Typography>
                 </Stack>
-                <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />
+                <Divider
+                  orientation="vertical"
+                  flexItem
+                  sx={{ display: { xs: "none", md: "block" } }}
+                />
                 <Stack spacing={0.5}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Total revenue
