@@ -41,7 +41,9 @@ afterEach(async () => {
 });
 
 describe("createComment", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let user: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let event: any;
 
   beforeEach(async () => {
@@ -370,7 +372,9 @@ describe("createComment", () => {
 });
 
 describe("getEventComments", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let user: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let event: any;
 
   beforeEach(async () => {
@@ -622,8 +626,11 @@ describe("getEventComments", () => {
 });
 
 describe("deleteCommentAsAdmin", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let user: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let event: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let comment: any;
 
   beforeEach(async () => {
