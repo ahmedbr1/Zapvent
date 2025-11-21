@@ -46,6 +46,7 @@ export function AttendanceReport({
   const [eventType, setEventType] = useState<EventType | "">("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [specificDate, setSpecificDate] = useState("");
 
   const filters = useMemo(
     () => ({
@@ -53,8 +54,9 @@ export function AttendanceReport({
       eventType: eventType || undefined,
       startDate: startDate ? new Date(startDate).toISOString() : undefined,
       endDate: endDate ? new Date(endDate).toISOString() : undefined,
+      date: specificDate ? new Date(specificDate).toISOString() : undefined,
     }),
-    [search, eventType, startDate, endDate]
+    [search, eventType, startDate, endDate, specificDate]
   );
 
   const queryKey = [
@@ -64,6 +66,7 @@ export function AttendanceReport({
     filters.eventType,
     filters.startDate,
     filters.endDate,
+    filters.date,
   ];
 
   const reportQuery = useQuery({
@@ -180,6 +183,15 @@ export function AttendanceReport({
               InputLabelProps={{ shrink: true }}
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
+              fullWidth
+            />
+            <TextField
+              type="date"
+              label="Specific day"
+              helperText="Find events happening during this date"
+              InputLabelProps={{ shrink: true }}
+              value={specificDate}
+              onChange={(event) => setSpecificDate(event.target.value)}
               fullWidth
             />
           </Stack>
