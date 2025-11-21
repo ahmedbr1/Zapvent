@@ -103,7 +103,7 @@ export function EventFeedbackExplorer({
         field: "createdAt",
         headerName: "Submitted",
         flex: 0.8,
-        valueGetter: ({ row }) => row.createdAt ?? null,
+        valueGetter: (params: any) => params.row.createdAt ?? null,
         valueFormatter: ({ value }) =>
           value ? formatDateTime(String(value)) : "—",
       },
