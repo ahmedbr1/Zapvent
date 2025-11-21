@@ -22,18 +22,27 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { fetchVendorProfile } from "@/lib/services/vendor";
+import { API_BASE_URL } from "@/lib/config";
+import {
+  fetchVendorProfile,
+  updateVendorProfile,
+} from "@/lib/services/vendor";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api-client";
 
 // Validation schema for editable fields
+const relaxedUrlRegex =
+  /^(https?:\/\/)?([\w-]+\.)+[A-Za-z]{2,}([/?#].*)?$/;
+
 const profileSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   loyaltyForum: z
     .string()
-    .url("Must be a valid URL")
-    .or(z.literal(""))
-    .optional(),
+    .trim()
+    .optional()
+    .refine(
+      (value) => !value || relaxedUrlRegex.test(value),
+      "Must be a valid URL (e.g., vendor.com or https://vendor.com)"
+    ),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -45,6 +54,7 @@ export default function VendorProfilePage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [taxCardFile, setTaxCardFile] = useState<File | null>(null);
   const [documentsFile, setDocumentsFile] = useState<File | null>(null);
+  const apiHost = API_BASE_URL.replace(/\/api$/, "");
 
   // Fetch vendor profile
   const {
@@ -87,12 +97,11 @@ export default function VendorProfilePage() {
   const updateMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
       const formData = new FormData();
-      formData.append("companyName", data.companyName);
+      formData.append("companyName", data.companyName.trim());
       if (data.loyaltyForum) {
-        formData.append("loyaltyForum", data.loyaltyForum);
+        formData.append("loyaltyForum", data.loyaltyForum.trim());
       }
 
-      // Append files if they exist
       if (logoFile) {
         formData.append("logo", logoFile);
       }
@@ -103,17 +112,19 @@ export default function VendorProfilePage() {
         formData.append("documents", documentsFile);
       }
 
-      return apiFetch("/vendors/profile", {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const response = await updateVendorProfile(formData, token ?? undefined);
+      if (!response.success) {
+        throw new Error(
+          response.message ?? "Failed to update vendor profile."
+        );
+      }
+      return response;
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["vendorProfile"] });
-      setSuccessMessage("Profile updated successfully!");
+      setSuccessMessage(
+        response.message || "Profile updated successfully!"
+      );
       setLogoFile(null);
       setTaxCardFile(null);
       setDocumentsFile(null);
@@ -183,7 +194,9 @@ export default function VendorProfilePage() {
 
         {updateMutation.isError && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            Failed to update profile. Please try again.
+            {updateMutation.error instanceof Error
+              ? updateMutation.error.message
+              : "Failed to update profile. Please try again."}
           </Alert>
         )}
 
@@ -271,7 +284,7 @@ export default function VendorProfilePage() {
                         {profile.logo && !logoFile && (
                           <IconButton
                             component="a"
-                            href={`/${profile.logo}`}
+                            href={`${apiHost}/${profile.logo}`}
                             target="_blank"
                             size="small"
                             sx={{ mr: 1 }}
@@ -326,7 +339,7 @@ export default function VendorProfilePage() {
                         {profile.taxCard && !taxCardFile && (
                           <IconButton
                             component="a"
-                            href={`/${profile.taxCard}`}
+                            href={`${apiHost}/${profile.taxCard}`}
                             target="_blank"
                             size="small"
                             sx={{ mr: 1 }}
@@ -383,7 +396,7 @@ export default function VendorProfilePage() {
                         {profile.documents && !documentsFile && (
                           <IconButton
                             component="a"
-                            href={`/${profile.documents}`}
+                            href={`${apiHost}/${profile.documents}`}
                             target="_blank"
                             size="small"
                             sx={{ mr: 1 }}

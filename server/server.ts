@@ -18,6 +18,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 app.use((_req, res, next) => {
   res.header("Access-Control-Allow-Credentials", "true");
