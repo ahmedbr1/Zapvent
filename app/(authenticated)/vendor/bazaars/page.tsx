@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -17,7 +17,12 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
+import Paper from "@mui/material/Paper";
+import IconButton from "@mui/material/IconButton";
 import LoadingButton from "@mui/lab/LoadingButton";
+import AddIcon from "@mui/icons-material/AddRounded";
+import DeleteIcon from "@mui/icons-material/DeleteOutlineRounded";
+import UploadFileIcon from "@mui/icons-material/UploadFileRounded";
 import StorefrontIcon from "@mui/icons-material/StorefrontRounded";
 import CalendarTodayIcon from "@mui/icons-material/CalendarTodayRounded";
 import LocationOnIcon from "@mui/icons-material/LocationOnRounded";
@@ -35,6 +40,31 @@ const VENDOR_CACHE_SETTINGS = {
   gcTime: 15 * 60 * 1000,
   refetchOnWindowFocus: false,
 } as const;
+
+const MAX_ATTENDEES = 5;
+
+interface AttendeeFormEntry {
+  id: string;
+  name: string;
+  email: string;
+  file: File | null;
+}
+
+function generateLocalId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createEmptyAttendee(): AttendeeFormEntry {
+  return {
+    id: generateLocalId(),
+    name: "",
+    email: "",
+    file: null,
+  };
+}
 
 interface ApplyDialogProps {
   open: boolean;
@@ -55,9 +85,77 @@ function ApplyDialog({
 }: ApplyDialogProps) {
   const [boothSize, setBoothSize] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [attendees, setAttendees] = useState("");
+  const [attendees, setAttendees] = useState<AttendeeFormEntry[]>([
+    createEmptyAttendee(),
+  ]);
+  const [attendeeError, setAttendeeError] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
   const token = useAuthToken();
+
+  useEffect(() => {
+    if (!open) {
+      setBoothSize("");
+      setAttendees([createEmptyAttendee()]);
+      setAttendeeError(null);
+    }
+  }, [open]);
+
+  const handleAttendeeChange = (
+    index: number,
+    field: "name" | "email",
+    value: string
+  ) => {
+    setAttendees((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleAttendeeFileChange = (
+    index: number,
+    file: File | null | undefined
+  ) => {
+    setAttendees((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], file: file ?? null };
+      return next;
+    });
+  };
+
+  const handleRemoveAttendee = (index: number) => {
+    setAttendees((prev) => {
+      if (prev.length === 1) return prev;
+      const next = [...prev];
+      next.splice(index, 1);
+      return next;
+    });
+  };
+
+  const handleAddAttendee = () => {
+    setAttendees((prev) => {
+      if (prev.length >= MAX_ATTENDEES) {
+        return prev;
+      }
+      return [...prev, createEmptyAttendee()];
+    });
+  };
+
+  const validateAttendees = () => {
+    if (!attendees.length) {
+      return "At least one attendee is required.";
+    }
+
+    for (const attendee of attendees) {
+      if (!attendee.name.trim() || !attendee.email.trim()) {
+        return "Each attendee must include a name and email address.";
+      }
+      if (!attendee.file) {
+        return "Please upload ID documents for every attendee.";
+      }
+    }
+    return null;
+  };
 
   const handleSubmit = async () => {
     if (!boothSize || !bazaar) {
@@ -77,14 +175,33 @@ function ApplyDialog({
       return;
     }
 
+    const attendeeValidation = validateAttendees();
+    if (attendeeValidation) {
+      setAttendeeError(attendeeValidation);
+      enqueueSnackbar(attendeeValidation, { variant: "error" });
+      return;
+    }
+    setAttendeeError(null);
+
     setIsSubmitting(true);
     try {
-      const body: Record<string, unknown> = {
-        eventId: bazaar.id,
-        boothSize: boothSize,
-        vendorEmail,
-        companyName,
-      };
+      const formData = new FormData();
+      formData.append("eventId", bazaar.id);
+      formData.append("boothSize", boothSize);
+      formData.append(
+        "attendees",
+        JSON.stringify(
+          attendees.map((attendee) => ({
+            name: attendee.name.trim(),
+            email: attendee.email.trim(),
+          }))
+        )
+      );
+      attendees.forEach((attendee) => {
+        if (attendee.file) {
+          formData.append("attendeeIds", attendee.file);
+        }
+      });
 
       if (process.env.NODE_ENV !== "production") {
         console.log("=== Submitting Application ===");
@@ -93,7 +210,7 @@ function ApplyDialog({
 
       const response = (await apiFetch("/vendors/apply-bazaar", {
         method: "POST",
-        body: body,
+        body: formData,
         token: token ?? undefined,
       })) as { success: boolean; message?: string };
       if (process.env.NODE_ENV !== "production") {
@@ -108,6 +225,7 @@ function ApplyDialog({
         onClose();
         // Reset form
         setBoothSize("");
+        setAttendees([createEmptyAttendee()]);
       } else {
         enqueueSnackbar(response.message || "Failed to submit application", {
           variant: "error",
@@ -144,7 +262,7 @@ function ApplyDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Apply to {bazaar?.name}</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 2 }}>
@@ -163,21 +281,6 @@ function ApplyDialog({
             helperText="Your registered email address"
           />
           <TextField
-            label="Number of Attendees"
-            type="number"
-            value={attendees}
-            onChange={(e) => setAttendees(e.target.value)}
-            fullWidth
-            required
-            inputProps={{ min: 1, max: 5 }}
-            error={parseInt(attendees) > 5}
-            helperText={
-              parseInt(attendees) > 5
-                ? "Maximum 5 attendees allowed"
-                : "Expected number of people at your booth (max 5)"
-            }
-          />
-          <TextField
             label="Booth Size"
             select
             value={boothSize}
@@ -193,7 +296,95 @@ function ApplyDialog({
             <option value="2x2">2x2 meters</option>
             <option value="4x4">4x4 meters</option>
           </TextField>
-          {/* We no longer accept file uploads from the client. The server will generate QR images for attendees if needed. */}
+          <Stack spacing={2}>
+            <Typography variant="subtitle1" fontWeight={600}>
+              Attendee IDs
+            </Typography>
+            <Alert severity="info">
+              Upload the ID (image or PDF) for each attendee. Up to five
+              attendees can be registered per booth.
+            </Alert>
+            {attendees.map((attendee, index) => (
+              <Paper
+                key={attendee.id}
+                variant="outlined"
+                sx={{ p: 2, borderRadius: 2 }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="subtitle2">
+                      Attendee {index + 1}
+                    </Typography>
+                    {attendees.length > 1 && (
+                      <IconButton
+                        aria-label="Remove attendee"
+                        size="small"
+                        onClick={() => handleRemoveAttendee(index)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Stack>
+                  <TextField
+                    label="Full Name"
+                    value={attendee.name}
+                    onChange={(e) =>
+                      handleAttendeeChange(index, "name", e.target.value)
+                    }
+                    fullWidth
+                    required
+                  />
+                  <TextField
+                    label="Email"
+                    type="email"
+                    value={attendee.email}
+                    onChange={(e) =>
+                      handleAttendeeChange(index, "email", e.target.value)
+                    }
+                    fullWidth
+                    required
+                  />
+                  <Stack direction="row" alignItems="center" spacing={2}>
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<UploadFileIcon />}
+                    >
+                      {attendee.file ? "Replace ID Document" : "Upload ID"}
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*,application/pdf"
+                        onChange={(event) =>
+                          handleAttendeeFileChange(
+                            index,
+                            event.target.files?.[0]
+                          )
+                        }
+                      />
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      {attendee.file
+                        ? attendee.file.name
+                        : "No file selected"}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+            {attendees.length < MAX_ATTENDEES && (
+              <Button
+                startIcon={<AddIcon />}
+                variant="text"
+                onClick={handleAddAttendee}
+              >
+                Add Another Attendee
+              </Button>
+            )}
+            {attendeeError && (
+              <Alert severity="error">{attendeeError}</Alert>
+            )}
+          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions>

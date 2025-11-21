@@ -29,25 +29,45 @@ const fileSchema = z
     "Allowed formats: PNG, JPG, PDF"
   );
 
-const vendorSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z
-    .string()
-    .min(8, "At least 8 characters")
-    .regex(/[A-Z]/, "Include an uppercase letter")
-    .regex(/[a-z]/, "Include a lowercase letter")
-    .regex(/[0-9]/, "Include a number")
-    .regex(/[^a-zA-Z0-9]/, "Include a special character"),
-  companyName: z.string().min(2, "Company name must be at least 2 characters"),
-  loyaltyForum: z
-    .string()
-    .url("Enter a valid URL")
-    .or(z.literal(""))
-    .optional(),
-  logo: fileSchema,
-  taxCard: fileSchema,
-  documents: fileSchema,
-});
+const relaxedUrlRegex =
+  /^(https?:\/\/)?([\w-]+\.)+[A-Za-z]{2,}([/?#].*)?$/;
+
+const vendorSchema = z
+  .object({
+    email: z.string().email("Enter a valid email"),
+    password: z
+      .string()
+      .min(8, "At least 8 characters")
+      .regex(/[A-Z]/, "Include an uppercase letter")
+      .regex(/[a-z]/, "Include a lowercase letter")
+      .regex(/[0-9]/, "Include a number")
+      .regex(/[^a-zA-Z0-9]/, "Include a special character"),
+    confirmPassword: z
+      .string()
+      .min(8, "Confirm password must be at least 8 characters")
+      .regex(/[A-Z]/, "Include an uppercase letter")
+      .regex(/[a-z]/, "Include a lowercase letter")
+      .regex(/[0-9]/, "Include a number")
+      .regex(/[^a-zA-Z0-9]/, "Include a special character"),
+    companyName: z
+      .string()
+      .min(2, "Company name must be at least 2 characters"),
+    loyaltyForum: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (value) => !value || relaxedUrlRegex.test(value),
+        "Enter a valid URL (e.g., vendor.com or https://vendor.com)"
+      ),
+    logo: fileSchema,
+    taxCard: fileSchema,
+    documents: fileSchema.optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords must match",
+  });
 
 type VendorFormValues = z.infer<typeof vendorSchema>;
 
@@ -74,7 +94,7 @@ const fileInputs: Array<{
   {
     name: "documents",
     label: "Supporting Documents",
-    description: "Portfolio or previous booth references",
+    description: "Portfolio or previous booth references (optional)",
   },
 ];
 
@@ -94,12 +114,14 @@ export function VendorRegisterForm() {
   const [filePreviews, setFilePreviews] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const password = watch("password");
+  const confirmPassword = watch("confirmPassword");
 
   const onSubmit = handleSubmit(async (values) => {
     setMessage(null);
     const formData = new FormData();
     formData.append("email", values.email);
     formData.append("password", values.password);
+    formData.append("confirmPassword", values.confirmPassword);
     formData.append("companyName", values.companyName);
     if (values.loyaltyForum)
       formData.append("loyaltyForum", values.loyaltyForum);
@@ -212,6 +234,37 @@ export function VendorRegisterForm() {
         </Grid>
         <Grid size={12}>
           <TextField
+            label="Confirm Password"
+            type={showPassword ? "text" : "password"}
+            fullWidth
+            autoComplete="new-password"
+            {...register("confirmPassword")}
+            error={Boolean(errors.confirmPassword)}
+            helperText={
+              errors.confirmPassword?.message ?? "Re-enter your password"
+            }
+            slotProps={{
+              input: {
+                endAdornment: confirmPassword ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      onClick={() => setShowPassword((s) => !s)}
+                      edge="end"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              },
+            }}
+          />
+        </Grid>
+        <Grid size={12}>
+          <TextField
             label="Company Name"
             fullWidth
             {...register("companyName")}
@@ -223,7 +276,7 @@ export function VendorRegisterForm() {
           <TextField
             label="Loyalty Forum URL"
             fullWidth
-            placeholder="https://"
+            placeholder="example.com"
             {...register("loyaltyForum")}
             error={Boolean(errors.loyaltyForum)}
             helperText={errors.loyaltyForum?.message ?? "Optional"}
@@ -235,7 +288,7 @@ export function VendorRegisterForm() {
             fontWeight={600}
             sx={{ mt: 2, mb: 1 }}
           >
-            Required uploads
+            Required uploads (supporting documents optional)
           </Typography>
         </Grid>
         {fileInputs.map((input) => (
