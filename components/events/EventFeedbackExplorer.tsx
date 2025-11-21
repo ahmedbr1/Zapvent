@@ -20,7 +20,6 @@ import {
   DataGrid,
   type GridColDef,
   type GridRenderCellParams,
-  type GridValueFormatterParams,
 } from "@mui/x-data-grid";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
@@ -76,7 +75,7 @@ export function EventFeedbackExplorer({
   const averageRating = feedbackQuery.data?.ratings?.averageRating ?? 0;
   const totalRatings = feedbackQuery.data?.ratings?.totalRatings ?? 0;
 
-  const ratingColumns = useMemo<GridColDef<EventRatingEntry>[]>(
+  const ratingColumns = useMemo<GridColDef<EventRatingEntry, any, any>[]>(
     () => [
       {
         field: "user",
@@ -97,8 +96,8 @@ export function EventFeedbackExplorer({
         field: "rating",
         headerName: "Rating",
         flex: 0.6,
-        renderCell: (params: GridRenderCellParams<number, EventRatingEntry>) => (
-          <Rating value={params.value} precision={0.5} readOnly size="small" />
+        renderCell: (params) => (
+          <Rating value={params.value as number} precision={0.5} readOnly size="small" />
         ),
       },
       {
@@ -110,8 +109,8 @@ export function EventFeedbackExplorer({
         field: "createdAt",
         headerName: "Submitted",
         flex: 0.8,
-        valueFormatter: (params: GridValueFormatterParams<string | null, EventRatingEntry>) =>
-          params.row.createdAt ? formatDateTime(params.row.createdAt) : "—",
+        valueFormatter: (params: any) =>
+          params.value ? formatDateTime(params.value as string) : "—",
       },
     ],
     []
