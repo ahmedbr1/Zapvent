@@ -30,9 +30,7 @@ export function NotificationsMenu() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const role = session?.user.role ?? null;
-  const isEventOfficeAccount =
-    role === AuthRole.EventOffice ||
-    (role === AuthRole.Admin && session?.user.adminType === "EventOffice");
+  const isAdminAccount = role === AuthRole.Admin || role === AuthRole.EventOffice;
   const isUserAccount = role === AuthRole.User;
 
   const queryKey = useMemo(
@@ -43,10 +41,10 @@ export function NotificationsMenu() {
   const notificationsQuery = useQuery({
     queryKey,
     queryFn: () =>
-      isEventOfficeAccount
+      isAdminAccount
         ? fetchEventOfficeNotifications(token)
         : fetchUserNotifications(token),
-    enabled: Boolean(token) && (isEventOfficeAccount || isUserAccount),
+    enabled: Boolean(token) && (isAdminAccount || isUserAccount),
     refetchOnWindowFocus: false,
   });
 
@@ -64,7 +62,7 @@ export function NotificationsMenu() {
     isPending: isMarkingNotifications,
   } = useMutation({
     mutationFn: () =>
-      isEventOfficeAccount
+      isAdminAccount
         ? markEventOfficeNotificationsSeen(token)
         : markUserNotificationsSeen(token),
     onSuccess: () => {
@@ -100,7 +98,7 @@ export function NotificationsMenu() {
     }
   }, [anchorEl, hasUnseen, isMarkingNotifications, markNotificationsSeen]);
 
-  if (!token || (!isUserAccount && !isEventOfficeAccount)) {
+  if (!token || (!isUserAccount && !isAdminAccount)) {
     return null;
   }
 

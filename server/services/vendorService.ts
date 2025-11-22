@@ -1209,6 +1209,7 @@ export async function findAllForAdmin(): Promise<{
           email: vendor.email,
           companyName: vendor.companyName,
           verified: vendor.verified ?? false,
+          isVerified: vendor.isVerified ?? false,
           verificationStatus: vendor.verificationStatus ?? VendorStatus.PENDING,
           loyaltyForum: vendor.loyaltyForum || undefined,
           loyaltyProgram: serializeLoyaltyProgram(vendor.loyaltyProgram),
