@@ -41,6 +41,12 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.User],
   },
   {
+    label: "Event Feedback",
+    href: "/user/event-feedback",
+    icon: PollIcon,
+    roles: [AuthRole.User],
+  },
+  {
     label: "My Registrations",
     href: "/user/registrations",
     icon: AssignmentIcon,
@@ -113,9 +119,51 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.Admin],
   },
   {
+    label: "Attendance Report",
+    href: "/admin/reports/attendance",
+    icon: ChecklistIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
+    label: "Sales Report",
+    href: "/admin/reports/sales",
+    icon: WalletIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
+    label: "Event Feedback",
+    href: "/admin/event-feedback",
+    icon: PollIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
     label: "Vendor Applications",
     href: "/events-office/vendors",
     icon: StorefrontIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Event Feedback",
+    href: "/events-office/event-feedback",
+    icon: PollIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Attendance Report",
+    href: "/events-office/reports/attendance",
+    icon: ChecklistIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Sales Report",
+    href: "/events-office/reports/sales",
+    icon: WalletIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Vendor Polls",
+    href: "/events-office/polls",
+    icon: PollIcon,
     roles: [AuthRole.EventOffice],
   },
   {

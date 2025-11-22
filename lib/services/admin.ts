@@ -46,6 +46,7 @@ export interface AdminVendor {
   email: string;
   companyName: string;
   verified: boolean;
+  isVerified?: boolean;
   verificationStatus: VendorStatus;
   loyaltyForum?: string;
   logo?: string;
@@ -93,6 +94,7 @@ export async function fetchAdminVendors(
 
   return vendors.map((vendor) => ({
     ...vendor,
+    isVerified: vendor.isVerified ?? vendor.verified ?? false,
     applications: (vendor.applications ?? []).map((application) => ({
       ...application,
       applicationDate: application.applicationDate
@@ -135,6 +137,22 @@ export async function rejectVendorAccount(vendorId: string, token?: string) {
 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to reject vendor account");
+  }
+
+  return response;
+}
+
+export async function verifyVendor(vendorId: string, token?: string) {
+  const response = await apiFetch<AdminActionResponse>(
+    `/vendors/admin/${vendorId}/verify`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to verify vendor");
   }
 
   return response;
@@ -374,6 +392,12 @@ interface FetchAdminsResponse {
   message?: string;
 }
 
+interface FetchAdminResponse {
+  success: boolean;
+  admin?: AdminAccount;
+  message?: string;
+}
+
 export async function fetchAllAdmins(token?: string): Promise<AdminAccount[]> {
   const response = await apiFetch<FetchAdminsResponse>("/admin", {
     token,
@@ -396,6 +420,21 @@ export async function fetchAdmins(token?: string): Promise<AdminAccount[]> {
   }
 
   return response.admins ?? [];
+}
+
+export async function fetchAdminAccount(
+  adminId: string,
+  token?: string
+): Promise<AdminAccount> {
+  const response = await apiFetch<FetchAdminResponse>(`/admin/${adminId}`, {
+    token,
+  });
+
+  if (!response.success || !response.admin) {
+    throw new Error(response.message ?? "Failed to load admin profile");
+  }
+
+  return response.admin;
 }
 
 export interface CreateAdminData {
