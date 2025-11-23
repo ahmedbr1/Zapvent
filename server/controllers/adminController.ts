@@ -455,7 +455,7 @@ export class AdminController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["EventOffice"])
+  @AllowedRoles(["EventOffice", "Admin"])
   async getMyNotifications(req: AuthRequest, res: Response) {
     try {
       const adminId = req.user?.id;
@@ -490,7 +490,7 @@ export class AdminController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["EventOffice"])
+  @AllowedRoles(["EventOffice", "Admin"])
   async markMyNotificationsSeen(req: AuthRequest, res: Response) {
     try {
       const adminId = req.user?.id;
