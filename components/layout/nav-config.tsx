@@ -148,6 +148,9 @@ export const navItems: NavItem[] = [
     label: "Loyalty Partners",
     href: "/events-office/loyalty",
     icon: LoyaltyIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
     label: "Event Feedback",
     href: "/events-office/event-feedback",
     icon: PollIcon,

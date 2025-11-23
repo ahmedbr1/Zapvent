@@ -17,7 +17,6 @@ import LoadingButton from "@mui/lab/LoadingButton";
 import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
 import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelIcon from "@mui/icons-material/CancelRounded";
-import DownloadIcon from "@mui/icons-material/DownloadRounded";
 import TaskAltIcon from "@mui/icons-material/TaskAltRounded";
 import BlockIcon from "@mui/icons-material/BlockRounded";
 import VerifiedIcon from "@mui/icons-material/VerifiedRounded";
