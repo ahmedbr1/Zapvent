@@ -609,10 +609,10 @@ export async function getEventOfficeNotifications(
       return { success: false, message: "Admin not found" };
     }
 
-    if (admin.adminType !== "EventOffice") {
+    if (admin.adminType !== "EventOffice" && admin.adminType !== "Admin") {
       return {
         success: false,
-        message: "Only Event Office admins can access notifications",
+        message: "Only admins can access notifications",
       };
     }
 
@@ -644,10 +644,10 @@ export async function markEventOfficeNotificationsSeen(
       return { success: false, message: "Admin not found" };
     }
 
-    if (admin.adminType !== "EventOffice") {
+    if (admin.adminType !== "EventOffice" && admin.adminType !== "Admin") {
       return {
         success: false,
-        message: "Only Event Office admins can update notifications",
+        message: "Only admins can update notifications",
       };
     }
 

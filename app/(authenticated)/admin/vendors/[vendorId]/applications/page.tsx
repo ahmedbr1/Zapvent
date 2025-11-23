@@ -11,10 +11,16 @@ import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
+import Divider from "@mui/material/Divider";
+import Tooltip from "@mui/material/Tooltip";
+import LoadingButton from "@mui/lab/LoadingButton";
 import ArrowBackIcon from "@mui/icons-material/ArrowBackRounded";
 import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelIcon from "@mui/icons-material/CancelRounded";
 import DownloadIcon from "@mui/icons-material/DownloadRounded";
+import TaskAltIcon from "@mui/icons-material/TaskAltRounded";
+import BlockIcon from "@mui/icons-material/BlockRounded";
+import VerifiedIcon from "@mui/icons-material/VerifiedRounded";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
@@ -22,6 +28,9 @@ import { useAuthToken } from "@/hooks/useAuthToken";
 import {
   fetchAdminVendors,
   updateVendorApplicationStatus,
+  approveVendorAccount,
+  rejectVendorAccount,
+  verifyVendor,
   type AdminVendor,
   type AdminVendorApplication,
 } from "@/lib/services/admin";
@@ -85,6 +94,71 @@ export default function VendorApplicationsDetailPage({
       );
     }
   }, [enqueueSnackbar, error, isError]);
+
+  const approveAccountMutation = useMutation({
+    mutationFn: () => approveVendorAccount(vendorId, token ?? undefined),
+    onSuccess: () => {
+      enqueueSnackbar("Vendor account approved", { variant: "success" });
+      queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Failed to approve vendor",
+        { variant: "error" }
+      );
+    },
+  });
+
+  const rejectAccountMutation = useMutation({
+    mutationFn: () => rejectVendorAccount(vendorId, token ?? undefined),
+    onSuccess: () => {
+      enqueueSnackbar("Vendor account rejected", { variant: "warning" });
+      queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Failed to reject vendor",
+        { variant: "error" }
+      );
+    },
+  });
+
+  const verifyVendorMutation = useMutation({
+    mutationFn: () => verifyVendor(vendorId, token ?? undefined),
+    onSuccess: () => {
+      enqueueSnackbar("Vendor marked as verified", { variant: "success" });
+      queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
+    },
+    onError: (mutationError: unknown) => {
+      enqueueSnackbar(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Failed to verify vendor",
+        { variant: "error" }
+      );
+    },
+  });
+
+  const verificationChip = useMemo(() => {
+    if (!vendor) return null;
+    const colorMap: Record<string, "default" | "success" | "warning" | "error"> = {
+      approved: "success",
+      pending: "warning",
+      rejected: "error",
+    };
+    return (
+      <Chip
+        icon={<VerifiedIcon fontSize="small" />}
+        label={`Status: ${vendor.verificationStatus?.toUpperCase()}`}
+        color={colorMap[vendor.verificationStatus] ?? "default"}
+        variant="outlined"
+      />
+    );
+  }, [vendor]);
 
   const getStatusColor = (
     status: string
@@ -324,45 +398,80 @@ export default function VendorApplicationsDetailPage({
         </Stack>
       </Card>
 
+      {/* Account Status & Actions */}
       <Card>
         <Stack spacing={2} p={3}>
           <Typography variant="h6" fontWeight={600}>
-            Supporting documents
+            Account controls
           </Typography>
-          {[
-            { label: "Company logo", path: vendor.logo },
-            { label: "Tax card", path: vendor.taxCard },
-            { label: "Business documents", path: vendor.documents },
-          ].map((file) => (
-            <Stack
-              key={file.label}
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              alignItems={{ xs: "flex-start", sm: "center" }}
-              justifyContent="space-between"
-            >
-              <Typography variant="body2" color="text.secondary">
-                {file.label}
-              </Typography>
-              {file.path ? (
-                <Button
-                  component="a"
-                  href={`/${file.path}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  startIcon={<DownloadIcon />}
-                  variant="outlined"
-                  size="small"
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+            {verificationChip}
+            <Chip
+              icon={<TaskAltIcon fontSize="small" />}
+              label={vendor.verified ? "Onboarding approved" : "Awaiting approval"}
+              color={vendor.verified ? "success" : "warning"}
+              variant={vendor.verified ? "filled" : "outlined"}
+            />
+            <Chip
+              icon={<TaskAltIcon fontSize="small" />}
+              label={vendor.isVerified ? "Documents verified" : "Verification pending"}
+              color={vendor.isVerified ? "success" : "warning"}
+              variant={vendor.isVerified ? "filled" : "outlined"}
+            />
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Approve or reject onboarding submissions, then mark documents as verified once
+            compliance review is complete.
+          </Typography>
+          <Divider />
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            justifyContent="flex-end"
+          >
+            <Tooltip title="Approve vendor onboarding">
+              <span>
+                <LoadingButton
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleIcon />}
+                  onClick={() => approveAccountMutation.mutate()}
+                  loading={approveAccountMutation.isPending}
+                  disabled={vendor.verificationStatus === "approved"}
                 >
-                  View / download
-                </Button>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Not provided
-                </Typography>
-              )}
-            </Stack>
-          ))}
+                  Approve account
+                </LoadingButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Reject onboarding">
+              <span>
+                <LoadingButton
+                  variant="outlined"
+                  color="error"
+                  startIcon={<BlockIcon />}
+                  onClick={() => rejectAccountMutation.mutate()}
+                  loading={rejectAccountMutation.isPending}
+                  disabled={vendor.verificationStatus === "rejected"}
+                >
+                  Reject account
+                </LoadingButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Mark compliance documents as reviewed">
+              <span>
+                <LoadingButton
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<VerifiedIcon />}
+                  onClick={() => verifyVendorMutation.mutate()}
+                  loading={verifyVendorMutation.isPending}
+                  disabled={vendor.isVerified}
+                >
+                  Verify vendor
+                </LoadingButton>
+              </span>
+            </Tooltip>
+          </Stack>
         </Stack>
       </Card>
 
