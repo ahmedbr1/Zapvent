@@ -202,11 +202,7 @@ export async function deleteEventById(eventId: string) {
     Comment.deleteMany({ event: event._id }),
     Rating.deleteMany({ event: event._id }),
   ]);
-  if (event.registeredUsers.length == 0) {
-    await event.deleteOne(); // or Event.findByIdAndDelete(eventId)
-  } else {
-    throw new Error("Cannot delete event with registered users");
-  }
+  await event.deleteOne(); // always allow deletion, even if attendees exist
 
   return event;
 }
@@ -1102,7 +1098,7 @@ async function notifyEventOffice(message: string): Promise<void> {
 async function notifyProfessorWorkshopStatus(
   professorId: string,
   workshopName: string,
-  status: "approved" | "rejected",
+  status: "approved" | "rejected" | "pending",
   reason?: string
 ): Promise<void> {
   try {
@@ -1113,18 +1109,61 @@ async function notifyProfessorWorkshopStatus(
     let message: string;
     if (status === "approved") {
       message = `Your workshop "${workshopName}" has been approved and published by the Event Office.`;
-    } else {
+    } else if (status === "rejected") {
       message = reason
         ? `Your workshop "${workshopName}" has been rejected by the Event Office. Reason: ${reason}`
         : `Your workshop "${workshopName}" has been rejected by the Event Office.`;
+    } else {
+      message = `Your workshop "${workshopName}" has been moved back to pending for further review.`;
     }
 
-    await UserModel.findByIdAndUpdate(professorId, {
-      $push: { notifications: buildNotificationEntry(message) },
-    });
+    await UserModel.findOneAndUpdate(
+      { _id: new Types.ObjectId(professorId), role: userRole.PROFESSOR },
+      {
+        $push: { notifications: buildNotificationEntry(message) },
+      }
+    );
   } catch (error) {
     console.error("Error sending notification to professor:", error);
   }
+}
+
+function collectWorkshopProfessorRecipients(
+  workshop: Pick<IEvent, "createdBy" | "participatingProfessors">
+): string[] {
+  const recipients = new Set<string>();
+  if (
+    workshop.createdBy &&
+    typeof workshop.createdBy === "string" &&
+    Types.ObjectId.isValid(workshop.createdBy)
+  ) {
+    recipients.add(workshop.createdBy);
+  }
+  (workshop.participatingProfessors ?? []).forEach((professorId) => {
+    if (
+      typeof professorId === "string" &&
+      Types.ObjectId.isValid(professorId)
+    ) {
+      recipients.add(professorId);
+    }
+  });
+  return Array.from(recipients);
+}
+
+async function notifyWorkshopProfessorsOfStatus(
+  workshop: Pick<IEvent, "createdBy" | "participatingProfessors" | "name">,
+  status: "approved" | "rejected",
+  reason?: string
+) {
+  const recipients = collectWorkshopProfessorRecipients(workshop);
+  if (!recipients.length) {
+    return;
+  }
+  await Promise.all(
+    recipients.map((professorId) =>
+      notifyProfessorWorkshopStatus(professorId, workshop.name, status, reason)
+    )
+  );
 }
 
 interface WorkshopCreatorDetails {
@@ -1148,6 +1187,8 @@ type WorkshopRecordInput = Pick<
   | "capacity"
   | "registrationDeadline"
   | "createdBy"
+  | "workshopStatus"
+  | "requestedEdits"
 > & {
   _id: Types.ObjectId;
   participatingProfessorIds: string[];
@@ -1182,6 +1223,8 @@ function serializeWorkshopRecord<T extends WorkshopRecordInput>(
     createdBy: workshop.createdBy,
     createdByName: creatorDetails?.name,
     createdByRole: creatorDetails?.role,
+    workshopStatus: workshop.workshopStatus ?? WorkshopStatus.PENDING,
+    requestedEdits: workshop.requestedEdits ?? null,
   };
 }
 
@@ -1273,7 +1316,8 @@ export async function getWorkshopsByCreator(
 
 export async function getWorkshopParticipants(
   workshopId: string,
-  userId: string
+  userId: string,
+  actorRole?: string
 ): Promise<ICreateWorkshopResponse> {
   try {
     if (!Types.ObjectId.isValid(workshopId)) {
@@ -1301,8 +1345,10 @@ export async function getWorkshopParticipants(
       };
     }
 
-    // Check if the user is the creator
-    if (workshop.createdBy !== userId) {
+    // Check if the user is the creator or has moderation privileges
+    const canModerate =
+      actorRole === "EventOffice" || actorRole === "Admin";
+    if (!canModerate && workshop.createdBy !== userId) {
       return {
         success: false,
         message: "You are not authorized to view this workshop's participants.",
@@ -1359,6 +1405,64 @@ export async function getWorkshopParticipants(
     return {
       success: false,
       message: "An error occurred while fetching workshop participants.",
+    };
+  }
+}
+
+export async function deleteWorkshopById(
+  workshopId: string,
+  userId: string,
+  actorRole?: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    const canModerate = actorRole === "EventOffice" || actorRole === "Admin";
+    const isCreator = Boolean(workshop.createdBy && workshop.createdBy === userId);
+
+    if (!canModerate && !isCreator) {
+      return {
+        success: false,
+        message: "You are not authorized to delete this workshop.",
+      };
+    }
+
+    await Promise.all([
+      Comment.deleteMany({ event: workshop._id }),
+      Rating.deleteMany({ event: workshop._id }),
+    ]);
+    await workshop.deleteOne();
+
+    return {
+      success: true,
+      message: "Workshop deleted successfully.",
+      data: { id: workshopId },
+    };
+  } catch (error) {
+    console.error("Error deleting workshop:", error);
+    return {
+      success: false,
+      message: "An error occurred while deleting the workshop.",
     };
   }
 }
@@ -1705,14 +1809,7 @@ export async function approveWorkshop(
     workshop.workshopStatus = WorkshopStatus.APPROVED;
     await workshop.save();
 
-    // Notify the professor about approval
-    if (workshop.createdBy) {
-      await notifyProfessorWorkshopStatus(
-        workshop.createdBy,
-        workshop.name,
-        "approved"
-      );
-    }
+    await notifyWorkshopProfessorsOfStatus(workshop, "approved");
 
     return {
       success: true,
@@ -1770,15 +1867,7 @@ export async function rejectWorkshop(
     workshop.workshopStatus = WorkshopStatus.REJECTED;
     await workshop.save();
 
-    // Notify the professor about rejection
-    if (workshop.createdBy) {
-      await notifyProfessorWorkshopStatus(
-        workshop.createdBy,
-        workshop.name,
-        "rejected",
-        reason
-      );
-    }
+    await notifyWorkshopProfessorsOfStatus(workshop, "rejected", reason);
 
     return {
       success: true,
@@ -1797,6 +1886,72 @@ export async function rejectWorkshop(
     return {
       success: false,
       message: "An error occurred while rejecting the workshop.",
+    };
+  }
+}
+
+export async function setWorkshopToPending(
+  workshopId: string
+): Promise<ICreateWorkshopResponse> {
+  try {
+    if (!Types.ObjectId.isValid(workshopId)) {
+      return {
+        success: false,
+        message: "Invalid workshop ID.",
+      };
+    }
+
+    const workshop = await EventModel.findById(workshopId);
+
+    if (!workshop) {
+      return {
+        success: false,
+        message: "Workshop not found.",
+      };
+    }
+
+    if (workshop.eventType !== EventType.WORKSHOP) {
+      return {
+        success: false,
+        message: "Event is not a workshop.",
+      };
+    }
+
+    if (workshop.workshopStatus === WorkshopStatus.PENDING) {
+      return {
+        success: false,
+        message: "Workshop is already pending.",
+      };
+    }
+
+    workshop.workshopStatus = WorkshopStatus.PENDING;
+    // Clear any requested edits since status is being reset
+    workshop.requestedEdits = undefined;
+    await workshop.save();
+
+    // Notify the professor about status change
+    if (workshop.createdBy) {
+      await notifyProfessorWorkshopStatus(
+        workshop.createdBy,
+        workshop.name,
+        "pending"
+      );
+    }
+
+    return {
+      success: true,
+      message: "Workshop status set to pending.",
+      data: {
+        id: workshop._id.toString(),
+        name: workshop.name,
+        status: workshop.workshopStatus,
+      },
+    };
+  } catch (error) {
+    console.error("Error setting workshop to pending:", error);
+    return {
+      success: false,
+      message: "An error occurred while updating workshop status.",
     };
   }
 }
