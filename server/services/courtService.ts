@@ -18,6 +18,15 @@ function parseDateInput(value: string) {
   }
   const [year, month, day] = value.split("-").map(Number);
   const utcDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    utcDate.getUTCFullYear() !== year ||
+    utcDate.getUTCMonth() !== month - 1 ||
+    utcDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
   const nextUtcDate = new Date(utcDate);
   nextUtcDate.setUTCDate(nextUtcDate.getUTCDate() + 1);
   return { utcDate, nextUtcDate, weekday: utcDate.getUTCDay() };
@@ -39,7 +48,12 @@ function minutesToTime(value: number) {
   return `${hours}:${minutes}`;
 }
 
-function slotsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number) {
+function slotsOverlap(
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number
+) {
   return aStart < bEnd && bStart < aEnd;
 }
 
@@ -59,7 +73,11 @@ function buildSlots(
     const windowStart = parseTimeToMinutes(window.startTime);
     const windowEnd = parseTimeToMinutes(window.endTime);
 
-    if (windowStart === null || windowEnd === null || windowEnd <= windowStart) {
+    if (
+      windowStart === null ||
+      windowEnd === null ||
+      windowEnd <= windowStart
+    ) {
       return;
     }
 
@@ -86,7 +104,10 @@ function buildSlots(
   return slots;
 }
 
-function isDateWithinExceptions(date: Date, exceptions?: Array<{ startDate: Date; endDate: Date }>) {
+function isDateWithinExceptions(
+  date: Date,
+  exceptions?: Array<{ startDate: Date; endDate: Date }>
+) {
   if (!exceptions || exceptions.length === 0) return false;
   return exceptions.some((exception) => {
     const start = new Date(exception.startDate);
@@ -141,7 +162,11 @@ export async function getCourtAvailability(
 
     const parsedDate = parseDateInput(date);
     if (!parsedDate) {
-      return { success: false, message: "Date must be in YYYY-MM-DD format", statusCode: 400 };
+      return {
+        success: false,
+        message: "Date must be in YYYY-MM-DD format",
+        statusCode: 400,
+      };
     }
 
     const court = await CourtModel.findById(courtId);
@@ -181,7 +206,12 @@ export async function getCourtAvailability(
     const bookingMinutes = court.bookingSlotMinutes ?? DEFAULT_SLOT_MINUTES;
     const bufferMinutes = court.bufferMinutes ?? 0;
 
-    const slots = buildSlots(windows, bookingMinutes, bufferMinutes, reservations);
+    const slots = buildSlots(
+      windows,
+      bookingMinutes,
+      bufferMinutes,
+      reservations
+    );
 
     return {
       success: true,
@@ -232,12 +262,20 @@ export async function reserveCourtSlot(
 
     const parsedDate = parseDateInput(payload.date);
     if (!parsedDate) {
-      return { success: false, message: "Date must be in YYYY-MM-DD format", statusCode: 400 };
+      return {
+        success: false,
+        message: "Date must be in YYYY-MM-DD format",
+        statusCode: 400,
+      };
     }
 
     const slotStartMinutes = parseTimeToMinutes(payload.startTime);
     if (slotStartMinutes === null) {
-      return { success: false, message: "startTime must use HH:mm", statusCode: 400 };
+      return {
+        success: false,
+        message: "startTime must use HH:mm",
+        statusCode: 400,
+      };
     }
 
     const court = await CourtModel.findById(courtId);
@@ -290,7 +328,11 @@ export async function reserveCourtSlot(
       : slotStartMinutes + bookingMinutes;
 
     if (slotEndMinutes === null) {
-      return { success: false, message: "endTime must use HH:mm", statusCode: 400 };
+      return {
+        success: false,
+        message: "endTime must use HH:mm",
+        statusCode: 400,
+      };
     }
 
     if (slotEndMinutes - slotStartMinutes !== bookingMinutes) {
@@ -332,7 +374,8 @@ export async function reserveCourtSlot(
     const formattedStart = minutesToTime(slotStartMinutes);
     const formattedEnd = minutesToTime(slotEndMinutes);
     const matchingSlot = generatedSlots.find(
-      (slot) => slot.startTime === formattedStart && slot.endTime === formattedEnd
+      (slot) =>
+        slot.startTime === formattedStart && slot.endTime === formattedEnd
     );
 
     if (!matchingSlot) {
