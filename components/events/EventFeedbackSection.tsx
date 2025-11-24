@@ -27,6 +27,7 @@ interface EventFeedbackSectionProps {
   token: string | null;
   currentUserId?: string;
   canSubmitFeedback: boolean;
+  readOnly?: boolean;
 }
 
 export function EventFeedbackSection({
@@ -34,6 +35,7 @@ export function EventFeedbackSection({
   token,
   currentUserId,
   canSubmitFeedback,
+  readOnly = false,
 }: EventFeedbackSectionProps) {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
@@ -112,6 +114,9 @@ export function EventFeedbackSection({
   });
 
   const handleSubmitRating = () => {
+    if (readOnly) {
+      return;
+    }
     if (!canSubmitFeedback) {
       enqueueSnackbar("You can rate an event after attending it.", {
         variant: "info",
@@ -131,6 +136,9 @@ export function EventFeedbackSection({
   };
 
   const handleSubmitComment = () => {
+    if (readOnly) {
+      return;
+    }
     if (!canSubmitFeedback) {
       enqueueSnackbar("Comments open after you attend and check in to the event.", {
         variant: "info",
@@ -210,44 +218,48 @@ export function EventFeedbackSection({
                   ? "response"
                   : "responses"}
               </Typography>
-              <Divider flexItem />
-              {canSubmitFeedback ? (
-                <Alert severity="success">
-                  You attended this event—thank you for sharing your perspective.
-                </Alert>
-              ) : (
-                <Alert severity="info">
-                  Only attendees can share ratings or comments once the event
-                  starts.
-                </Alert>
+              {readOnly ? null : (
+                <>
+                  <Divider flexItem />
+                  {canSubmitFeedback ? (
+                    <Alert severity="success">
+                      You attended this event—thank you for sharing your perspective.
+                    </Alert>
+                  ) : (
+                    <Alert severity="info">
+                      Only attendees can share ratings or comments once the event
+                      starts.
+                    </Alert>
+                  )}
+                  <Stack spacing={2}>
+                    <Rating
+                      value={ratingValue}
+                      onChange={(_, newValue) => setRatingValue(newValue)}
+                      max={5}
+                      precision={0.5}
+                      disabled={ratingMutation.isPending || !canSubmitFeedback}
+                      size="large"
+                    />
+                    <TextField
+                      label="Add a short note (optional)"
+                      multiline
+                      minRows={3}
+                      value={ratingNotes}
+                      onChange={(event) => setRatingNotes(event.target.value)}
+                      disabled={ratingMutation.isPending || !canSubmitFeedback}
+                    />
+                    <LoadingButton
+                      variant="contained"
+                      onClick={handleSubmitRating}
+                      loading={ratingMutation.isPending}
+                      disabled={!canSubmitFeedback}
+                      sx={{ alignSelf: "flex-start" }}
+                    >
+                      Save rating
+                    </LoadingButton>
+                  </Stack>
+                </>
               )}
-              <Stack spacing={2}>
-                <Rating
-                  value={ratingValue}
-                  onChange={(_, newValue) => setRatingValue(newValue)}
-                  max={5}
-                  precision={0.5}
-                  disabled={ratingMutation.isPending || !canSubmitFeedback}
-                  size="large"
-                />
-                <TextField
-                  label="Add a short note (optional)"
-                  multiline
-                  minRows={3}
-                  value={ratingNotes}
-                  onChange={(event) => setRatingNotes(event.target.value)}
-                  disabled={ratingMutation.isPending || !canSubmitFeedback}
-                />
-                <LoadingButton
-                  variant="contained"
-                  onClick={handleSubmitRating}
-                  loading={ratingMutation.isPending}
-                  disabled={!canSubmitFeedback}
-                  sx={{ alignSelf: "flex-start" }}
-                >
-                  Save rating
-                </LoadingButton>
-              </Stack>
             </Stack>
           </CardContent>
         </Card>
@@ -261,26 +273,30 @@ export function EventFeedbackSection({
                   Discussion board
                 </Typography>
               </Stack>
-              <Stack spacing={1}>
-                <TextField
-                  label="Share your takeaways"
-                  placeholder="What went well? Anything to improve?"
-                  multiline
-                  minRows={3}
-                  value={commentValue}
-                  onChange={(event) => setCommentValue(event.target.value)}
-                  disabled={commentMutation.isPending || !canSubmitFeedback}
-                />
-                <LoadingButton
-                  variant="contained"
-                  onClick={handleSubmitComment}
-                  loading={commentMutation.isPending}
-                  disabled={!canSubmitFeedback}
-                >
-                  Post comment
-                </LoadingButton>
-              </Stack>
-              <Divider flexItem />
+              {readOnly ? null : (
+                <>
+                  <Stack spacing={1}>
+                    <TextField
+                      label="Share your takeaways"
+                      placeholder="What went well? Anything to improve?"
+                      multiline
+                      minRows={3}
+                      value={commentValue}
+                      onChange={(event) => setCommentValue(event.target.value)}
+                      disabled={commentMutation.isPending || !canSubmitFeedback}
+                    />
+                    <LoadingButton
+                      variant="contained"
+                      onClick={handleSubmitComment}
+                      loading={commentMutation.isPending}
+                      disabled={!canSubmitFeedback}
+                    >
+                      Post comment
+                    </LoadingButton>
+                  </Stack>
+                  <Divider flexItem />
+                </>
+              )}
               <Stack spacing={1}>
                 {comments.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
