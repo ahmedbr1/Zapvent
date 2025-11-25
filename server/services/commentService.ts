@@ -43,8 +43,6 @@ type CommentView = {
   updatedAt: Date;
 };
 
-const warningEligibleRoles = new Set(["Student", "Staff", "Professor", "TA", "EventOffice"]);
-
 type CommentDoc = (IComment & { _id: Types.ObjectId }) & {
   event: Types.ObjectId;
   parentComment?: Types.ObjectId | null;
@@ -290,7 +288,7 @@ export async function deleteCommentAsAdmin(
       ? (comment.event as IEvent & { _id: Types.ObjectId })
       : null;
 
-  if (user && warningEligibleRoles.has(user.role)) {
+  if (user && user.email) {
     try {
       await emailService.sendCommentDeletionWarning({
         user,

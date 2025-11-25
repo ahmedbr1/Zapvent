@@ -251,6 +251,7 @@ export class VendorController {
         boothLocation,
         boothStartTime,
         boothEndTime,
+        boothDurationWeeks,
       } = body;
 
       // Validate input
@@ -287,6 +288,11 @@ export class VendorController {
         });
       }
 
+      const parsedDuration =
+        typeof boothDurationWeeks === "number"
+          ? boothDurationWeeks
+          : Number(boothDurationWeeks);
+
       const boothInfo = {
         boothLocation:
           typeof boothLocation === "string" && boothLocation.trim()
@@ -294,12 +300,16 @@ export class VendorController {
             : undefined,
         boothStartTime: parseOptionalDate(boothStartTime),
         boothEndTime: parseOptionalDate(boothEndTime),
+        boothDurationWeeks: Number.isFinite(parsedDuration)
+          ? parsedDuration
+          : undefined,
       };
 
       const boothInfoPayload =
         boothInfo.boothLocation ||
         boothInfo.boothStartTime ||
-        boothInfo.boothEndTime
+        boothInfo.boothEndTime ||
+        boothInfo.boothDurationWeeks
           ? boothInfo
           : undefined;
 
@@ -559,6 +569,84 @@ export class VendorController {
       return res.status(statusCode).json(result);
     } catch (error) {
       console.error("Record vendor payment error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async createStripePaymentIntent(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = req.user?.id;
+      const eventId = req.params?.eventId as string | undefined;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required",
+        });
+      }
+
+      if (!eventId) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID is required",
+        });
+      }
+
+      const result = await vendorService.createVendorStripePaymentIntent({
+        vendorId,
+        eventId,
+      });
+
+      return res
+        .status(result.statusCode ?? (result.success ? 200 : 400))
+        .json(result);
+    } catch (error) {
+      console.error("Create vendor Stripe intent error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+
+  @LoginRequired()
+  @AllowedRoles(["Vendor"])
+  async confirmStripePayment(req: AuthRequest, res: Response) {
+    try {
+      const vendorId = req.user?.id;
+      const eventId = req.params?.eventId as string | undefined;
+      const paymentIntentId = req.body?.paymentIntentId as string | undefined;
+
+      if (!vendorId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required",
+        });
+      }
+
+      if (!eventId || !paymentIntentId) {
+        return res.status(400).json({
+          success: false,
+          message: "Event ID and paymentIntentId are required",
+        });
+      }
+
+      const result = await vendorService.finalizeVendorStripePayment({
+        vendorId,
+        eventId,
+        paymentIntentId,
+      });
+
+      return res
+        .status(result.statusCode ?? (result.success ? 200 : 400))
+        .json(result);
+    } catch (error) {
+      console.error("Confirm vendor Stripe payment error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",

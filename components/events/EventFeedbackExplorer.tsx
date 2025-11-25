@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -20,26 +20,37 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { fetchUpcomingEvents } from "@/lib/services/events";
-import { fetchEventFeedback } from "@/lib/services/feedback";
+import { deleteEventComment, fetchEventFeedback } from "@/lib/services/feedback";
 import type { EventComment, EventRatingEntry } from "@/lib/types";
 import { formatDateTime, formatRelative } from "@/lib/date";
+import IconButton from "@mui/material/IconButton";
+import DeleteIcon from "@mui/icons-material/DeleteRounded";
+import { useSnackbar } from "notistack";
+import { AuthRole } from "@/lib/types";
 
 interface EventFeedbackExplorerProps {
   title?: string;
   subtitle?: string;
+  includePastEvents?: boolean;
 }
 
 export function EventFeedbackExplorer({
   title = "Event feedback",
   subtitle = "Browse event ratings and comments across the platform.",
+  includePastEvents = false,
 }: EventFeedbackExplorerProps) {
   const token = useAuthToken();
   const sessionUser = useSessionUser();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
 
   const eventsQuery = useQuery({
-    queryKey: ["events", "feedback-explorer", token],
-    queryFn: () => fetchUpcomingEvents(token ?? undefined, sessionUser?.id),
+    queryKey: ["events", "feedback-explorer", token, includePastEvents],
+    queryFn: () =>
+      fetchUpcomingEvents(token ?? undefined, sessionUser?.id, {
+        includePast: includePastEvents,
+      }),
     enabled: Boolean(token),
   });
 
@@ -70,6 +81,22 @@ export function EventFeedbackExplorer({
   const comments = feedbackQuery.data?.comments ?? [];
   const averageRating = feedbackQuery.data?.ratings?.averageRating ?? 0;
   const totalRatings = feedbackQuery.data?.ratings?.totalRatings ?? 0;
+  const canModerate =
+    sessionUser?.role === AuthRole.Admin || sessionUser?.role === AuthRole.EventOffice;
+
+  const deleteMutation = useMutation({
+    mutationFn: (commentId: string) => deleteEventComment(commentId, token ?? undefined),
+    onSuccess: () => {
+      enqueueSnackbar("Comment deleted.", { variant: "success" });
+      queryClient.invalidateQueries({
+        queryKey: ["event-feedback", selectedEventId, token, "explorer"],
+      });
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to delete comment.";
+      enqueueSnackbar(message, { variant: "error" });
+    },
+  });
 
   const ratingColumns = useMemo<GridColDef<EventRatingEntry>[]>(
     () => [
@@ -233,7 +260,13 @@ export function EventFeedbackExplorer({
                   ) : (
                     <Stack spacing={1.5}>
                       {comments.map((comment) => (
-                        <CommentCard key={comment.id} comment={comment} />
+                        <CommentCard
+                          key={comment.id}
+                          comment={comment}
+                          canDelete={canModerate}
+                          onDelete={() => deleteMutation.mutate(comment.id)}
+                          deleting={deleteMutation.isPending && deleteMutation.variables === comment.id}
+                        />
                       ))}
                     </Stack>
                   )}
@@ -252,7 +285,17 @@ export function EventFeedbackExplorer({
   );
 }
 
-function CommentCard({ comment }: { comment: EventComment }) {
+function CommentCard({
+  comment,
+  canDelete,
+  deleting = false,
+  onDelete,
+}: {
+  comment: EventComment;
+  canDelete?: boolean;
+  deleting?: boolean;
+  onDelete?: () => void;
+}) {
   const displayName =
     comment.user && (comment.user.firstName || comment.user.lastName)
       ? `${comment.user.firstName ?? ""} ${comment.user.lastName ?? ""}`.trim()
@@ -285,6 +328,20 @@ function CommentCard({ comment }: { comment: EventComment }) {
               {formatRelative(comment.createdAt)}
             </Typography>
           </Tooltip>
+          {canDelete ? (
+            <Tooltip title="Delete comment">
+              <span>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={onDelete}
+                  disabled={deleting}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : null}
         </Stack>
         <Typography variant="body2">{comment.content}</Typography>
       </Stack>

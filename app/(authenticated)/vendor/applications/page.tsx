@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -30,6 +30,7 @@ import Paper from "@mui/material/Paper";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import LoadingButton from "@mui/lab/LoadingButton";
+import { Elements } from "@stripe/react-stripe-js";
 import ChecklistIcon from "@mui/icons-material/ChecklistRounded";
 import PersonIcon from "@mui/icons-material/PersonRounded";
 import QrCodeIcon from "@mui/icons-material/QrCode2Rounded";
@@ -42,14 +43,18 @@ import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { formatDateTime } from "@/lib/date";
+import { EventType } from "@/lib/types";
+import { stripePromise } from "@/lib/stripe";
 import {
   fetchVendorApplications,
   cancelVendorApplication,
   submitVendorAttendees,
-  payVendorApplication,
+  createVendorStripePaymentIntent,
+  finalizeVendorStripePayment,
   type VendorApplication,
   type VendorAttendeeFormEntry,
 } from "@/lib/services/vendor";
+import { StripePaymentForm } from "@/components/events/StripePaymentForm";
 
 const MAX_ATTENDEES = 5;
 
@@ -66,6 +71,29 @@ function getStatusColor(
     default:
       return "default";
   }
+}
+
+function resolveBoothWindow(application: VendorApplication) {
+  if (!application.boothStartTime) return null;
+  const start = new Date(application.boothStartTime);
+  if (Number.isNaN(start.getTime())) {
+    return null;
+  }
+  let end = application.boothEndTime ? new Date(application.boothEndTime) : null;
+  const durationWeeks = Number(application.boothDurationWeeks);
+  if (
+    (!end || Number.isNaN(end.getTime())) &&
+    Number.isFinite(durationWeeks) &&
+    durationWeeks > 0
+  ) {
+    const derived = new Date(start);
+    derived.setDate(start.getDate() + durationWeeks * 7);
+    end = derived;
+  }
+  if (!end || Number.isNaN(end.getTime())) {
+    return null;
+  }
+  return { start, end };
 }
 
 function mapAttendees(
@@ -344,72 +372,122 @@ function PaymentDialog({
   onUpdated,
 }: PaymentDialogProps) {
   const { enqueueSnackbar } = useSnackbar();
-  const [amount, setAmount] = useState<string>("");
-  const [reference, setReference] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stripeIntent, setStripeIntent] =
+    useState<{ clientSecret: string; paymentIntentId: string } | null>(null);
+  const [isLoadingIntent, setIsLoadingIntent] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+
+  const payment = application?.payment;
+  const amountDue = Math.max(payment?.amount ?? 1000, 0);
+  const currency = payment?.currency ?? "EGP";
+  const amountLabel = useMemo(() => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+      }).format(amountDue);
+    } catch {
+      return `${amountDue.toFixed(2)} ${currency}`;
+    }
+  }, [amountDue, currency]);
 
   useEffect(() => {
-    if (open && application?.payment?.amount) {
-      setAmount(String(application.payment.amount));
-    } else if (!open) {
-      setAmount("");
-      setReference("");
-    }
-  }, [application, open]);
-
-  const handleSubmit = async () => {
-    if (!application) return;
-    const numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      enqueueSnackbar("Enter a valid payment amount.", { variant: "error" });
+    if (!open) {
+      setStripeIntent(null);
+      setCardError(null);
+      setIsLoadingIntent(false);
+      setIsFinalizing(false);
       return;
     }
-    setIsSubmitting(true);
+
+    if (!application?.eventId) {
+      setCardError("Payment details are unavailable for this application.");
+      return;
+    }
+
+    if (!stripePromise) {
+      setCardError("Card payments are not configured.");
+      return;
+    }
+
+    setIsLoadingIntent(true);
+    setCardError(null);
+    setStripeIntent(null);
+
+    createVendorStripePaymentIntent(application.eventId, token)
+      .then((intent) => {
+        setStripeIntent(intent);
+      })
+      .catch((error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to start card payment.";
+        setCardError(message);
+      })
+      .finally(() => setIsLoadingIntent(false));
+  }, [application?.eventId, open, payment, token]);
+
+  const handleCardError = (message: string) => {
+    setCardError(message);
+    enqueueSnackbar(message, { variant: "error" });
+  };
+
+  const handleCardSuccess = async (paymentIntentId: string) => {
+    if (!application?.eventId) return;
+    setIsFinalizing(true);
+    setCardError(null);
     try {
-      await payVendorApplication({
-        eventId: application.eventId,
-        amountPaid: numericAmount,
-        transactionReference: reference || undefined,
-        token,
-      });
-      enqueueSnackbar("Payment recorded. Receipt emailed to you.", {
-        variant: "success",
-      });
+      const message = await finalizeVendorStripePayment(
+        application.eventId,
+        paymentIntentId,
+        token
+      );
+      enqueueSnackbar(
+        message ||
+          "Payment completed. Receipt and QR codes will be emailed shortly.",
+        {
+          variant: "success",
+        }
+      );
       onUpdated();
       onClose();
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "Failed to record payment.";
-      enqueueSnackbar(message, { variant: "error" });
+          : "Failed to confirm card payment.";
+      handleCardError(message);
     } finally {
-      setIsSubmitting(false);
+      setIsFinalizing(false);
     }
   };
-
-  const payment = application?.payment;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Pay Participation Fee</DialogTitle>
       <DialogContent dividers>
-        {payment ? (
-          <Stack spacing={3} sx={{ mt: 1 }}>
-            <Alert severity="info">
-              Receipts and visitor QR codes will be delivered via email once the
-              payment is confirmed.
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <Alert severity="info">
+            Pay your booth fee securely with a credit or debit card. Receipts
+            and visitor QR codes will be emailed after payment succeeds.
+          </Alert>
+          {!payment ? (
+            <Alert severity="warning">
+              Payment details were missing for this application. A fixed fee of 1,000 EGP will be used.
             </Alert>
-            <Stack direction="row" spacing={2}>
+          ) : null}
+          <Stack spacing={1}>
+            <Stack direction="row" spacing={1}>
               <Typography variant="body2" color="text.secondary">
                 Amount Due:
               </Typography>
-              <Typography fontWeight={600}>
-                {payment.amount} {payment.currency}
-              </Typography>
+              <Typography fontWeight={700}>{amountLabel}</Typography>
             </Stack>
-            {payment.dueDate && (
-              <Stack direction="row" spacing={2}>
+            {payment?.dueDate && (
+              <Stack direction="row" spacing={1}>
                 <Typography variant="body2" color="text.secondary">
                   Due Date:
                 </Typography>
@@ -418,38 +496,61 @@ function PaymentDialog({
                 </Typography>
               </Stack>
             )}
-            <TextField
-              label="Amount Paid"
-              type="number"
-              fullWidth
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              inputProps={{ min: 0, step: "0.01" }}
-            />
-            <TextField
-              label="Transaction Reference (optional)"
-              fullWidth
-              value={reference}
-              onChange={(event) => setReference(event.target.value)}
-            />
+            {application?.boothLocation && (
+              <Stack direction="row" spacing={1}>
+                <Typography variant="body2" color="text.secondary">
+                  Booth:
+                </Typography>
+                <Typography fontWeight={600}>
+                  {application.boothLocation}
+                </Typography>
+              </Stack>
+            )}
           </Stack>
-        ) : (
-          <Alert severity="warning">
-            Payment details for this application are unavailable.
-          </Alert>
-        )}
+          {cardError ? <Alert severity="error">{cardError}</Alert> : null}
+          {!stripePromise ? (
+            <Alert severity="warning">
+              Stripe is not configured. Please contact support.
+            </Alert>
+          ) : isLoadingIntent ? (
+            <Skeleton
+              variant="rectangular"
+              height={140}
+              sx={{ borderRadius: 2 }}
+            />
+          ) : !stripeIntent ? (
+            <Alert severity="warning">
+              Unable to start card payment. Please try again.
+            </Alert>
+          ) : (
+            <Elements
+              key={stripeIntent.clientSecret}
+              stripe={stripePromise}
+              options={{
+                clientSecret: stripeIntent.clientSecret,
+                appearance: {
+                  rules: {
+                    ".LinkButton": { display: "none" },
+                    ".LinkSeparator": { display: "none" },
+                  },
+                },
+              }}
+            >
+              <StripePaymentForm
+                amountLabel={amountLabel}
+                disabled={isLoadingIntent}
+                finalizing={isFinalizing}
+                onSuccess={handleCardSuccess}
+                onError={handleCardError}
+              />
+            </Elements>
+          )}
+        </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isSubmitting}>
+        <Button onClick={onClose} disabled={isFinalizing}>
           Close
         </Button>
-        <LoadingButton
-          variant="contained"
-          onClick={handleSubmit}
-          loading={isSubmitting}
-        >
-          Confirm Payment
-        </LoadingButton>
       </DialogActions>
     </Dialog>
   );
@@ -603,18 +704,18 @@ export default function VendorApplicationsPage() {
           ) : !hasApplications ? (
             <Alert severity="info">
               You haven&apos;t submitted any applications yet. Apply to a bazaar
-              to get started.
+              or platform booth to get started.
             </Alert>
           ) : (
             <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Bazaar Event</TableCell>
+                    <TableCell>Event</TableCell>
                     <TableCell>Application Date</TableCell>
                     <TableCell>Attendees</TableCell>
                     <TableCell>Booth Size</TableCell>
-                    <TableCell>Location</TableCell>
+                    <TableCell>Location / Schedule</TableCell>
                     <TableCell>Payment</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="right">Actions</TableCell>
@@ -624,23 +725,38 @@ export default function VendorApplicationsPage() {
                   {applicationsQuery.data?.map((application) => {
                     const canPay =
                       application.status === "approved" &&
-                      application.payment &&
-                      application.payment.status !== "paid";
+                      application.payment?.status !== "paid";
                     const canCancel =
                       application.status === "pending" &&
                       application.payment?.status !== "paid";
                     const hasQrCodes = (application.qrCodes?.length ?? 0) > 0;
+                    const eventType =
+                      application.eventType ?? EventType.Bazaar;
+                    const boothWindow = resolveBoothWindow(application);
                     return (
                       <TableRow key={application.eventId} hover>
                         <TableCell>
-                          <Typography fontWeight={600}>
-                            {application.eventName}
-                          </Typography>
-                          {application.eventDate && (
-                            <Typography variant="caption" color="text.secondary">
-                              {formatDateTime(application.eventDate)}
-                            </Typography>
-                          )}
+                          <Stack spacing={0.5}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Typography fontWeight={600}>
+                                {application.eventName}
+                              </Typography>
+                              <Chip
+                                label={eventType}
+                                size="small"
+                                color={
+                                  eventType === EventType.BoothInPlatform
+                                    ? "secondary"
+                                    : "primary"
+                                }
+                              />
+                            </Stack>
+                            {application.eventDate && (
+                              <Typography variant="caption" color="text.secondary">
+                                {formatDateTime(application.eventDate)}
+                              </Typography>
+                            )}
+                          </Stack>
                         </TableCell>
                         <TableCell>
                           {application.applicationDate
@@ -653,13 +769,19 @@ export default function VendorApplicationsPage() {
                         </TableCell>
                         <TableCell>{application.boothSize}</TableCell>
                         <TableCell>
-                          {application.boothLocation || "TBD"}
-                          {application.boothStartTime && application.boothEndTime && (
-                            <Typography variant="caption" display="block">
-                              {formatDateTime(application.boothStartTime)} –{" "}
-                              {formatDateTime(application.boothEndTime)}
+                          <Typography variant="body2">
+                            {application.boothLocation || "TBD"}
+                          </Typography>
+                          {boothWindow ? (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              {formatDateTime(boothWindow.start)} –{" "}
+                              {formatDateTime(boothWindow.end)}
                             </Typography>
-                          )}
+                          ) : application.eventType === EventType.BoothInPlatform ? (
+                            <Typography variant="caption" color="text.secondary">
+                              Booth window pending
+                            </Typography>
+                          ) : null}
                         </TableCell>
                         <TableCell>
                           {application.payment ? (

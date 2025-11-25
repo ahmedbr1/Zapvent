@@ -128,6 +128,19 @@ export default function VendorApplicationsDetailPage({
         ),
       },
       {
+        field: "eventType",
+        headerName: "Type",
+        flex: 0.9,
+        minWidth: 140,
+        renderCell: ({ value }) => (
+          <Chip
+            label={value ?? "Bazaar"}
+            size="small"
+            color={value === "Booth in platform" ? "secondary" : "primary"}
+          />
+        ),
+      },
+      {
         field: "applicationDate",
         headerName: "Application Date",
         flex: 1.2,

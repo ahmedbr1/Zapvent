@@ -27,6 +27,7 @@ export enum EventType {
   CONFERENCE = "Conference",
   TRIP = "Trip",
   BAZAAR = "Bazaar",
+  BOOTH_IN_PLATFORM = "Booth in platform",
 }
 
 export enum BazaarBoothSize {

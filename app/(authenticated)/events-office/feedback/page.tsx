@@ -32,7 +32,8 @@ export default function EventsOfficeFeedbackPage() {
 
   const eventsQuery = useQuery({
     queryKey: ["events", "feedback", token, user?.id],
-    queryFn: () => fetchUpcomingEvents(token ?? undefined, user?.id),
+    queryFn: () =>
+      fetchUpcomingEvents(token ?? undefined, user?.id, { includePast: true }),
     enabled: Boolean(token),
   });
 

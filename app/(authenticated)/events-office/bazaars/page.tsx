@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
@@ -49,25 +49,64 @@ import {
   type BazaarPayload,
 } from "@/lib/services/events";
 import { formatDateTime } from "@/lib/date";
-import { AuthRole, Location } from "@/lib/types";
+import { AuthRole, EventType, Location } from "@/lib/types";
 import { EventOfficeEventActions } from "@/components/events/EventOfficeEventActions";
+
+const vendorEventTypes = [EventType.Bazaar, EventType.BoothInPlatform] as const;
 
 const bazaarSchema = z
   .object({
     name: z.string().min(3, "Name must be at least 3 characters"),
     description: z.string().min(10, "Add a meaningful description"),
+    eventType: z.enum(vendorEventTypes, { message: "Choose an event type" }),
     location: z.nativeEnum(Location, { message: "Choose a location" }),
-    startDate: z.date({ message: "Start date is required" }),
-    endDate: z.date({ message: "End date is required" }),
-    registrationDeadline: z.date({ message: "Deadline is required" }),
+    startDate: z.date().optional(),
+    endDate: z.date().optional(),
+    registrationDeadline: z.date().optional(),
   })
-  .refine((values) => values.startDate < values.endDate, {
-    message: "Start date must be before end date",
-    path: ["startDate"],
-  })
-  .refine((values) => values.registrationDeadline < values.startDate, {
-    message: "Deadline must be before the start date",
-    path: ["registrationDeadline"],
+  .superRefine((values, ctx) => {
+    if (values.eventType === EventType.BoothInPlatform) {
+      return;
+    }
+    if (!values.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["startDate"],
+        message: "Start date is required",
+      });
+    }
+    if (!values.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "End date is required",
+      });
+    }
+    if (!values.registrationDeadline) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["registrationDeadline"],
+        message: "Deadline is required",
+      });
+    }
+    if (values.startDate && values.endDate && values.startDate >= values.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["startDate"],
+        message: "Start date must be before end date",
+      });
+    }
+    if (
+      values.registrationDeadline &&
+      values.startDate &&
+      values.registrationDeadline >= values.startDate
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["registrationDeadline"],
+        message: "Deadline must be before the start date",
+      });
+    }
   });
 
 type BazaarFormValues = z.infer<typeof bazaarSchema>;
@@ -97,15 +136,35 @@ export default function BazaarManagementPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["events", "bazaars", token],
-    queryFn: () => fetchUpcomingBazaars(token ?? undefined),
+    queryFn: () =>
+      fetchUpcomingBazaars(token ?? undefined, user?.id, [
+        EventType.Bazaar,
+        EventType.BoothInPlatform,
+      ]),
     enabled: Boolean(token),
   });
 
-  const { control, handleSubmit, reset, formState, register } =
+  const { control, handleSubmit, reset, formState, register, watch, setValue } =
     useForm<BazaarFormValues>({
       resolver: zodResolver(bazaarSchema),
       defaultValues: defaultBazaarValues(),
     });
+  const watchEventType = watch("eventType");
+  const isPlatformBoothType = watchEventType === EventType.BoothInPlatform;
+
+  useEffect(() => {
+    if (isPlatformBoothType) {
+      setValue("startDate", undefined);
+      setValue("endDate", undefined);
+      setValue("registrationDeadline", undefined);
+    } else {
+      const defaults = defaultBazaarValues();
+      if (!watch("startDate")) setValue("startDate", defaults.startDate);
+      if (!watch("endDate")) setValue("endDate", defaults.endDate);
+      if (!watch("registrationDeadline"))
+        setValue("registrationDeadline", defaults.registrationDeadline);
+    }
+  }, [isPlatformBoothType, setValue, watch]);
 
   const createMutation = useMutation({
     mutationFn: (payload: BazaarPayload) =>
@@ -205,6 +264,7 @@ export default function BazaarManagementPage() {
     reset({
       name: bazaar.name,
       description: bazaar.description,
+      eventType: bazaar.eventType as EventType,
       location: bazaar.location as Location,
       startDate: dayjs(bazaar.startDate).toDate(),
       endDate: dayjs(bazaar.endDate).toDate(),
@@ -240,13 +300,15 @@ export default function BazaarManagementPage() {
   };
 
   const onSubmit = handleSubmit((values) => {
+    const fallbackDate = new Date();
     const payload: BazaarPayload = {
       name: values.name,
       description: values.description,
+      eventType: values.eventType,
       location: values.location,
-      startDate: values.startDate.toISOString(),
-      endDate: values.endDate.toISOString(),
-      registrationDeadline: values.registrationDeadline.toISOString(),
+      startDate: (values.startDate ?? fallbackDate).toISOString(),
+      endDate: (values.endDate ?? fallbackDate).toISOString(),
+      registrationDeadline: (values.registrationDeadline ?? fallbackDate).toISOString(),
     };
 
     if (editingBazaarId) {
@@ -256,16 +318,16 @@ export default function BazaarManagementPage() {
     }
   });
 
-  const actionLabel = editingBazaarId ? "Save changes" : "Create bazaar";
+  const actionLabel = editingBazaarId ? "Save changes" : "Create vendor event";
 
   return (
     <Stack spacing={4}>
       <Stack spacing={1}>
         <Typography variant="h4" fontWeight={700}>
-          Bazaar management
+          Vendor events
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Craft immersive marketplace experiences across GUC campuses.
+          Publish bazaars and platform booths for vendors across GUC campuses.
         </Typography>
       </Stack>
 
@@ -274,13 +336,13 @@ export default function BazaarManagementPage() {
         onChange={setFilters}
         showEventTypeFilter={false}
         showProfessorFilter={false}
-        searchPlaceholder="Search bazaars"
+        searchPlaceholder="Search vendor events"
       />
 
       {isEventsOfficeUser ? (
         <Typography variant="body2" color="text.secondary">
-          Signed in as Events Office. All published bazaars sync automatically
-          with vendor portals.
+          Signed in as Events Office. All published vendor events sync
+          automatically with vendor portals.
         </Typography>
       ) : null}
 
@@ -308,14 +370,17 @@ export default function BazaarManagementPage() {
         </Alert>
       ) : bazaars.length === 0 ? (
         <Alert severity="info">
-          No bazaars scheduled yet. Tap &quot;New bazaar&quot; to launch your
-          next campus experience.
+          No vendor events scheduled yet. Tap &quot;New vendor event&quot; to
+          launch your next experience.
         </Alert>
       ) : (
         <Grid container spacing={3}>
           {bazaars.map((bazaar) => {
             const hasStarted = !dayjs(bazaar.startDate).isAfter(dayjs());
             const eventHasEnded = dayjs(bazaar.endDate).isBefore(dayjs());
+            const eventLabel = bazaar.eventType ?? EventType.Bazaar;
+            const isPlatformBooth =
+              bazaar.eventType === EventType.BoothInPlatform;
             const isDeleting =
               deleteMutation.isPending && pendingDeleteId === bazaar.id;
             const disableActions = hasStarted || isDeleting;
@@ -328,10 +393,10 @@ export default function BazaarManagementPage() {
             const archiveDisabled =
               isArchived || !archiveEligible || archivingThis;
             const archiveTooltip = isArchived
-              ? "Bazaar already archived."
+              ? `${eventLabel} already archived.`
               : archiveEligible
-                ? "Archive this bazaar to hide it from future listings."
-                : "Archiving unlocks after the bazaar ends.";
+                ? `Archive this ${eventLabel.toLowerCase()} to hide it from future listings.`
+                : "Archiving unlocks after the event ends.";
             const archiveLabel = isArchived ? "Archived" : "Archive";
 
             return (
@@ -347,7 +412,11 @@ export default function BazaarManagementPage() {
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Stack spacing={1.5}>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip label="Bazaar" size="small" color="secondary" />
+                        <Chip
+                          label={eventLabel}
+                          size="small"
+                          color={isPlatformBooth ? "primary" : "secondary"}
+                        />
                         <Chip
                           label={bazaar.location}
                           size="small"
@@ -361,18 +430,26 @@ export default function BazaarManagementPage() {
                         {bazaar.description}
                       </Typography>
                       <Divider sx={{ my: 1 }} />
-                      <Detail
-                        label="Starts"
-                        value={formatDateTime(bazaar.startDate)}
-                      />
-                      <Detail
-                        label="Ends"
-                        value={formatDateTime(bazaar.endDate)}
-                      />
-                      <Detail
-                        label="Registration deadline"
-                        value={formatDateTime(bazaar.registrationDeadline)}
-                      />
+                      {isPlatformBooth ? (
+                        <Alert severity="info" sx={{ py: 0.5 }}>
+                          Platform booths stay active indefinitely. Vendors pick their own booth windows.
+                        </Alert>
+                      ) : (
+                        <>
+                          <Detail
+                            label="Starts"
+                            value={formatDateTime(bazaar.startDate)}
+                          />
+                          <Detail
+                            label="Ends"
+                            value={formatDateTime(bazaar.endDate)}
+                          />
+                          <Detail
+                            label="Registration deadline"
+                            value={formatDateTime(bazaar.registrationDeadline)}
+                          />
+                        </>
+                      )}
                       <Typography variant="caption" color="text.secondary">
                         Vendors assigned: {bazaar.vendors?.length ?? 0}
                       </Typography>
@@ -399,8 +476,8 @@ export default function BazaarManagementPage() {
                         color="error"
                         sx={{ flexGrow: 1, pr: 1 }}
                       >
-                        Bazaar already started; contact an administrator for
-                        changes.
+                        {eventLabel} already started; contact an administrator
+                        for changes.
                       </Typography>
                     ) : (
                       <Box sx={{ flexGrow: 1 }} />
@@ -458,14 +535,14 @@ export default function BazaarManagementPage() {
         color="primary"
         onClick={handleCreateClick}
         sx={{ position: "fixed", right: 32, bottom: 32 }}
-        aria-label="Create new bazaar"
+        aria-label="Create new vendor event"
       >
         <AddIcon />
       </Fab>
 
       <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingBazaarId ? "Edit bazaar" : "New bazaar"}
+          {editingBazaarId ? "Edit vendor event" : "New vendor event"}
         </DialogTitle>
         <DialogContent>
           <Stack
@@ -491,6 +568,17 @@ export default function BazaarManagementPage() {
               error={Boolean(formState.errors.description)}
               helperText={formState.errors.description?.message}
             />
+            <TextField
+              select
+              label="Event type"
+              fullWidth
+              {...register("eventType")}
+              error={Boolean(formState.errors.eventType)}
+              helperText={formState.errors.eventType?.message}
+            >
+              <MenuItem value={EventType.Bazaar}>Bazaar</MenuItem>
+              <MenuItem value={EventType.BoothInPlatform}>Booth in platform</MenuItem>
+            </TextField>
             <Controller
               control={control}
               name="location"
@@ -516,67 +604,76 @@ export default function BazaarManagementPage() {
                 </TextField>
               )}
             />
-            <Controller
-              control={control}
-              name="startDate"
-              render={({ field }) => (
-                <DateTimePicker
-                  label="Start"
-                  value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) =>
-                    field.onChange(date?.toDate() ?? field.value)
-                  }
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      error: Boolean(formState.errors.startDate),
-                      helperText: formState.errors.startDate?.message,
-                    },
-                  }}
+            {isPlatformBoothType ? (
+              <Alert severity="info">
+                Booth in platform events stay open indefinitely. Vendors will choose their own
+                booth window when applying, so no dates are required here.
+              </Alert>
+            ) : (
+              <>
+                <Controller
+                  control={control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="Start"
+                      value={field.value ? dayjs(field.value) : null}
+                      onChange={(date) =>
+                        field.onChange(date?.toDate() ?? field.value)
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          error: Boolean(formState.errors.startDate),
+                          helperText: formState.errors.startDate?.message,
+                        },
+                      }}
+                    />
+                  )}
                 />
-              )}
-            />
-            <Controller
-              control={control}
-              name="endDate"
-              render={({ field }) => (
-                <DateTimePicker
-                  label="End"
-                  value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) =>
-                    field.onChange(date?.toDate() ?? field.value)
-                  }
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      error: Boolean(formState.errors.endDate),
-                      helperText: formState.errors.endDate?.message,
-                    },
-                  }}
+                <Controller
+                  control={control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="End"
+                      value={field.value ? dayjs(field.value) : null}
+                      onChange={(date) =>
+                        field.onChange(date?.toDate() ?? field.value)
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          error: Boolean(formState.errors.endDate),
+                          helperText: formState.errors.endDate?.message,
+                        },
+                      }}
+                    />
+                  )}
                 />
-              )}
-            />
-            <Controller
-              control={control}
-              name="registrationDeadline"
-              render={({ field }) => (
-                <DateTimePicker
-                  label="Registration deadline"
-                  value={field.value ? dayjs(field.value) : null}
-                  onChange={(date) =>
-                    field.onChange(date?.toDate() ?? field.value)
-                  }
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      error: Boolean(formState.errors.registrationDeadline),
-                      helperText:
-                        formState.errors.registrationDeadline?.message,
-                    },
-                  }}
+                <Controller
+                  control={control}
+                  name="registrationDeadline"
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="Registration deadline"
+                      value={field.value ? dayjs(field.value) : null}
+                      onChange={(date) =>
+                        field.onChange(date?.toDate() ?? field.value)
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          error: Boolean(formState.errors.registrationDeadline),
+                          helperText:
+                            formState.errors.registrationDeadline?.message,
+                        },
+                      }}
+                    />
+                  )}
                 />
-              )}
-            />
+              </>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -606,6 +703,7 @@ function defaultBazaarValues(): BazaarFormValues {
   return {
     name: "",
     description: "",
+    eventType: EventType.Bazaar,
     location: Location.Cairo,
     startDate: now.add(7, "day").hour(10).minute(0).toDate(),
     endDate: now.add(7, "day").hour(18).minute(0).toDate(),

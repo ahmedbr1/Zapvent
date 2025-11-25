@@ -21,6 +21,8 @@ export interface IPoll extends IBaseModel {
   durations: IDurationRange[];
   vendorsWithVotes: IVendorVote[];
   votesByUser: IUserVendorVote[];
+  event?: mongoose.Types.ObjectId;
+  boothLocation?: string;
 }
 
 const DurationRangeSchema = new Schema<IDurationRange>({
@@ -44,6 +46,8 @@ const PollSchema = new Schema<IPoll>(
     durations: { type: [DurationRangeSchema], default: [] },
     vendorsWithVotes: { type: [VendorVoteSchema], default: [] },
     votesByUser: { type: [UserVendorVoteSchema], default: [] },
+    event: { type: Schema.Types.ObjectId, ref: "Event" },
+    boothLocation: { type: String, trim: true },
   },
   { timestamps: true }
 );

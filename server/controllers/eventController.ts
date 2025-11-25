@@ -7,6 +7,7 @@ import {
   getUpcomingBazaars,
   createBazaar,
   updateConferenceById,
+  getEventById,
   getAcceptedUpcomingBazaars,
   getVendorApplicationsForBazaar,
   getEventAttendanceReport,
@@ -214,6 +215,29 @@ export class EventController {
       return res.status(200).json(result);
     } catch (error) {
       console.error("Get attendance report controller error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+  async getEventByIdController(req: Request, res: Response) {
+    try {
+      const { eventId } = req.params as { eventId: string };
+      const result = await getEventById(eventId);
+
+      if (!result.success) {
+        return res
+          .status(result.statusCode ?? 404)
+          .json({ success: false, message: result.message });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: result.data,
+      });
+    } catch (error) {
+      console.error("Get event by id controller error:", error);
       return res.status(500).json({
         success: false,
         message: "Internal server error",
@@ -470,7 +494,14 @@ export class EventController {
           sortOrder = 0;
         }
       }
-      const result = await getAllEvents(sortOrder);
+      const includePastRaw = extractQueryString(
+        req.query.includePast ?? req.query.includeArchived
+      );
+      const includePast =
+        typeof includePastRaw === "string" &&
+        ["true", "1", "yes"].includes(includePastRaw.toLowerCase());
+
+      const result = await getAllEvents(sortOrder, { includePast });
 
       if (!result.success) {
         return res.status(500).json(result);
@@ -489,7 +520,12 @@ export class EventController {
   @AllowedRoles(["Vendor", "EventOffice", "Admin"])
   async getUpcomingBazaarsController(req: AuthRequest, res: Response) {
     try {
-      const bazaars = await getUpcomingBazaars();
+      const typesRaw = extractQueryString(req.query.types);
+      const typeList = typesRaw
+        ? typesRaw.split(",").map((value) => value.trim())
+        : undefined;
+
+      const bazaars = await getUpcomingBazaars(typeList);
       res.status(200).json({ success: true, bazaars });
     } catch {
       res
@@ -509,19 +545,38 @@ export class EventController {
         location,
         registrationDeadline,
       } = req.body;
+      const eventType =
+        parseEventType(
+          typeof req.body.eventType === "string" ? req.body.eventType : undefined
+        ) ?? EventType.BAZAAR;
 
       if (
-        !name ||
-        !description ||
-        !startDate ||
-        !endDate ||
-        !location ||
-        !registrationDeadline
+        ![EventType.BAZAAR, EventType.BOOTH_IN_PLATFORM].includes(eventType)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "eventType must be Bazaar or Booth in platform",
+        });
+      }
+
+      const requiresDates =
+        eventType === EventType.BAZAAR || eventType === EventType.TRIP;
+
+      if (!name || !description || !location) {
+        return res.status(400).json({
+          success: false,
+          message: "name, description, and location are required.",
+        });
+      }
+
+      if (
+        requiresDates &&
+        (!startDate || !endDate || !registrationDeadline)
       ) {
         return res.status(400).json({
           success: false,
           message:
-            "name, description, startDate, endDate, location and registrationDeadline are required.",
+            "startDate, endDate, and registrationDeadline are required for this event type.",
         });
       }
 
@@ -532,6 +587,7 @@ export class EventController {
         endDate,
         location,
         registrationDeadline,
+        eventType,
       });
 
       const status = result.success ? 201 : 400;

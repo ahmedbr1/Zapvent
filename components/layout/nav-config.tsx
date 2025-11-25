@@ -175,13 +175,13 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.EventOffice],
   },
   {
-    label: "Bazaar Management",
+    label: "Vendor Events",
     href: "/events-office/bazaars",
     icon: StorefrontIcon,
     roles: [AuthRole.EventOffice],
   },
   {
-    label: "Bazaar Management",
+    label: "Vendor Events",
     href: "/admin/bazaars",
     icon: StorefrontIcon,
     roles: [AuthRole.Admin],
@@ -271,7 +271,7 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.Vendor],
   },
   {
-    label: "Browse Bazaars",
+    label: "Bazaars & Booths",
     href: "/vendor/bazaars",
     icon: StorefrontIcon,
     roles: [AuthRole.Vendor],
@@ -280,6 +280,12 @@ export const navItems: NavItem[] = [
     label: "My Applications",
     href: "/vendor/applications",
     icon: ChecklistIcon,
+    roles: [AuthRole.Vendor],
+  },
+  {
+    label: "GUC Loyalty",
+    href: "/vendor/loyalty",
+    icon: LoyaltyIcon,
     roles: [AuthRole.Vendor],
   },
   {
