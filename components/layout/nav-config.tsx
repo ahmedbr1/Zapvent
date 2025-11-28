@@ -152,8 +152,8 @@ export const navItems: NavItem[] = [
   },
   {
     label: "Event Feedback",
-    href: "/events-office/event-feedback",
-    icon: PollIcon,
+    href: "/events-office/feedback",
+    icon: RateReviewIcon,
     roles: [AuthRole.EventOffice],
   },
   {
@@ -203,36 +203,6 @@ export const navItems: NavItem[] = [
     href: "/events-office/workshops",
     icon: SchoolIcon,
     roles: [AuthRole.EventOffice],
-  },
-  {
-    label: "Event Feedback",
-    href: "/events-office/feedback",
-    icon: RateReviewIcon,
-    roles: [AuthRole.EventOffice],
-  },
-  {
-    label: "Attendance Report",
-    href: "/events-office/reports/attendance",
-    icon: ChecklistIcon,
-    roles: [AuthRole.EventOffice],
-  },
-  {
-    label: "Attendance Report",
-    href: "/admin/reports/attendance",
-    icon: ChecklistIcon,
-    roles: [AuthRole.Admin],
-  },
-  {
-    label: "Sales Report",
-    href: "/events-office/reports/sales",
-    icon: RevenueIcon,
-    roles: [AuthRole.EventOffice],
-  },
-  {
-    label: "Sales Report",
-    href: "/admin/reports/sales",
-    icon: RevenueIcon,
-    roles: [AuthRole.Admin],
   },
   {
     label: "Workshop Management",

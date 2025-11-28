@@ -2522,7 +2522,22 @@ export async function generateEventQRCode(eventId: string): Promise<{
   }
 }
 
-export async function sendWorkshopCertificates(workshopId: string): Promise<{
+type CertificateSendOptions = {
+  force?: boolean;
+  source?: "auto" | "manual";
+};
+
+const CERTIFICATE_ELIGIBLE_ROLES: userRole[] = [
+  userRole.STUDENT,
+  userRole.STAFF,
+  userRole.TA,
+  userRole.PROFESSOR,
+];
+
+export async function sendWorkshopCertificates(
+  workshopId: string,
+  options?: CertificateSendOptions
+): Promise<{
   success: boolean;
   message: string;
   data?: { sentCount: number; failedCount: number };
@@ -2549,6 +2564,20 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
       return {
         success: false,
         message: "Certificates can only be issued for workshops.",
+      };
+    }
+
+    const previousSuccessfulSend =
+      Boolean(workshop.certificateSentAt) && (workshop.certificateSentCount ?? 0) > 0;
+
+    if (previousSuccessfulSend && !options?.force) {
+      return {
+        success: true,
+        message: `Certificates were already sent on ${workshop.certificateSentAt.toISOString()}.`,
+        data: {
+          sentCount: workshop.certificateSentCount ?? 0,
+          failedCount: 0,
+        },
       };
     }
 
@@ -2582,10 +2611,14 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
       _id: { $in: uniqueParticipantIds },
     }).select("firstName lastName email role");
 
-    if (participants.length === 0) {
+    const eligibleParticipants = participants.filter((participant) =>
+      CERTIFICATE_ELIGIBLE_ROLES.includes(participant.role as userRole)
+    );
+
+    if (eligibleParticipants.length === 0) {
       return {
         success: false,
-        message: "No valid participant data found.",
+        message: "No eligible participants found for certificate delivery.",
       };
     }
 
@@ -2593,7 +2626,7 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
     let sentCount = 0;
     let failedCount = 0;
 
-    for (const participant of participants) {
+    for (const participant of eligibleParticipants) {
       try {
         await emailService.sendWorkshopCertificate({
           user: participant,
@@ -2608,6 +2641,21 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
         );
         failedCount++;
       }
+    }
+
+    try {
+      if (sentCount > 0) {
+        workshop.certificateSentAt = new Date();
+        workshop.certificateSentBy = options?.source ?? "manual";
+        workshop.certificateSentCount = sentCount;
+      } else {
+        workshop.certificateSentAt = undefined;
+        workshop.certificateSentBy = undefined;
+        workshop.certificateSentCount = 0;
+      }
+      await workshop.save();
+    } catch (persistError) {
+      console.error("Failed to record certificate dispatch metadata:", persistError);
     }
 
     return {

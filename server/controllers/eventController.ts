@@ -923,7 +923,7 @@ export class EventController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Student", "Staff", "TA", "Professor"])
+  @AllowedRoles(["Student", "Staff", "TA", "Professor", "EventOffice", "Admin"])
   async payByWalletController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
@@ -1398,6 +1398,9 @@ export class EventController {
   async sendWorkshopCertificatesController(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
+      const allowForce = req.user?.role === "EventOffice" || req.user?.role === "Admin";
+      const forceParam = typeof req.query.force === "string" ? req.query.force : undefined;
+      const force = allowForce && forceParam === "true";
       if (!id) {
         return res.status(400).json({
           success: false,
@@ -1405,7 +1408,10 @@ export class EventController {
         });
       }
 
-      const result = await sendWorkshopCertificates(id);
+      const result = await sendWorkshopCertificates(id, {
+        force,
+        source: "manual",
+      });
       const status = result.success ? 200 : 400;
       return res.status(status).json(result);
     } catch (error) {

@@ -19,6 +19,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
+import { API_BASE_URL } from "@/lib/config";
 import {
   fetchAdminVendors,
   updateVendorApplicationStatus,
@@ -37,6 +38,9 @@ export default function VendorApplicationsDetailPage({
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  const apiHost = API_BASE_URL.replace(/\/api$/, "");
+  const buildFileUrl = (path?: string) =>
+    path ? `${apiHost}/${path.startsWith("/") ? path.slice(1) : path}` : undefined;
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["admin", "vendors", token],
@@ -347,7 +351,9 @@ export default function VendorApplicationsDetailPage({
             { label: "Company logo", path: vendor.logo },
             { label: "Tax card", path: vendor.taxCard },
             { label: "Business documents", path: vendor.documents },
-          ].map((file) => (
+          ].map((file) => {
+            const fileUrl = buildFileUrl(file.path);
+            return (
             <Stack
               key={file.label}
               direction={{ xs: "column", sm: "row" }}
@@ -358,10 +364,10 @@ export default function VendorApplicationsDetailPage({
               <Typography variant="body2" color="text.secondary">
                 {file.label}
               </Typography>
-              {file.path ? (
+              {fileUrl ? (
                 <Button
                   component="a"
-                  href={`/${file.path}`}
+                  href={fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   startIcon={<DownloadIcon />}
@@ -376,7 +382,8 @@ export default function VendorApplicationsDetailPage({
                 </Typography>
               )}
             </Stack>
-          ))}
+            );
+          })}
         </Stack>
       </Card>
 
