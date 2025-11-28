@@ -75,16 +75,6 @@ export default function EventOfficePollsPage() {
     );
   }, [vendorsQuery.data]);
 
-  const vendorOptions = useMemo<VendorOption[]>(
-    () =>
-      approvedVendors.map((vendor) => ({
-        label: vendor.companyName,
-        value: vendor.id,
-        email: vendor.email,
-      })),
-    [approvedVendors]
-  );
-
   const conflictGroups = useMemo<ConflictGroupOption[]>(() => {
     type BoothEntry = {
       vendorId: string;

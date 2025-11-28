@@ -260,11 +260,6 @@ const BAZAAR_FEE_TABLE: Record<Location, Record<BazaarBoothSize, number>> = {
   },
 };
 
-const BOOTH_HOURLY_RATES: Record<Location, number> = {
-  [Location.GUCCAIRO]: 320,
-  [Location.GUCCBERLIN]: 280,
-};
-
 const PAYMENT_CURRENCY = "EGP";
 
 function generateReceiptNumber(): string {
@@ -279,68 +274,33 @@ function buildQrCodeUrl(data: Record<string, unknown>): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encoded}`;
 }
 
-function hoursBetween(start: Date, end: Date): number {
-  const diffMs = end.getTime() - start.getTime();
-  return Math.max(diffMs / (1000 * 60 * 60), 0);
-}
-
-function calculateBazaarFee(
-  event: Pick<IEvent, "location">,
-  boothSize: BazaarBoothSize
-): number {
-  const byLocation = BAZAAR_FEE_TABLE[event.location];
-  if (!byLocation) {
-    return 3000;
-  }
-  return byLocation[boothSize] ?? 3000;
-}
-
-function calculateBoothFee(
-  event: Pick<IEvent, "location">,
-  boothInfo?: BoothInfo
-): number {
-  const boothStart = boothInfo?.boothStartTime
-    ? new Date(boothInfo.boothStartTime)
-    : null;
-  let boothEnd = boothInfo?.boothEndTime
-    ? new Date(boothInfo.boothEndTime)
-    : null;
-  const rawDurationWeeks =
-    typeof boothInfo?.boothDurationWeeks === "number"
-      ? boothInfo.boothDurationWeeks
-      : Number(boothInfo?.boothDurationWeeks);
-  const durationWeeks =
-    Number.isInteger(rawDurationWeeks) &&
-    rawDurationWeeks >= 1 &&
-    rawDurationWeeks <= 4
-      ? rawDurationWeeks
-      : undefined;
-
-  if ((!boothEnd || Number.isNaN(boothEnd.getTime())) && boothStart && durationWeeks) {
-    const derivedEnd = new Date(boothStart);
-    derivedEnd.setDate(boothStart.getDate() + durationWeeks * 7);
-    boothEnd = derivedEnd;
-  }
-
-  if (!boothStart || !boothEnd || Number.isNaN(boothStart.getTime()) || Number.isNaN(boothEnd.getTime())) {
-    return calculateBazaarFee(event, BazaarBoothSize.SMALL);
-  }
-
-  const rate = BOOTH_HOURLY_RATES[event.location] ?? 300;
-  const hours = hoursBetween(
-    new Date(boothStart),
-    new Date(boothEnd)
-  );
-
-  return Math.max(Math.round(hours * rate), rate);
-}
-
 function buildPaymentRecord(
   event: IEvent,
   application: BazaarApplication
 ): ApplicationPayment {
-  const amount = BAZAAR_FIXED_FEE;
-  const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const boothSize = Object.values(BazaarBoothSize).includes(
+    application.boothSize as BazaarBoothSize
+  )
+    ? (application.boothSize as BazaarBoothSize)
+    : BazaarBoothSize.SMALL;
+
+  const byLocation = BAZAAR_FEE_TABLE[event.location];
+  const amount = byLocation?.[boothSize] ?? BAZAAR_FIXED_FEE;
+
+  const defaultDueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  let dueDate = defaultDueDate;
+
+  const boothStart = application.boothInfo?.boothStartTime
+    ? new Date(application.boothInfo.boothStartTime)
+    : null;
+
+  if (boothStart && !Number.isNaN(boothStart.getTime())) {
+    const candidate = new Date(boothStart);
+    candidate.setDate(candidate.getDate() - 2);
+    if (candidate.getTime() > Date.now()) {
+      dueDate = candidate;
+    }
+  }
 
   return {
     amount,

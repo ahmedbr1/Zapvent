@@ -17,7 +17,6 @@ import SchoolIcon from "@mui/icons-material/SchoolRounded";
 import ConferenceIcon from "@mui/icons-material/CampaignRounded";
 import ChecklistIcon from "@mui/icons-material/ChecklistRtlRounded";
 import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
-import RevenueIcon from "@mui/icons-material/MonetizationOnRounded";
 import { AuthRole, UserRole } from "@/lib/types";
 
 export interface NavItem {
