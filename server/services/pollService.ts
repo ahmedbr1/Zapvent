@@ -1,6 +1,6 @@
 import { Types, isValidObjectId } from "mongoose";
 import PollModel, { IDurationRange } from "../models/Poll";
-import VendorModel, { VendorStatus } from "../models/Vendor";
+import VendorModel, { BazaarApplication, VendorStatus } from "../models/Vendor";
 import EventModel from "../models/Event";
 
 type DurationInput = {
@@ -128,13 +128,15 @@ export async function createVendorBoothPoll(input: CreateVendorBoothPollInput) {
 
     const normalizedLocationLower = normalizedLocation.toLowerCase();
     const eligibleVendors = vendors.filter((vendor) =>
-      (vendor.applications ?? []).some(
-        (app: { eventId?: Types.ObjectId | string; status?: VendorStatus; boothInfo?: { boothLocation?: string } } | null) =>
-          app &&
+      (vendor.applications ?? []).some((app: BazaarApplication | undefined) => {
+        if (!app) return false;
+        return (
           app.eventId?.toString() === input.eventId &&
           app.status !== VendorStatus.REJECTED &&
-          (app.boothInfo?.boothLocation ?? "").toLowerCase() === normalizedLocationLower
-      )
+          (app.boothInfo?.boothLocation ?? "").toLowerCase() ===
+            normalizedLocationLower
+        );
+      })
     );
 
     if (eligibleVendors.length < 2) {

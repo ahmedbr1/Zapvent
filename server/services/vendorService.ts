@@ -405,6 +405,7 @@ export async function applyToBazaar(
       boothLocation?: string;
       boothStartTime?: Date;
       boothEndTime?: Date;
+      boothDurationWeeks?: number;
     };
   }
 ) {
