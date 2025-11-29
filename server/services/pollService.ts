@@ -129,12 +129,11 @@ export async function createVendorBoothPoll(input: CreateVendorBoothPollInput) {
     const normalizedLocationLower = normalizedLocation.toLowerCase();
     const eligibleVendors = vendors.filter((vendor) =>
       (vendor.applications ?? []).some(
-        (app) =>
+        (app: { eventId?: Types.ObjectId | string; status?: VendorStatus; boothInfo?: { boothLocation?: string } } | null) =>
           app &&
           app.eventId?.toString() === input.eventId &&
           app.status !== VendorStatus.REJECTED &&
-          (app.boothInfo?.boothLocation ?? "").toLowerCase() ===
-            normalizedLocationLower
+          (app.boothInfo?.boothLocation ?? "").toLowerCase() === normalizedLocationLower
       )
     );
 
