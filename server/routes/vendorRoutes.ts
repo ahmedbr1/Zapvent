@@ -34,6 +34,20 @@ router.post(
 );
 
 router.post(
+  "/applications/:eventId/payment/intent",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.createStripePaymentIntent.bind(vendorController)
+);
+
+router.post(
+  "/applications/:eventId/payment/confirm",
+  loginRequired,
+  allowedRoles(["Vendor"]),
+  vendorController.confirmStripePayment.bind(vendorController)
+);
+
+router.post(
   "/applications/:eventId/payment",
   loginRequired,
   allowedRoles(["Vendor"]),

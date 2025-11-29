@@ -233,7 +233,7 @@ export interface IGetAllBazaarsResponse {
 export const getAllBazaars = async (): Promise<IGetAllBazaarsResponse> => {
   try {
     const bazaars = await EventModel.find({
-      eventType: EventType.BAZAAR,
+      eventType: { $in: VENDOR_EVENT_TYPES },
     })
       .sort({ startDate: 1 })
       .lean<Array<IEvent & { _id: Types.ObjectId }>>();
@@ -340,6 +340,7 @@ export interface ICreateBazaarInput {
   endDate: string | Date;
   registrationDeadline: string | Date;
   location: Location;
+  eventType?: EventType;
 }
 
 export interface ICreateBazaarResponse {
@@ -401,8 +402,18 @@ export interface ICreateConferenceInput {
   extraRequiredResources?: string;
 }
 
+type EventQueryOptions = {
+  includePast?: boolean;
+};
+
+const VENDOR_EVENT_TYPES: EventType[] = [
+  EventType.BAZAAR,
+  EventType.BOOTH_IN_PLATFORM,
+];
+
 export async function getAllEvents(
-  sortOrder: number = 0
+  sortOrder: number = 0,
+  options: EventQueryOptions = {}
 ): Promise<IGetAllEventsResponse> {
   try {
     const currentDate = new Date();
@@ -410,7 +421,7 @@ export async function getAllEvents(
     // Create the base query for events that haven't ended yet
     // Only show approved workshops (including legacy ones with null/missing status) or non-workshop events
     let query = EventModel.find({
-      endDate: { $gte: currentDate },
+      ...(options.includePast ? {} : { endDate: { $gte: currentDate } }),
       $or: [
         { eventType: { $ne: EventType.WORKSHOP } },
         {
@@ -445,6 +456,62 @@ export async function getAllEvents(
   }
 }
 
+export async function getEventById(
+  eventId: string
+): Promise<
+  IGetAllEventsResponse & {
+    statusCode?: number;
+  }
+> {
+  try {
+    if (!Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid event id provided.",
+        statusCode: 400,
+      };
+    }
+
+    const event = await EventModel.findOne({
+      _id: eventId,
+      $or: [
+        { eventType: { $ne: EventType.WORKSHOP } },
+        {
+          eventType: EventType.WORKSHOP,
+          $or: [
+            { workshopStatus: WorkshopStatus.APPROVED },
+            { workshopStatus: null },
+            { workshopStatus: { $exists: false } },
+          ],
+        },
+      ],
+    }).lean<IEvent & { _id: Types.ObjectId }>();
+
+    if (!event) {
+      return {
+        success: false,
+        message: "Event not found.",
+        statusCode: 404,
+      };
+    }
+
+    const [enriched] = await enrichEventsWithProfessors([event]);
+
+    return {
+      success: true,
+      data: enriched,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Error fetching event by id:", error);
+    return {
+      success: false,
+      message: "Failed to fetch event details.",
+      statusCode: 500,
+    };
+  }
+}
+
 export async function updateConferenceById(
   eventId: string,
   updateData: Partial<IEvent>
@@ -470,11 +537,24 @@ export async function updateConferenceById(
   }
 }
 
-export async function getUpcomingBazaars() {
+export async function getUpcomingBazaars(types?: string[]) {
   const now = new Date();
 
+  const normalizedTypes = Array.isArray(types)
+    ? types
+        .map((value) => value.trim())
+        .map((value) =>
+          VENDOR_EVENT_TYPES.find(
+            (type) => type.toLowerCase() === value.toLowerCase()
+          )
+        )
+        .filter((value): value is EventType => Boolean(value))
+    : [];
+  const eventTypes =
+    normalizedTypes.length > 0 ? normalizedTypes : VENDOR_EVENT_TYPES;
+
   const allBazaars = await EventModel.find({
-    eventType: EventType.BAZAAR,
+    eventType: { $in: eventTypes },
     archived: false,
   });
 
@@ -484,7 +564,11 @@ export async function getUpcomingBazaars() {
     );
   });
 
-  const bazaars = allBazaars.filter((bazaar) => bazaar.startDate >= now);
+  const bazaars = allBazaars.filter(
+    (bazaar) =>
+      bazaar.eventType === EventType.BOOTH_IN_PLATFORM ||
+      bazaar.startDate >= now
+  );
   return bazaars;
 }
 
@@ -499,41 +583,56 @@ export async function createBazaar(
       endDate,
       registrationDeadline,
       location,
+      eventType,
     } = payload;
 
-    const parsedStart = new Date(startDate);
-    const parsedEnd = new Date(endDate);
-    const parsedDeadline = new Date(registrationDeadline);
+    const resolvedEventType = VENDOR_EVENT_TYPES.includes(
+      eventType as EventType
+    )
+      ? (eventType as EventType)
+      : EventType.BAZAAR;
 
-    if (
-      Number.isNaN(parsedStart.getTime()) ||
-      Number.isNaN(parsedEnd.getTime()) ||
-      Number.isNaN(parsedDeadline.getTime())
-    ) {
-      return {
-        success: false,
-        message: "Invalid date format provided.",
-      };
-    }
+    let parsedStart = new Date(startDate);
+    let parsedEnd = new Date(endDate);
+    let parsedDeadline = new Date(registrationDeadline);
 
-    if (parsedStart > parsedEnd) {
-      return {
-        success: false,
-        message: "Start date must be before end date.",
-      };
-    }
+    if (resolvedEventType === EventType.BOOTH_IN_PLATFORM) {
+      // Platform booths stay active indefinitely; keep a generous window for validation.
+      const now = new Date();
+      parsedStart = now;
+      parsedEnd = new Date(now.getTime() + 365 * 10 * 24 * 60 * 60 * 1000); // 10-year window
+      parsedDeadline = new Date(now.getTime() - 24 * 60 * 60 * 1000); // deadline before start to satisfy rules
+    } else {
+      if (
+        Number.isNaN(parsedStart.getTime()) ||
+        Number.isNaN(parsedEnd.getTime()) ||
+        Number.isNaN(parsedDeadline.getTime())
+      ) {
+        return {
+          success: false,
+          message: "Invalid date format provided.",
+        };
+      }
 
-    if (parsedDeadline >= parsedStart) {
-      return {
-        success: false,
-        message: "Registration deadline must be before the start date.",
-      };
+      if (parsedStart > parsedEnd) {
+        return {
+          success: false,
+          message: "Start date must be before end date.",
+        };
+      }
+
+      if (parsedDeadline >= parsedStart) {
+        return {
+          success: false,
+          message: "Registration deadline must be before the start date.",
+        };
+      }
     }
 
     const bazaar = await EventModel.create({
       name,
       description,
-      eventType: EventType.BAZAAR,
+      eventType: resolvedEventType,
       startDate: parsedStart,
       endDate: parsedEnd,
       date: parsedStart,
@@ -546,7 +645,7 @@ export async function createBazaar(
 
     return {
       success: true,
-      message: "Bazaar created successfully.",
+      message: `${resolvedEventType} created successfully.`,
       data: {
         id: bazaar._id.toString(),
         name: bazaar.name,
@@ -1635,7 +1734,7 @@ export async function getAcceptedUpcomingBazaars(vendorId: string): Promise<{
 
     const events = await EventModel.find({
       _id: { $in: eventIds },
-      eventType: EventType.BAZAAR,
+      eventType: { $in: VENDOR_EVENT_TYPES },
       archived: false,
       $or: [{ startDate: { $gte: now } }, { endDate: { $gte: now } }],
     })
@@ -1696,7 +1795,7 @@ export async function getRequestedUpcomingBazaars(vendorId: string): Promise<{
     const now = new Date();
     const events = await EventModel.find({
       _id: { $in: eventIds },
-      eventType: EventType.BAZAAR,
+      eventType: { $in: VENDOR_EVENT_TYPES },
       archived: false,
       $or: [{ startDate: { $gte: now } }, { endDate: { $gte: now } }],
     })
@@ -2350,12 +2449,13 @@ export async function generateEventQRCode(eventId: string): Promise<{
     // Only allow QR code generation for Bazaars and Career Fairs (Seminars)
     if (
       event.eventType !== EventType.BAZAAR &&
+      event.eventType !== EventType.BOOTH_IN_PLATFORM &&
       event.eventType !== EventType.SEMINAR
     ) {
       return {
         success: false,
         message:
-          "QR codes can only be generated for Bazaars and Career Fairs (Seminars).",
+          "QR codes can only be generated for Bazaars, platform booths, and Career Fairs (Seminars).",
       };
     }
 
@@ -2366,6 +2466,9 @@ export async function generateEventQRCode(eventId: string): Promise<{
     if (event.eventType === EventType.BAZAAR) {
       qrText = "Bazaar Ticket";
       eventTypeName = "Bazaar";
+    } else if (event.eventType === EventType.BOOTH_IN_PLATFORM) {
+      qrText = "Platform Booth Pass";
+      eventTypeName = "PlatformBooth";
     } else {
       // Seminar (Career Fair)
       qrText = "Career Fair Ticket";
@@ -2419,7 +2522,22 @@ export async function generateEventQRCode(eventId: string): Promise<{
   }
 }
 
-export async function sendWorkshopCertificates(workshopId: string): Promise<{
+type CertificateSendOptions = {
+  force?: boolean;
+  source?: "auto" | "manual";
+};
+
+const CERTIFICATE_ELIGIBLE_ROLES: userRole[] = [
+  userRole.STUDENT,
+  userRole.STAFF,
+  userRole.TA,
+  userRole.PROFESSOR,
+];
+
+export async function sendWorkshopCertificates(
+  workshopId: string,
+  options?: CertificateSendOptions
+): Promise<{
   success: boolean;
   message: string;
   data?: { sentCount: number; failedCount: number };
@@ -2446,6 +2564,20 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
       return {
         success: false,
         message: "Certificates can only be issued for workshops.",
+      };
+    }
+
+    const previousSuccessfulSend =
+      Boolean(workshop.certificateSentAt) && (workshop.certificateSentCount ?? 0) > 0;
+
+    if (previousSuccessfulSend && !options?.force) {
+      return {
+        success: true,
+        message: `Certificates were already sent on ${workshop.certificateSentAt.toISOString()}.`,
+        data: {
+          sentCount: workshop.certificateSentCount ?? 0,
+          failedCount: 0,
+        },
       };
     }
 
@@ -2479,10 +2611,14 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
       _id: { $in: uniqueParticipantIds },
     }).select("firstName lastName email role");
 
-    if (participants.length === 0) {
+    const eligibleParticipants = participants.filter((participant) =>
+      CERTIFICATE_ELIGIBLE_ROLES.includes(participant.role as userRole)
+    );
+
+    if (eligibleParticipants.length === 0) {
       return {
         success: false,
-        message: "No valid participant data found.",
+        message: "No eligible participants found for certificate delivery.",
       };
     }
 
@@ -2490,7 +2626,7 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
     let sentCount = 0;
     let failedCount = 0;
 
-    for (const participant of participants) {
+    for (const participant of eligibleParticipants) {
       try {
         await emailService.sendWorkshopCertificate({
           user: participant,
@@ -2505,6 +2641,21 @@ export async function sendWorkshopCertificates(workshopId: string): Promise<{
         );
         failedCount++;
       }
+    }
+
+    try {
+      if (sentCount > 0) {
+        workshop.certificateSentAt = new Date();
+        workshop.certificateSentBy = options?.source ?? "manual";
+        workshop.certificateSentCount = sentCount;
+      } else {
+        workshop.certificateSentAt = undefined;
+        workshop.certificateSentBy = undefined;
+        workshop.certificateSentCount = 0;
+      }
+      await workshop.save();
+    } catch (persistError) {
+      console.error("Failed to record certificate dispatch metadata:", persistError);
     }
 
     return {

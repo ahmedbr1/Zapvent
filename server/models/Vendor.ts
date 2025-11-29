@@ -14,6 +14,7 @@ export interface BoothInfo {
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;
+  boothDurationWeeks?: number;
 }
 
 export interface VendorAttendee {
@@ -140,6 +141,7 @@ const vendorSchema = new Schema<IVendor>(
             boothLocation: { type: String },
             boothStartTime: { type: Date },
             boothEndTime: { type: Date },
+            boothDurationWeeks: { type: Number, min: 1, max: 4 },
           },
           payment: {
             amount: { type: Number },

@@ -27,6 +27,7 @@ export enum EventType {
   CONFERENCE = "Conference",
   TRIP = "Trip",
   BAZAAR = "Bazaar",
+  BOOTH_IN_PLATFORM = "Booth in platform",
 }
 
 export enum BazaarBoothSize {
@@ -67,6 +68,9 @@ export interface IEvent extends IBaseModel {
   allowedRoles?: string[]; // User roles that are allowed to register for this event
   registeredUsers: string[]; // List of users
   vendors: string[]; // List of vendors
+  certificateSentAt?: Date;
+  certificateSentBy?: "auto" | "manual";
+  certificateSentCount?: number;
 }
 const EventSchema = new Schema<IEvent>(
   {
@@ -113,6 +117,9 @@ const EventSchema = new Schema<IEvent>(
     allowedRoles: [{ type: String }],
     registeredUsers: [{ type: String }],
     vendors: [{ type: String }],
+    certificateSentAt: { type: Date },
+    certificateSentBy: { type: String, enum: ["auto", "manual"] },
+    certificateSentCount: { type: Number },
   },
   { timestamps: true }
 );

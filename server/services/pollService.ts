@@ -1,6 +1,7 @@
 import { Types, isValidObjectId } from "mongoose";
 import PollModel, { IDurationRange } from "../models/Poll";
-import VendorModel, { VendorStatus } from "../models/Vendor";
+import VendorModel, { BazaarApplication, VendorStatus } from "../models/Vendor";
+import EventModel from "../models/Event";
 
 type DurationInput = {
   start: string;
@@ -11,6 +12,8 @@ export interface CreateVendorBoothPollInput {
   boothName: string;
   durations: DurationInput[];
   vendorIds: string[];
+  eventId: string;
+  boothLocation: string;
 }
 
 function parseDuration(duration: DurationInput): IDurationRange | null {
@@ -33,6 +36,23 @@ function parseDuration(duration: DurationInput): IDurationRange | null {
 
 export async function createVendorBoothPoll(input: CreateVendorBoothPollInput) {
   try {
+    const normalizedLocation = input.boothLocation?.trim();
+    if (!normalizedLocation) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: "boothLocation is required",
+      };
+    }
+
+    if (!isValidObjectId(input.eventId)) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: "Valid eventId is required",
+      };
+    }
+
     const boothName = input.boothName?.trim();
     if (!boothName) {
       return {
@@ -81,10 +101,22 @@ export async function createVendorBoothPoll(input: CreateVendorBoothPollInput) {
       };
     }
 
+    const event = await EventModel.findById(input.eventId)
+      .select(["name", "eventType", "location", "startDate", "endDate"])
+      .lean();
+
+    if (!event) {
+      return {
+        success: false,
+        statusCode: 404,
+        message: "Event not found",
+      };
+    }
+
     const vendors = await VendorModel.find({
       _id: { $in: uniqueVendorIds },
       verificationStatus: VendorStatus.APPROVED,
-    }).select(["_id", "companyName"]);
+    }).select(["_id", "companyName", "applications"]);
 
     if (vendors.length !== uniqueVendorIds.length) {
       return {
@@ -94,10 +126,37 @@ export async function createVendorBoothPoll(input: CreateVendorBoothPollInput) {
       };
     }
 
+    const normalizedLocationLower = normalizedLocation.toLowerCase();
+    const eligibleVendors = vendors.filter((vendor) =>
+      (vendor.applications ?? []).some((app: BazaarApplication | undefined) => {
+        if (!app) return false;
+        return (
+          app.eventId?.toString() === input.eventId &&
+          app.status !== VendorStatus.REJECTED &&
+          (app.boothInfo?.boothLocation ?? "").toLowerCase() ===
+            normalizedLocationLower
+        );
+      })
+    );
+
+    if (eligibleVendors.length < 2) {
+      return {
+        success: false,
+        statusCode: 400,
+        message:
+          "At least two approved vendors with matching applications (same event and booth location) are required.",
+      };
+    }
+
     const poll = await PollModel.create({
       boothName,
+      event: input.eventId,
+      boothLocation: normalizedLocation,
       durations: normalizedDurations,
-      vendorsWithVotes: vendors.map((vendor) => ({ vendor: vendor._id, votes: 0 })),
+      vendorsWithVotes: eligibleVendors.map((vendor) => ({
+        vendor: vendor._id,
+        votes: 0,
+      })),
     });
 
     return {
@@ -234,6 +293,8 @@ export async function listVendorBoothPolls(userId?: string) {
       return {
         id: poll._id.toString(),
         boothName: poll.boothName,
+        eventId: poll.event ? poll.event.toString() : undefined,
+        boothLocation: poll.boothLocation,
         durations: poll.durations.map((duration) => ({
           start: duration.start.toISOString(),
           end: duration.end.toISOString(),

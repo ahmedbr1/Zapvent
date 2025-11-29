@@ -7,6 +7,8 @@ interface PollsResponse {
   polls?: Array<{
     id: string;
     boothName: string;
+    eventId?: string;
+    boothLocation?: string;
     durations: Array<{ start: string; end: string }>;
     vendors: Array<{
       vendorId: string;
@@ -34,6 +36,8 @@ export interface CreateVendorPollInput {
   boothName: string;
   durations: Array<{ start: string; end: string }>;
   vendorIds: string[];
+  eventId: string;
+  boothLocation: string;
 }
 
 export async function fetchVendorPolls(token?: string): Promise<VendorPoll[]> {
@@ -49,6 +53,8 @@ export async function fetchVendorPolls(token?: string): Promise<VendorPoll[]> {
   return (response.polls ?? []).map((poll) => ({
     id: poll.id,
     boothName: poll.boothName,
+    eventId: poll.eventId,
+    boothLocation: poll.boothLocation,
     durations: poll.durations,
     options: poll.vendors.map((vendor) => ({
       vendorId: vendor.vendorId,

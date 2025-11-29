@@ -1,5 +1,11 @@
 import { apiFetch } from "@/lib/api-client";
-import type { AuthRole, UserRole, UserStatus, VendorStatus } from "@/lib/types";
+import type {
+  AuthRole,
+  EventType,
+  UserRole,
+  UserStatus,
+  VendorStatus,
+} from "@/lib/types";
 import { BazaarBoothSize } from "@/server/models/Event";
 
 export interface AdminUser {
@@ -32,6 +38,9 @@ interface ApproveUserResponse extends AdminActionResponse {
 export interface AdminVendorApplication {
   eventId: string;
   eventName?: string;
+  eventType?: EventType;
+  eventDate?: string | null;
+  eventLocation?: string;
   status: VendorStatus;
   applicationDate?: string | null;
   attendees: number;
@@ -39,6 +48,7 @@ export interface AdminVendorApplication {
   boothLocation?: string;
   boothStartTime?: string | null;
   boothEndTime?: string | null;
+  boothDurationWeeks?: number | null;
 }
 
 export interface AdminVendor {
@@ -100,12 +110,19 @@ export async function fetchAdminVendors(
       applicationDate: application.applicationDate
         ? new Date(application.applicationDate).toISOString()
         : null,
+      eventDate: application.eventDate
+        ? new Date(application.eventDate).toISOString()
+        : null,
       boothStartTime: application.boothStartTime
         ? new Date(application.boothStartTime).toISOString()
         : null,
       boothEndTime: application.boothEndTime
         ? new Date(application.boothEndTime).toISOString()
         : null,
+      boothDurationWeeks:
+        typeof application.boothDurationWeeks === "number"
+          ? application.boothDurationWeeks
+          : null,
     })),
   }));
 }

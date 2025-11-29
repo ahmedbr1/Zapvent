@@ -1,6 +1,13 @@
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose, { Types } from "mongoose";
 import PollModel, { IPoll } from "../../../server/models/Poll";
+import EventModel, {
+  BazaarBoothSize,
+  EventType,
+  FundingSource,
+  IEvent,
+  Location,
+} from "../../../server/models/Event";
 import UserModel, {
   IUser,
   userRole,
@@ -25,18 +32,15 @@ beforeAll(async () => {
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
 });
-
 beforeEach(() => {
   jest.spyOn(console, "error").mockImplementation(() => undefined);
   jest.spyOn(console, "info").mockImplementation(() => undefined);
   jest.clearAllMocks();
 });
-
 afterAll(async () => {
   await mongoose.disconnect();
   await mongoServer.stop();
 });
-
 afterEach(async () => {
   const collections = mongoose.connection.collections;
   for (const key in collections) {
@@ -50,14 +54,56 @@ describe("createVendorBoothPoll", () => {
   let vendor2: IVendor & { _id: Types.ObjectId };
   let vendor3: IVendor & { _id: Types.ObjectId };
   let pendingVendor: IVendor & { _id: Types.ObjectId };
+  let event: IEvent & { _id: Types.ObjectId };
+  let eventId = "";
+  const boothLocation = "Main Bazaar Hall";
 
   beforeEach(async () => {
+    const eventDoc = new EventModel({
+      name: "Winter Bazaar",
+      eventType: EventType.BAZAAR,
+      description: "Seasonal bazaar event",
+      date: new Date("2025-12-01T09:00:00Z"),
+      location: Location.GUCCAIRO,
+      startDate: new Date("2025-12-01T09:00:00Z"),
+      endDate: new Date("2025-12-02T17:00:00Z"),
+      registrationDeadline: new Date("2025-11-20T23:59:59Z"),
+      fundingSource: FundingSource.GUC,
+      revenue: 0,
+      archived: false,
+      registeredUsers: [],
+      vendors: [],
+    });
+    await eventDoc.save();
+    event = eventDoc.toObject() as IEvent & { _id: Types.ObjectId };
+    event._id = eventDoc._id as Types.ObjectId;
+    eventId = event._id.toString();
+
+    const buildApplication = (
+      email: string,
+      status: VendorStatus = VendorStatus.APPROVED
+    ) => ({
+      eventId: event._id,
+      status,
+      attendees: [
+        {
+          name: "Vendor Representative",
+          email,
+        },
+      ],
+      boothSize: BazaarBoothSize.SMALL,
+      boothInfo: {
+        boothLocation,
+      },
+    });
+
     const vendor1Doc = new VendorModel({
       email: "vendor1@example.com",
       password: "password123",
       companyName: "Vendor One",
       verified: true,
       verificationStatus: VendorStatus.APPROVED,
+      applications: [buildApplication("vendor1.rep@example.com")],
     });
     await vendor1Doc.save();
     vendor1 = vendor1Doc.toObject() as IVendor & { _id: Types.ObjectId };
@@ -69,6 +115,7 @@ describe("createVendorBoothPoll", () => {
       companyName: "Vendor Two",
       verified: true,
       verificationStatus: VendorStatus.APPROVED,
+      applications: [buildApplication("vendor2.rep@example.com")],
     });
     await vendor2Doc.save();
     vendor2 = vendor2Doc.toObject() as IVendor & { _id: Types.ObjectId };
@@ -80,6 +127,7 @@ describe("createVendorBoothPoll", () => {
       companyName: "Vendor Three",
       verified: true,
       verificationStatus: VendorStatus.APPROVED,
+      applications: [buildApplication("vendor3.rep@example.com")],
     });
     await vendor3Doc.save();
     vendor3 = vendor3Doc.toObject() as IVendor & { _id: Types.ObjectId };
@@ -91,6 +139,9 @@ describe("createVendorBoothPoll", () => {
       companyName: "Pending Vendor",
       verified: false,
       verificationStatus: VendorStatus.PENDING,
+      applications: [
+        buildApplication("pending.rep@example.com", VendorStatus.PENDING),
+      ],
     });
     await pendingVendorDoc.save();
     pendingVendor = pendingVendorDoc.toObject() as IVendor & {
@@ -99,17 +150,38 @@ describe("createVendorBoothPoll", () => {
     pendingVendor._id = pendingVendorDoc._id as Types.ObjectId;
   });
 
-  it("should reject poll with missing booth name", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "",
-      durations: [
+  const buildInput = (
+    overrides: Partial<CreateVendorBoothPollInput> = {}
+  ): CreateVendorBoothPollInput => ({
+    boothName: overrides.boothName ?? "Food Booth",
+    boothLocation: overrides.boothLocation ?? boothLocation,
+    eventId: overrides.eventId ?? eventId,
+    durations:
+      overrides.durations ?? [
         {
           start: "2025-12-01T10:00:00Z",
           end: "2025-12-01T12:00:00Z",
         },
       ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    vendorIds:
+      overrides.vendorIds ?? [
+        vendor1._id.toString(),
+        vendor2._id.toString(),
+      ],
+  });
+
+  it("should reject poll with missing booth location", async () => {
+    const input = buildInput({ boothLocation: "   " });
+
+    const result = await createVendorBoothPoll(input);
+
+    expect(result.success).toBe(false);
+    expect(result.statusCode).toBe(400);
+    expect(result.message).toBe("boothLocation is required");
+  });
+
+  it("should reject poll with missing booth name", async () => {
+    const input = buildInput({ boothName: "" });
 
     const result = await createVendorBoothPoll(input);
 
@@ -119,16 +191,7 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with whitespace-only booth name", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "   ",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    const input = buildInput({ boothName: "   " });
 
     const result = await createVendorBoothPoll(input);
 
@@ -137,12 +200,41 @@ describe("createVendorBoothPoll", () => {
     expect(result.message).toBe("boothName is required");
   });
 
+  it("should reject poll with invalid event id", async () => {
+    const input = buildInput({ eventId: "invalid-id" });
+
+    const result = await createVendorBoothPoll(input);
+
+    expect(result.success).toBe(false);
+    expect(result.statusCode).toBe(400);
+    expect(result.message).toBe("Valid eventId is required");
+  });
+
+  it("should reject poll when event does not exist", async () => {
+    const fakeEventId = new Types.ObjectId().toString();
+    const input = buildInput({ eventId: fakeEventId });
+
+    const result = await createVendorBoothPoll(input);
+
+    expect(result.success).toBe(false);
+    expect(result.statusCode).toBe(404);
+    expect(result.message).toBe("Event not found");
+  });
+
+  it("should require matching vendor applications at the same location", async () => {
+    const input = buildInput({ boothLocation: "Conference Hall" });
+
+    const result = await createVendorBoothPoll(input);
+
+    expect(result.success).toBe(false);
+    expect(result.statusCode).toBe(400);
+    expect(result.message).toBe(
+      "At least two approved vendors with matching applications (same event and booth location) are required."
+    );
+  });
+
   it("should reject poll with empty durations array", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    const input = buildInput({ durations: [] });
 
     const result = await createVendorBoothPoll(input);
 
@@ -154,6 +246,8 @@ describe("createVendorBoothPoll", () => {
   it("should reject poll with missing durations", async () => {
     const input = {
       boothName: "Food Booth",
+      boothLocation,
+      eventId,
       vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
     } as CreateVendorBoothPollInput;
 
@@ -165,16 +259,14 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with invalid duration format", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
+    const input = buildInput({
       durations: [
         {
           start: "invalid-date",
           end: "2025-12-01T12:00:00Z",
         },
       ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -186,16 +278,14 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with start date after end date", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
+    const input = buildInput({
       durations: [
         {
           start: "2025-12-01T14:00:00Z",
           end: "2025-12-01T12:00:00Z",
         },
       ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -207,16 +297,14 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with equal start and end dates", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
+    const input = buildInput({
       durations: [
         {
           start: "2025-12-01T12:00:00Z",
           end: "2025-12-01T12:00:00Z",
         },
       ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -228,16 +316,14 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with missing duration start", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
+    const input = buildInput({
       durations: [
         {
           start: "",
           end: "2025-12-01T12:00:00Z",
         },
       ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -249,16 +335,14 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with missing duration end", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
+    const input = buildInput({
       durations: [
         {
           start: "2025-12-01T10:00:00Z",
           end: "",
         },
       ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -270,16 +354,7 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with only one vendor", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
-      vendorIds: [vendor1._id.toString()],
-    };
+    const input = buildInput({ vendorIds: [vendor1._id.toString()] });
 
     const result = await createVendorBoothPoll(input);
 
@@ -289,16 +364,7 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with no vendors", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
-      vendorIds: [],
-    };
+    const input = buildInput({ vendorIds: [] });
 
     const result = await createVendorBoothPoll(input);
 
@@ -308,16 +374,9 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with invalid vendor id", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
+    const input = buildInput({
       vendorIds: ["invalid-id", vendor1._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -328,16 +387,9 @@ describe("createVendorBoothPoll", () => {
 
   it("should reject poll with non-existent vendor", async () => {
     const fakeVendorId = new Types.ObjectId().toString();
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
+    const input = buildInput({
       vendorIds: [fakeVendorId, vendor1._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -349,16 +401,9 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should reject poll with pending vendor", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
+    const input = buildInput({
       vendorIds: [vendor1._id.toString(), pendingVendor._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -370,50 +415,37 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should successfully create poll with two vendors", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    const input = buildInput();
 
     const result = await createVendorBoothPoll(input);
 
     expect(result.success).toBe(true);
     expect(result.statusCode).toBe(201);
-    expect(result.data).toBeDefined();
     expect(result.data?.poll).toBeDefined();
     expect(result.data?.poll.boothName).toBe("Food Booth");
+    expect(result.data?.poll.boothLocation).toBe(boothLocation);
+    expect(result.data?.poll.event?.toString()).toBe(eventId);
     expect(result.data?.poll.durations).toHaveLength(1);
     expect(result.data?.poll.vendorsWithVotes).toHaveLength(2);
     expect(result.data?.poll.vendorsWithVotes[0].votes).toBe(0);
     expect(result.data?.poll.vendorsWithVotes[1].votes).toBe(0);
 
-    // Verify poll was saved to database
     const savedPoll = await PollModel.findById(result.data?.poll._id);
     expect(savedPoll).toBeDefined();
     expect(savedPoll?.boothName).toBe("Food Booth");
+    expect(savedPoll?.boothLocation).toBe(boothLocation);
+    expect(savedPoll?.event?.toString()).toBe(eventId);
   });
 
   it("should successfully create poll with three vendors", async () => {
-    const input: CreateVendorBoothPollInput = {
+    const input = buildInput({
       boothName: "Electronics Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
       vendorIds: [
         vendor1._id.toString(),
         vendor2._id.toString(),
         vendor3._id.toString(),
       ],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -423,7 +455,7 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should successfully create poll with multiple durations", async () => {
-    const input: CreateVendorBoothPollInput = {
+    const input = buildInput({
       boothName: "Clothing Booth",
       durations: [
         {
@@ -439,8 +471,7 @@ describe("createVendorBoothPoll", () => {
           end: "2025-12-02T12:00:00Z",
         },
       ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
@@ -449,25 +480,18 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should deduplicate vendor ids", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
+    const input = buildInput({
       vendorIds: [
         vendor1._id.toString(),
         vendor2._id.toString(),
-        vendor1._id.toString(), // Duplicate
+        vendor1._id.toString(),
       ],
-    };
+    });
 
     const result = await createVendorBoothPoll(input);
 
     expect(result.success).toBe(true);
-    expect(result.data?.poll.vendorsWithVotes).toHaveLength(2); // Only 2 unique vendors
+    expect(result.data?.poll.vendorsWithVotes).toHaveLength(2);
   });
 
   it("should handle database errors gracefully", async () => {
@@ -475,16 +499,7 @@ describe("createVendorBoothPoll", () => {
       .spyOn(PollModel, "create")
       .mockRejectedValueOnce(new Error("Database error"));
 
-    const input: CreateVendorBoothPollInput = {
-      boothName: "Food Booth",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    const input = buildInput();
 
     const result = await createVendorBoothPoll(input);
 
@@ -494,16 +509,7 @@ describe("createVendorBoothPoll", () => {
   });
 
   it("should trim booth name", async () => {
-    const input: CreateVendorBoothPollInput = {
-      boothName: "  Food Booth  ",
-      durations: [
-        {
-          start: "2025-12-01T10:00:00Z",
-          end: "2025-12-01T12:00:00Z",
-        },
-      ],
-      vendorIds: [vendor1._id.toString(), vendor2._id.toString()],
-    };
+    const input = buildInput({ boothName: "  Food Booth  " });
 
     const result = await createVendorBoothPoll(input);
 
@@ -830,7 +836,7 @@ describe("voteForVendor", () => {
 
   it("should not decrement votes below zero when changing vote", async () => {
     // Manually create a poll with 0 votes
-    const pollDoc = await PollModel.create({
+    const pollDoc = (await PollModel.create({
       boothName: "Zero Vote Test",
       durations: [
         {
@@ -843,7 +849,7 @@ describe("voteForVendor", () => {
         { vendor: vendor2._id, votes: 0 },
       ],
       votesByUser: [{ user: user._id, vendor: vendor1._id }],
-    });
+    })) as IPoll & { _id: Types.ObjectId };
 
     // Change vote from vendor1 to vendor2
     await voteForVendor(

@@ -25,9 +25,21 @@ import {
   notifyAdminsOfPendingVendors,
 } from "./notificationService";
 import crypto from "node:crypto";
+import Stripe from "stripe";
 
 const relaxedUrlRegex =
   /^(https?:\/\/)?([\w-]+\.)+[A-Za-z]{2,}([/?#].*)?$/;
+
+const VENDOR_EVENT_TYPES = new Set<EventType>([
+  EventType.BAZAAR,
+  EventType.BOOTH_IN_PLATFORM,
+]);
+const stripeClient = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2023-10-16",
+    })
+  : null;
+const BAZAAR_FIXED_FEE = 1000;
 
 // Zod schema for vendor signup validation
 export const vendorSignupSchema = z
@@ -248,11 +260,6 @@ const BAZAAR_FEE_TABLE: Record<Location, Record<BazaarBoothSize, number>> = {
   },
 };
 
-const BOOTH_HOURLY_RATES: Record<Location, number> = {
-  [Location.GUCCAIRO]: 320,
-  [Location.GUCCBERLIN]: 280,
-};
-
 const PAYMENT_CURRENCY = "EGP";
 
 function generateReceiptNumber(): string {
@@ -267,47 +274,33 @@ function buildQrCodeUrl(data: Record<string, unknown>): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encoded}`;
 }
 
-function hoursBetween(start: Date, end: Date): number {
-  const diffMs = end.getTime() - start.getTime();
-  return Math.max(diffMs / (1000 * 60 * 60), 0);
-}
-
-function calculateBazaarFee(
-  event: Pick<IEvent, "location">,
-  boothSize: BazaarBoothSize
-): number {
-  const byLocation = BAZAAR_FEE_TABLE[event.location];
-  if (!byLocation) {
-    return 3000;
-  }
-  return byLocation[boothSize] ?? 3000;
-}
-
-function calculateBoothFee(
-  event: Pick<IEvent, "location">,
-  boothInfo?: BoothInfo
-): number {
-  if (!boothInfo?.boothStartTime || !boothInfo?.boothEndTime) {
-    return calculateBazaarFee(event, BazaarBoothSize.SMALL);
-  }
-
-  const rate = BOOTH_HOURLY_RATES[event.location] ?? 300;
-  const hours = hoursBetween(
-    new Date(boothInfo.boothStartTime),
-    new Date(boothInfo.boothEndTime)
-  );
-
-  return Math.max(Math.round(hours * rate), rate);
-}
-
 function buildPaymentRecord(
   event: IEvent,
   application: BazaarApplication
 ): ApplicationPayment {
-  const baseAmount = calculateBazaarFee(event, application.boothSize);
-  const boothAdjustment = calculateBoothFee(event, application.boothInfo);
-  const amount = Math.max(baseAmount, boothAdjustment);
-  const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const boothSize = Object.values(BazaarBoothSize).includes(
+    application.boothSize as BazaarBoothSize
+  )
+    ? (application.boothSize as BazaarBoothSize)
+    : BazaarBoothSize.SMALL;
+
+  const byLocation = BAZAAR_FEE_TABLE[event.location];
+  const amount = byLocation?.[boothSize] ?? BAZAAR_FIXED_FEE;
+
+  const defaultDueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  let dueDate = defaultDueDate;
+
+  const boothStart = application.boothInfo?.boothStartTime
+    ? new Date(application.boothInfo.boothStartTime)
+    : null;
+
+  if (boothStart && !Number.isNaN(boothStart.getTime())) {
+    const candidate = new Date(boothStart);
+    candidate.setDate(candidate.getDate() - 2);
+    if (candidate.getTime() > Date.now()) {
+      dueDate = candidate;
+    }
+  }
 
   return {
     amount,
@@ -316,6 +309,11 @@ function buildPaymentRecord(
     dueDate,
   };
 }
+
+type StripeIntentData = {
+  clientSecret: string;
+  paymentIntentId: string;
+};
 
 export interface AdminVendorApplication {
   eventId: string;
@@ -327,6 +325,7 @@ export interface AdminVendorApplication {
   boothLocation?: string;
   boothStartTime?: Date;
   boothEndTime?: Date;
+  boothDurationWeeks?: number;
   hasPaid: boolean;
 }
 
@@ -406,6 +405,7 @@ export async function applyToBazaar(
       boothLocation?: string;
       boothStartTime?: Date;
       boothEndTime?: Date;
+      boothDurationWeeks?: number;
     };
   }
 ) {
@@ -426,10 +426,11 @@ export async function applyToBazaar(
     }
     console.log("Event found:", event.name, "Type:", event.eventType);
 
-    if (event.eventType !== EventType.BAZAAR) {
-      console.log("Event is not a bazaar, type:", event.eventType);
-      return { success: false, message: "Event is not a bazaar" };
+    if (!VENDOR_EVENT_TYPES.has(event.eventType as EventType)) {
+      console.log("Event is not eligible for vendor booths, type:", event.eventType);
+      return { success: false, message: "This event does not accept booth applications" };
     }
+    const isPlatformBooth = event.eventType === EventType.BOOTH_IN_PLATFORM;
 
     const attendeesArray = Array.isArray(applicationData.attendees)
       ? applicationData.attendees.filter((attendee) => Boolean(attendee))
@@ -478,35 +479,105 @@ export async function applyToBazaar(
     }
 
     let boothInfoToSave: BoothInfo | undefined = undefined;
-    if (applicationData.boothInfo) {
-      const { boothStartTime, boothEndTime, boothLocation } =
-        applicationData.boothInfo;
+    if (isPlatformBooth && !applicationData.boothInfo) {
+      return {
+        success: false,
+        message:
+          "Booth start date, duration, and location are required for platform booths.",
+      };
+    }
 
-      if (
-        (boothStartTime && !boothEndTime) ||
-        (!boothStartTime && boothEndTime)
-      ) {
+    if (applicationData.boothInfo) {
+      const {
+        boothStartTime,
+        boothEndTime,
+        boothLocation,
+        boothDurationWeeks,
+      } =
+        applicationData.boothInfo;
+      const trimmedLocation =
+        typeof boothLocation === "string" && boothLocation.trim()
+          ? boothLocation.trim()
+          : undefined;
+      const normalizedDuration =
+        typeof boothDurationWeeks === "number"
+          ? boothDurationWeeks
+          : Number(boothDurationWeeks);
+      const durationWeeks =
+        Number.isInteger(normalizedDuration) &&
+        normalizedDuration >= 1 &&
+        normalizedDuration <= 4
+          ? normalizedDuration
+          : undefined;
+      const hasStart = Boolean(boothStartTime);
+      const hasEnd = Boolean(boothEndTime);
+      const hasDuration = typeof durationWeeks === "number";
+
+      if (!isPlatformBooth) {
+        if ((hasStart && !hasEnd) || (!hasStart && hasEnd)) {
+          return {
+            success: false,
+            message:
+              "Both boothStartTime and boothEndTime are required when providing booth schedule",
+          };
+        }
+      }
+
+      if (isPlatformBooth && (!hasStart || (!hasEnd && !hasDuration))) {
         return {
           success: false,
           message:
-            "Both boothStartTime and boothEndTime are required when providing booth schedule",
+            "Platform booths require a start date and a duration between 1 and 4 weeks.",
         };
       }
 
-      if (boothStartTime && boothEndTime) {
-        const start = new Date(boothStartTime);
-        const end = new Date(boothEndTime);
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      let start: Date | null = null;
+      let end: Date | null = null;
+
+      if (hasStart) {
+        const parsedStart = new Date(boothStartTime as Date);
+        if (Number.isNaN(parsedStart.getTime())) {
           return {
             success: false,
-            message: "Invalid boothStartTime or boothEndTime",
+            message: "Invalid boothStartTime provided.",
           };
         }
+        start = parsedStart;
+      }
+
+      if (hasEnd) {
+        const parsedEnd = new Date(boothEndTime as Date);
+        if (Number.isNaN(parsedEnd.getTime())) {
+          return {
+            success: false,
+            message: "Invalid boothEndTime provided.",
+          };
+        }
+        end = parsedEnd;
+      }
+
+      if (start && !end && hasDuration) {
+        const derivedEnd = new Date(start);
+        derivedEnd.setDate(start.getDate() + durationWeeks * 7);
+        end = derivedEnd;
+      }
+
+      if (start && end) {
         if (end <= start) {
           return {
             success: false,
             message: "boothEndTime must be after boothStartTime",
           };
+        }
+        if (isPlatformBooth) {
+          const durationDays =
+            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+          if (durationDays < 7 || durationDays > 28) {
+            return {
+              success: false,
+              message: "Booth duration must be between 1 and 4 weeks.",
+            };
+          }
         }
         // Ensure booth times fall within the event duration (optional but recommended)
         if (event.startDate && event.endDate) {
@@ -517,10 +588,26 @@ export async function applyToBazaar(
             };
           }
         }
+      } else if (start || end) {
+        return {
+          success: false,
+          message: "Both boothStartTime and boothEndTime are required when providing booth schedule",
+        };
+      }
+
+      if (isPlatformBooth && !trimmedLocation) {
+        return {
+          success: false,
+          message: "Choose a booth location on the platform map.",
+        };
+      }
+
+      if (trimmedLocation || start || end || hasDuration) {
         boothInfoToSave = {
-          boothLocation: boothLocation || undefined,
-          boothStartTime: start,
-          boothEndTime: end,
+          boothLocation: trimmedLocation || undefined,
+          boothStartTime: start ?? undefined,
+          boothEndTime: end ?? undefined,
+          boothDurationWeeks: durationWeeks ?? undefined,
         };
       }
     }
@@ -564,18 +651,20 @@ export async function applyToBazaar(
         console.log("Vendor not found:", vendorId);
         return { success: false, message: "Vendor not found" };
       }
-      console.log("Vendor exists but already applied for this bazaar");
-      return { success: false, message: "Already applied for this bazaar" };
+      console.log("Vendor exists but already applied for this event");
+      return { success: false, message: "Already applied for this event" };
     }
 
     console.log("Application saved successfully!");
 
     // Update event capacity - decrease available spots
     const numAttendees = attendeesArray.length;
-    await EventModel.findByIdAndUpdate(applicationData.eventId, {
-      $inc: { capacity: -numAttendees },
-    });
-    console.log(`Decreased event capacity by ${numAttendees} attendees`);
+    if (typeof event.capacity === "number") {
+      await EventModel.findByIdAndUpdate(applicationData.eventId, {
+        $inc: { capacity: -numAttendees },
+      });
+      console.log(`Decreased event capacity by ${numAttendees} attendees`);
+    }
 
     const savedApp = updatedVendor.applications[0];
     return {
@@ -689,6 +778,7 @@ export async function getVendorApplications(vendorId: string) {
           boothLocation: app.boothInfo?.boothLocation,
           boothStartTime: app.boothInfo?.boothStartTime,
           boothEndTime: app.boothInfo?.boothEndTime,
+          boothDurationWeeks: app.boothInfo?.boothDurationWeeks,
           hasPaid: Boolean(app.hasPaid),
           payment: app.payment
             ? {
@@ -918,6 +1008,11 @@ export async function recordVendorPayment(options: {
       application.payment = buildPaymentRecord(event, application);
     }
 
+    if (application.payment) {
+      application.payment.amount = BAZAAR_FIXED_FEE;
+      application.payment.currency = PAYMENT_CURRENCY;
+    }
+
     if (application.payment.status === "paid") {
       return {
         success: false,
@@ -1011,6 +1106,300 @@ export async function recordVendorPayment(options: {
     return {
       success: false,
       message: "Failed to record payment",
+    };
+  }
+}
+
+export async function createVendorStripePaymentIntent(options: {
+  vendorId: string;
+  eventId: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+  statusCode?: number;
+  data?: StripeIntentData;
+}> {
+  try {
+    const { vendorId, eventId } = options;
+
+    if (!stripeClient) {
+      return {
+        success: false,
+        message: "Stripe is not configured.",
+        statusCode: 500,
+      };
+    }
+
+    if (!Types.ObjectId.isValid(vendorId) || !Types.ObjectId.isValid(eventId)) {
+      return {
+        success: false,
+        message: "Invalid vendor or event identifier provided.",
+        statusCode: 400,
+      };
+    }
+
+    const [vendor, event] = await Promise.all([
+      vendorModel.findById(vendorId),
+      EventModel.findById(eventId),
+    ]);
+
+    if (!vendor) {
+      return { success: false, message: "Vendor not found", statusCode: 404 };
+    }
+
+    if (!event) {
+      return { success: false, message: "Event not found", statusCode: 404 };
+    }
+
+    const application = getVendorApplicationsArray(vendor).find(
+      (app) => app.eventId.toString() === eventId
+    );
+
+    if (!application) {
+      return { success: false, message: "Application not found", statusCode: 404 };
+    }
+
+    if (application.status !== VendorStatus.APPROVED) {
+      return {
+        success: false,
+        message: "Payment is only allowed for approved applications.",
+        statusCode: 400,
+      };
+    }
+
+    if (!application.payment) {
+      application.payment = buildPaymentRecord(event, application);
+    }
+
+    if (application.payment) {
+      application.payment.amount = BAZAAR_FIXED_FEE;
+      application.payment.currency = PAYMENT_CURRENCY;
+    }
+
+    if (!application.payment) {
+      return {
+        success: false,
+        message: "Payment details are unavailable for this application.",
+        statusCode: 400,
+      };
+    }
+
+    if (application.payment.status === "paid") {
+      return {
+        success: false,
+        message: "Payment has already been recorded for this application.",
+        statusCode: 400,
+      };
+    }
+
+    application.payment.currency =
+      (application.payment.currency || PAYMENT_CURRENCY).toUpperCase();
+
+    const amount = Number(application.payment.amount ?? 0);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return {
+        success: false,
+        message: "Invalid payment amount for this application.",
+        statusCode: 400,
+      };
+    }
+
+    const currency = (application.payment.currency || PAYMENT_CURRENCY).toLowerCase();
+
+    const paymentIntent = await stripeClient.paymentIntents.create({
+      amount: Math.round(amount * 100),
+      currency,
+      payment_method_types: ["card"],
+      metadata: {
+        vendorId,
+        eventId,
+        boothLocation: application.boothInfo?.boothLocation ?? "",
+      },
+    });
+
+    if (!paymentIntent.client_secret) {
+      return {
+        success: false,
+        message: "Failed to start card payment.",
+        statusCode: 500,
+      };
+    }
+
+    vendor.markModified("applications");
+    await vendor.save();
+
+    return {
+      success: true,
+      message: "Stripe payment intent created.",
+      data: {
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      },
+    };
+  } catch (error) {
+    console.error("Error creating vendor Stripe payment intent:", error);
+    return {
+      success: false,
+      message: "Failed to create Stripe payment intent.",
+      statusCode: 500,
+    };
+  }
+}
+
+export async function finalizeVendorStripePayment(options: {
+  vendorId: string;
+  eventId: string;
+  paymentIntentId: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+  statusCode?: number;
+}> {
+  try {
+    const { vendorId, eventId, paymentIntentId } = options;
+
+    if (!stripeClient) {
+      return {
+        success: false,
+        message: "Stripe is not configured.",
+        statusCode: 500,
+      };
+    }
+
+    if (
+      !Types.ObjectId.isValid(vendorId) ||
+      !Types.ObjectId.isValid(eventId) ||
+      !paymentIntentId
+    ) {
+      return {
+        success: false,
+        message: "Invalid payment confirmation request.",
+        statusCode: 400,
+      };
+    }
+
+    const [vendor, event] = await Promise.all([
+      vendorModel.findById(vendorId),
+      EventModel.findById(eventId),
+    ]);
+
+    if (!vendor) {
+      return { success: false, message: "Vendor not found", statusCode: 404 };
+    }
+
+    if (!event) {
+      return { success: false, message: "Event not found", statusCode: 404 };
+    }
+
+    const application = getVendorApplicationsArray(vendor).find(
+      (app) => app.eventId.toString() === eventId
+    );
+
+    if (!application) {
+      return { success: false, message: "Application not found", statusCode: 404 };
+    }
+
+    if (application.payment?.status === "paid") {
+      return {
+        success: true,
+        message: "Payment already recorded.",
+        statusCode: 200,
+      };
+    }
+
+    if (!application.payment) {
+      application.payment = buildPaymentRecord(event, application);
+    }
+
+    if (application.payment) {
+      application.payment.amount = BAZAAR_FIXED_FEE;
+      application.payment.currency = PAYMENT_CURRENCY;
+    }
+
+    const paymentIntent = await stripeClient.paymentIntents.retrieve(paymentIntentId);
+
+    if (
+      paymentIntent.metadata?.vendorId &&
+      paymentIntent.metadata.vendorId !== vendorId
+    ) {
+      return {
+        success: false,
+        message: "Payment intent does not match this vendor.",
+        statusCode: 400,
+      };
+    }
+
+    if (
+      paymentIntent.metadata?.eventId &&
+      paymentIntent.metadata.eventId !== eventId
+    ) {
+      return {
+        success: false,
+        message: "Payment intent does not match this event.",
+        statusCode: 400,
+      };
+    }
+
+    if (paymentIntent.status !== "succeeded") {
+      return {
+        success: false,
+        message: "Stripe payment has not completed.",
+        statusCode: 400,
+      };
+    }
+
+    const amountReceived =
+      typeof paymentIntent.amount_received === "number"
+        ? paymentIntent.amount_received
+        : typeof paymentIntent.amount === "number"
+          ? paymentIntent.amount
+          : 0;
+
+    const expectedAmount = application.payment?.amount ?? 0;
+    const expectedCurrency = (application.payment?.currency || PAYMENT_CURRENCY).toLowerCase();
+
+    if (paymentIntent.currency && paymentIntent.currency.toLowerCase() !== expectedCurrency) {
+      return {
+        success: false,
+        message: "Payment currency did not match the expected booth fee currency.",
+        statusCode: 400,
+      };
+    }
+
+    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+      return {
+        success: false,
+        message: "Invalid booth fee amount for this application.",
+        statusCode: 400,
+      };
+    }
+
+    if (Math.round(expectedAmount * 100) > amountReceived) {
+      return {
+        success: false,
+        message: "Received payment is less than the required booth fee.",
+        statusCode: 400,
+      };
+    }
+
+    const paymentResult = await recordVendorPayment({
+      vendorId,
+      eventId,
+      amountPaid: expectedAmount,
+      transactionReference: paymentIntent.id,
+    });
+
+    return {
+      success: paymentResult.success,
+      message: paymentResult.message,
+      statusCode: paymentResult.success ? 200 : 400,
+    };
+  } catch (error) {
+    console.error("Error finalizing vendor Stripe payment:", error);
+    return {
+      success: false,
+      message: "Failed to confirm Stripe payment.",
+      statusCode: 500,
     };
   }
 }
@@ -1159,8 +1548,8 @@ export async function findAllForAdmin(): Promise<{
         const applicationsWithNames = await Promise.all(
           (vendor.applications ?? []).map(async (application) => {
             const event = await EventModel.findById(application.eventId)
-              .select("name")
-              .lean<{ name: string }>();
+              .select("name eventType startDate endDate location")
+              .lean<{ name: string; eventType?: EventType; startDate?: Date; endDate?: Date; location?: string }>();
 
             const resolvedPaymentStatus = resolvePaymentStatus(
               application.payment
@@ -1169,6 +1558,9 @@ export async function findAllForAdmin(): Promise<{
             return {
               eventId: application.eventId.toString(),
               eventName: event?.name || "Unknown Event",
+              eventType: event?.eventType,
+              eventDate: event?.startDate ?? event?.endDate ?? null,
+              eventLocation: event?.location,
               status: application.status,
               applicationDate: application.applicationDate,
               attendees: application.attendees?.length ?? 0,
@@ -1176,6 +1568,7 @@ export async function findAllForAdmin(): Promise<{
               boothLocation: application.boothInfo?.boothLocation,
               boothStartTime: application.boothInfo?.boothStartTime,
               boothEndTime: application.boothInfo?.boothEndTime,
+              boothDurationWeeks: application.boothInfo?.boothDurationWeeks,
               hasPaid: Boolean(application.hasPaid),
               payment: application.payment
                 ? {

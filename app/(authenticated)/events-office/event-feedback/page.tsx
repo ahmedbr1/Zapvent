@@ -5,6 +5,7 @@ export default function EventsOfficeEventFeedbackPage() {
     <EventFeedbackExplorer
       title="Community feedback"
       subtitle="Monitor ratings and comments to support upcoming programming."
+      includePastEvents
     />
   );
 }

@@ -63,7 +63,7 @@ export class CommentController {
   }
 
   @LoginRequired()
-  @AllowedRoles(["Admin"])
+  @AllowedRoles(["Admin", "EventOffice"])
   async deleteInappropriateComment(req: AuthRequest, res: Response) {
     try {
       const { commentId } = req.params;

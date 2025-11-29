@@ -17,6 +17,12 @@ interface EventApiResponse {
   message?: string;
 }
 
+interface EventApiSingleResponse {
+  success: boolean;
+  data?: EventApiItem;
+  message?: string;
+}
+
 interface EventApiItem {
   _id: string;
   name: string;
@@ -136,10 +142,11 @@ interface SalesReportResponse {
 export interface BazaarPayload {
   name: string;
   description: string;
-  startDate: string;
-  endDate: string;
-  registrationDeadline: string;
+  startDate: string | null;
+  endDate: string | null;
+  registrationDeadline: string | null;
   location: Location;
+  eventType?: EventType;
 }
 
 export interface TripPayload {
@@ -258,12 +265,25 @@ export async function finalizeStripePayment(
 
 export async function fetchUpcomingEvents(
   token?: string,
-  currentUserId?: string
+  currentUserId?: string,
+  options: { includePast?: boolean; includeArchived?: boolean } = {}
 ): Promise<EventSummary[]> {
-  const response = await apiFetch<EventApiResponse>("/events", {
-    method: "GET",
-    token,
-  });
+  const params = new URLSearchParams();
+  if (options.includePast) {
+    params.set("includePast", "true");
+  }
+  if (options.includeArchived) {
+    params.set("includeArchived", "true");
+  }
+  const query = params.toString();
+
+  const response = await apiFetch<EventApiResponse>(
+    `/events${query ? `?${query}` : ""}`,
+    {
+      method: "GET",
+      token,
+    }
+  );
 
   if (!response.success) {
     throw new Error(response.message ?? "Failed to fetch events");
@@ -277,19 +297,47 @@ export async function fetchEventById(
   token?: string,
   currentUserId?: string
 ): Promise<EventSummary | null> {
-  const events = await fetchUpcomingEvents(token, currentUserId);
-  return events.find((event) => event.id === id) ?? null;
+  try {
+    const response = await apiFetch<EventApiSingleResponse>(
+      `/events/by-id/${id}`,
+      {
+        method: "GET",
+        token,
+      }
+    );
+
+    if (!response.success || !response.data) {
+      return null;
+    }
+
+    return mapEvent(response.data, currentUserId);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "status" in error &&
+      (error as { status?: number }).status === 404
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function fetchUpcomingBazaars(
   token?: string,
-  currentUserId?: string
+  currentUserId?: string,
+  eventTypes?: EventType[]
 ): Promise<EventSummary[]> {
   // Use the public upcoming-bazaars endpoint for listing bazaars to vendors
   // and unauthenticated users. Admin-only `/events/bazaar` is reserved for
   // admin/event-office use and will return 403 for Vendor tokens.
+  const params = new URLSearchParams();
+  if (eventTypes && eventTypes.length > 0) {
+    params.set("types", eventTypes.join(","));
+  }
   const response = await apiFetch<UpcomingBazaarsResponse>(
-    "/events/upcoming-bazaars",
+    `/events/upcoming-bazaars${params.toString() ? `?${params.toString()}` : ""}`,
     {
       method: "GET",
       token,

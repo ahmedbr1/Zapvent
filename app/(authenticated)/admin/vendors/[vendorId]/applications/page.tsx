@@ -20,10 +20,12 @@ import CancelIcon from "@mui/icons-material/CancelRounded";
 import TaskAltIcon from "@mui/icons-material/TaskAltRounded";
 import BlockIcon from "@mui/icons-material/BlockRounded";
 import VerifiedIcon from "@mui/icons-material/VerifiedRounded";
+import DownloadIcon from "@mui/icons-material/DownloadRounded";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
+import { API_BASE_URL } from "@/lib/config";
 import {
   fetchAdminVendors,
   updateVendorApplicationStatus,
@@ -45,6 +47,9 @@ export default function VendorApplicationsDetailPage({
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  const apiHost = API_BASE_URL.replace(/\/api$/, "");
+  const buildFileUrl = (path?: string) =>
+    path ? `${apiHost}/${path.startsWith("/") ? path.slice(1) : path}` : undefined;
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["admin", "vendors", token],
@@ -394,6 +399,52 @@ export default function VendorApplicationsDetailPage({
               </Stack>
             )}
           </Stack>
+        </Stack>
+      </Card>
+
+      {/* Supporting Documents */}
+      <Card>
+        <Stack spacing={2} p={3}>
+          <Typography variant="h6" fontWeight={600}>
+            Supporting documents
+          </Typography>
+          {[
+            { label: "Company logo", path: vendor.logo },
+            { label: "Tax card", path: vendor.taxCard },
+            { label: "Business documents", path: vendor.documents },
+          ].map((file) => {
+            const fileUrl = buildFileUrl(file.path);
+            return (
+              <Stack
+                key={file.label}
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                alignItems={{ xs: "flex-start", sm: "center" }}
+                justifyContent="space-between"
+              >
+                <Typography variant="body2" color="text.secondary">
+                  {file.label}
+                </Typography>
+                {fileUrl ? (
+                  <Button
+                    component="a"
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<DownloadIcon />}
+                    variant="outlined"
+                    size="small"
+                  >
+                    View / download
+                  </Button>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Not provided
+                  </Typography>
+                )}
+              </Stack>
+            );
+          })}
         </Stack>
       </Card>
 

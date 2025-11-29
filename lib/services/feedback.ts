@@ -186,3 +186,16 @@ export async function submitEventComment(
     comment: response.data ? mapCommentEntry(response.data) : undefined,
   };
 }
+
+export async function deleteEventComment(commentId: string, token?: string): Promise<string> {
+  const response = await apiFetch<CommentMutationResponse>(`/comments/${commentId}`, {
+    method: "DELETE",
+    token,
+  });
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to delete comment");
+  }
+
+  return response.message ?? "Comment deleted";
+}

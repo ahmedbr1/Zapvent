@@ -5,6 +5,7 @@ export default function AdminEventFeedbackPage() {
     <EventFeedbackExplorer
       title="Event feedback overview"
       subtitle="Audit ratings and discussions across all campus experiences."
+      includePastEvents
     />
   );
 }

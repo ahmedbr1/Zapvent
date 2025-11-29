@@ -28,13 +28,14 @@ interface EventCardProps {
   cancelDisabledReason?: string;
 }
 
-const typeColorMap: Record<EventType, "primary" | "secondary" | "default"> = {
+const typeColorMap = {
   [EventType.Workshop]: "primary",
   [EventType.Seminar]: "default",
   [EventType.Conference]: "primary",
   [EventType.Trip]: "secondary",
   [EventType.Bazaar]: "secondary",
-};
+  [EventType.BoothInPlatform]: "secondary",
+} satisfies Record<EventType, "primary" | "secondary" | "default">;
 
 export function EventCard({
   event,

@@ -133,6 +133,7 @@ export interface VendorApplication {
   boothLocation?: string;
   boothStartTime?: string;
   boothEndTime?: string;
+  boothDurationWeeks?: number;
   payment?: VendorApplicationPayment;
   qrCodes?: VendorQrCode[];
 }
@@ -310,4 +311,45 @@ export async function cancelVendorLoyaltyProgram(
   }
 
   return { message: response.message };
+}
+
+export async function createVendorStripePaymentIntent(
+  eventId: string,
+  token?: string
+): Promise<{ clientSecret: string; paymentIntentId: string }> {
+  const response = await apiFetch<{
+    success: boolean;
+    message: string;
+    data?: { clientSecret: string; paymentIntentId: string };
+  }>(`/vendors/applications/${eventId}/payment/intent`, {
+    method: "POST",
+    token,
+  });
+
+  if (!response.success || !response.data?.clientSecret) {
+    throw new Error(response.message ?? "Failed to start card payment.");
+  }
+
+  return response.data;
+}
+
+export async function finalizeVendorStripePayment(
+  eventId: string,
+  paymentIntentId: string,
+  token?: string
+): Promise<string> {
+  const response = await apiFetch<{ success: boolean; message: string }>(
+    `/vendors/applications/${eventId}/payment/confirm`,
+    {
+      method: "POST",
+      body: { paymentIntentId },
+      token,
+    }
+  );
+
+  if (!response.success) {
+    throw new Error(response.message ?? "Failed to confirm card payment.");
+  }
+
+  return response.message;
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Stack from "@mui/material/Stack";
+import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -33,7 +34,7 @@ import { fetchUpcomingBazaars } from "@/lib/services/events";
 import { fetchVendorProfile } from "@/lib/services/vendor";
 import { formatDateTime } from "@/lib/date";
 import { apiFetch } from "@/lib/api-client";
-import type { EventSummary } from "@/lib/types";
+import { EventType, type EventSummary } from "@/lib/types";
 
 const VENDOR_CACHE_SETTINGS = {
   staleTime: 5 * 60 * 1000,
@@ -42,6 +43,16 @@ const VENDOR_CACHE_SETTINGS = {
 } as const;
 
 const MAX_ATTENDEES = 5;
+const PLATFORM_SLOTS = [
+  { id: "northwest", label: "Northwest corner", top: "6%", left: "6%" },
+  { id: "north", label: "North edge", top: "6%", left: "50%" },
+  { id: "northeast", label: "Northeast corner", top: "6%", left: "94%" },
+  { id: "east", label: "East edge", top: "50%", left: "94%" },
+  { id: "southeast", label: "Southeast corner", top: "94%", left: "94%" },
+  { id: "south", label: "South edge", top: "94%", left: "50%" },
+  { id: "southwest", label: "Southwest corner", top: "94%", left: "6%" },
+  { id: "west", label: "West edge", top: "50%", left: "6%" },
+];
 
 interface AttendeeFormEntry {
   id: string;
@@ -64,6 +75,59 @@ function createEmptyAttendee(): AttendeeFormEntry {
     email: "",
     file: null,
   };
+}
+
+function PlatformBoothMap({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (location: string) => void;
+}) {
+  return (
+    <Box
+      sx={{
+        position: "relative",
+        width: "100%",
+        maxWidth: 360,
+        aspectRatio: "1 / 1",
+        borderRadius: 3,
+        border: "2px dashed",
+        borderColor: "divider",
+        background:
+          "radial-gradient(circle at 50% 50%, rgba(59,130,246,0.08), transparent 55%)",
+        mx: "auto",
+      }}
+    >
+      {PLATFORM_SLOTS.map((slot) => {
+        const isSelected = value === slot.label;
+        return (
+          <Button
+            key={slot.id}
+            variant={isSelected ? "contained" : "outlined"}
+            size="small"
+            onClick={() => onChange(slot.label)}
+            sx={{
+              position: "absolute",
+              top: slot.top,
+              left: slot.left,
+              transform: "translate(-50%, -50%)",
+              borderRadius: "999px",
+              minWidth: 0,
+              px: 2,
+              py: 1,
+              fontSize: 12,
+              backgroundColor: isSelected ? "primary.main" : "background.paper",
+              color: isSelected ? "primary.contrastText" : "text.primary",
+              boxShadow: isSelected ? 3 : 0,
+            }}
+          >
+            {slot.label}
+          </Button>
+        );
+      })}
+    </Box>
+  );
 }
 
 interface ApplyDialogProps {
@@ -89,14 +153,41 @@ function ApplyDialog({
     createEmptyAttendee(),
   ]);
   const [attendeeError, setAttendeeError] = useState<string | null>(null);
+  const [boothLocation, setBoothLocation] = useState("");
+  const [boothStart, setBoothStart] = useState("");
+  const [boothDurationWeeks, setBoothDurationWeeks] = useState("");
+  const [boothInfoError, setBoothInfoError] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
   const token = useAuthToken();
+  const isPlatformBooth = bazaar?.eventType === EventType.BoothInPlatform;
+  const computedBoothEnd = useMemo(() => {
+    if (!boothStart || !boothDurationWeeks) {
+      return null;
+    }
+    const startDate = new Date(boothStart);
+    const duration = Number(boothDurationWeeks);
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      !Number.isInteger(duration) ||
+      duration < 1 ||
+      duration > 4
+    ) {
+      return null;
+    }
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + duration * 7);
+    return Number.isNaN(endDate.getTime()) ? null : endDate;
+  }, [boothDurationWeeks, boothStart]);
 
   useEffect(() => {
     if (!open) {
       setBoothSize("");
       setAttendees([createEmptyAttendee()]);
       setAttendeeError(null);
+      setBoothLocation("");
+      setBoothStart("");
+      setBoothDurationWeeks("");
+      setBoothInfoError(null);
     }
   }, [open]);
 
@@ -157,6 +248,39 @@ function ApplyDialog({
     return null;
   };
 
+  const validateBoothDetails = () => {
+    if (!isPlatformBooth) {
+      return null;
+    }
+    if (!boothStart || !boothDurationWeeks) {
+      return "Select a booth start date and duration (1-4 weeks).";
+    }
+    const start = new Date(boothStart);
+    const duration = Number(boothDurationWeeks);
+    if (
+      !Number.isFinite(duration) ||
+      !Number.isInteger(duration) ||
+      duration < 1 ||
+      duration > 4
+    ) {
+      return "Duration must be between 1 and 4 weeks.";
+    }
+    const end = computedBoothEnd;
+    if (Number.isNaN(start.getTime()) || !end || end <= start) {
+      return "Enter a valid duration where the end is after the start.";
+    }
+    if (bazaar?.startDate && start < new Date(bazaar.startDate)) {
+      return "Booth setup cannot start before the event window opens.";
+    }
+    if (bazaar?.endDate && end > new Date(bazaar.endDate)) {
+      return "Booth setup must finish before the event window ends.";
+    }
+    if (!boothLocation.trim()) {
+      return "Pick a booth location on the platform map.";
+    }
+    return null;
+  };
+
   const handleSubmit = async () => {
     if (!boothSize || !bazaar) {
       enqueueSnackbar("Please fill in all required fields", {
@@ -182,12 +306,31 @@ function ApplyDialog({
       return;
     }
     setAttendeeError(null);
+    const boothValidation = validateBoothDetails();
+    if (boothValidation) {
+      setBoothInfoError(boothValidation);
+      enqueueSnackbar(boothValidation, { variant: "error" });
+      return;
+    }
+    setBoothInfoError(null);
 
     setIsSubmitting(true);
     try {
       const formData = new FormData();
       formData.append("eventId", bazaar.id);
       formData.append("boothSize", boothSize);
+      if (boothLocation) {
+        formData.append("boothLocation", boothLocation);
+      }
+      if (boothStart) {
+        formData.append("boothStartTime", new Date(boothStart).toISOString());
+      }
+      if (boothDurationWeeks) {
+        formData.append("boothDurationWeeks", boothDurationWeeks);
+        if (computedBoothEnd) {
+          formData.append("boothEndTime", computedBoothEnd.toISOString());
+        }
+      }
       formData.append(
         "attendees",
         JSON.stringify(
@@ -226,6 +369,9 @@ function ApplyDialog({
         // Reset form
         setBoothSize("");
         setAttendees([createEmptyAttendee()]);
+        setBoothLocation("");
+        setBoothStart("");
+        setBoothDurationWeeks("");
       } else {
         enqueueSnackbar(response.message || "Failed to submit application", {
           variant: "error",
@@ -296,6 +442,47 @@ function ApplyDialog({
             <option value="2x2">2x2 meters</option>
             <option value="4x4">4x4 meters</option>
           </TextField>
+          {isPlatformBooth ? (
+            <Stack spacing={2}>
+              <Alert severity="info">
+                Platform booths run for 1–4 weeks. Choose a spot on the campus
+                map, your start date, and how many weeks you need.
+              </Alert>
+              <Stack spacing={1.5} alignItems="center">
+                <PlatformBoothMap
+                  value={boothLocation}
+                  onChange={(location) => setBoothLocation(location)}
+                />
+                <Typography variant="body2" color="text.secondary" textAlign="center">
+                  Selected: {boothLocation || "Choose a booth slot"}
+                </Typography>
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Booth start date"
+                  type="date"
+                  value={boothStart}
+                  onChange={(event) => setBoothStart(event.target.value)}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  label="Duration (weeks)"
+                  type="number"
+                  value={boothDurationWeeks}
+                  onChange={(event) => setBoothDurationWeeks(event.target.value)}
+                  fullWidth
+                  inputProps={{ min: 1, max: 4, step: 1 }}
+                />
+              </Stack>
+              {computedBoothEnd ? (
+                <Typography variant="body2" color="text.secondary">
+                  Planned end date: {formatDateTime(computedBoothEnd)}
+                </Typography>
+              ) : null}
+              {boothInfoError ? <Alert severity="error">{boothInfoError}</Alert> : null}
+            </Stack>
+          ) : null}
           <Stack spacing={2}>
             <Typography variant="subtitle1" fontWeight={600}>
               Attendee IDs
@@ -413,7 +600,11 @@ export default function VendorBazaarsPage() {
 
   const bazaarsQuery = useQuery({
     queryKey: ["bazaars", token],
-    queryFn: () => fetchUpcomingBazaars(token ?? undefined),
+    queryFn: () =>
+      fetchUpcomingBazaars(token ?? undefined, user?.id, [
+        EventType.Bazaar,
+        EventType.BoothInPlatform,
+      ]),
     enabled: Boolean(token),
     ...VENDOR_CACHE_SETTINGS,
   });
@@ -455,8 +646,9 @@ export default function VendorBazaarsPage() {
   );
 
   // Helper function to check if bazaar is outdated
-  const isBazaarOutdated = (endDate: string) => {
-    return new Date(endDate) < new Date();
+  const isBazaarOutdated = (bazaar: EventSummary) => {
+    if (bazaar.eventType === EventType.BoothInPlatform) return false;
+    return new Date(bazaar.endDate) < new Date();
   };
 
   // Helper function to check if bazaar is full
@@ -468,7 +660,7 @@ export default function VendorBazaarsPage() {
 
   // Helper function to determine if can apply
   const canApplyToBazaar = (bazaar: EventSummary) => {
-    return !isBazaarOutdated(bazaar.endDate) && !isBazaarFull(bazaar);
+    return !isBazaarOutdated(bazaar) && !isBazaarFull(bazaar);
   };
 
   const handleApply = (bazaar: EventSummary) => {
@@ -491,11 +683,11 @@ export default function VendorBazaarsPage() {
       {/* Header */}
       <Stack spacing={1}>
         <Typography variant="h4" fontWeight={700}>
-          Browse Available Bazaars
+          Bazaars & platform booths
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Find and apply to upcoming bazaar events where you can showcase your
-          products.
+          Find and apply to upcoming bazaar events or multi-week platform booths
+          to showcase your products.
         </Typography>
       </Stack>
 
@@ -514,11 +706,11 @@ export default function VendorBazaarsPage() {
         </Grid>
       ) : bazaarsQuery.isError ? (
         <Alert severity="error">
-          Failed to load bazaars. Please try again later.
+          Failed to load vendor events. Please try again later.
         </Alert>
       ) : bazaarsQuery.data?.length === 0 ? (
         <Alert severity="info">
-          No upcoming bazaars available at the moment. Check back later!
+          No upcoming vendor events available at the moment. Check back later!
         </Alert>
       ) : (
         <Grid container spacing={3}>
@@ -547,13 +739,22 @@ export default function VendorBazaarsPage() {
                     )}
 
                     <Stack spacing={1}>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <CalendarTodayIcon fontSize="small" color="action" />
-                        <Typography variant="body2">
-                          {formatDateTime(bazaar.startDate)} -{" "}
-                          {formatDateTime(bazaar.endDate)}
-                        </Typography>
-                      </Stack>
+                      {bazaar.eventType === EventType.BoothInPlatform ? (
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <CalendarTodayIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            Platform booths stay active. Pick your own dates when applying.
+                          </Typography>
+                        </Stack>
+                      ) : (
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <CalendarTodayIcon fontSize="small" color="action" />
+                          <Typography variant="body2">
+                            {formatDateTime(bazaar.startDate)} -{" "}
+                            {formatDateTime(bazaar.endDate)}
+                          </Typography>
+                        </Stack>
+                      )}
 
                       {bazaar.location && (
                         <Stack direction="row" alignItems="center" spacing={1}>
@@ -569,7 +770,11 @@ export default function VendorBazaarsPage() {
                       <Chip
                         label={bazaar.eventType || "Bazaar"}
                         size="small"
-                        color="primary"
+                        color={
+                          bazaar.eventType === EventType.BoothInPlatform
+                            ? "secondary"
+                            : "primary"
+                        }
                       />
                       {bazaar.capacity && (
                         <Chip
@@ -579,11 +784,11 @@ export default function VendorBazaarsPage() {
                           color={isBazaarFull(bazaar) ? "error" : "default"}
                         />
                       )}
-                      {isBazaarOutdated(bazaar.endDate) && (
+                      {isBazaarOutdated(bazaar) && (
                         <Chip label="Finished" size="small" color="default" />
                       )}
                       {isBazaarFull(bazaar) &&
-                        !isBazaarOutdated(bazaar.endDate) && (
+                        !isBazaarOutdated(bazaar) && (
                           <Chip label="Full" size="small" color="error" />
                         )}
                       {hasApplied(bazaar.id) && (
@@ -608,7 +813,7 @@ export default function VendorBazaarsPage() {
                   >
                     {hasApplied(bazaar.id)
                       ? "Already Applied"
-                      : isBazaarOutdated(bazaar.endDate)
+                      : isBazaarOutdated(bazaar)
                         ? "Finished"
                         : isBazaarFull(bazaar)
                           ? "Full"

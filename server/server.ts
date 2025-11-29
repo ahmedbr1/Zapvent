@@ -4,6 +4,7 @@ import cors from "cors";
 import { connectDB } from "./db";
 import api from "./routes";
 import { startReminderScheduler } from "./services/notificationService";
+import { startCertificateScheduler } from "./services/certificateScheduler";
 
 const app = express();
 const allowedOrigin =
@@ -53,6 +54,7 @@ async function ensureDatabaseConnection() {
 async function start() {
   await ensureDatabaseConnection();
   startReminderScheduler();
+  startCertificateScheduler();
   app.listen(PORT, () => console.log(`✅ API listening on :${PORT}`));
 }
 

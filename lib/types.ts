@@ -29,6 +29,7 @@ export enum EventType {
   Conference = "Conference",
   Trip = "Trip",
   Bazaar = "Bazaar",
+  BoothInPlatform = "Booth in platform",
 }
 
 export enum Location {
@@ -309,6 +310,8 @@ export interface VendorPollOption {
 export interface VendorPoll {
   id: string;
   boothName: string;
+  eventId?: string;
+  boothLocation?: string;
   durations: VendorPollDuration[];
   options: VendorPollOption[];
   totalVotes: number;

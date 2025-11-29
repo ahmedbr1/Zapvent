@@ -13,6 +13,7 @@ router.get(
   allowedRoles(["Vendor"]),
   eventController.getAcceptedUpcomingBazaarsController
 );
+router.get("/by-id/:eventId", eventController.getEventByIdController);
 router.get(
   "/requested-upcoming-bazaars",
   loginRequired,

@@ -25,15 +25,29 @@ export function StripePaymentForm({
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
+  const [paymentElementReady, setPaymentElementReady] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!stripe || !elements || disabled || finalizing || submitting) {
+    if (
+      !stripe ||
+      !elements ||
+      disabled ||
+      finalizing ||
+      submitting ||
+      !paymentElementReady
+    ) {
       return;
     }
 
     setSubmitting(true);
     try {
+      const submitResult = await elements.submit();
+      if (submitResult?.error) {
+        onError?.(submitResult.error.message ?? "Please check your card details.");
+        return;
+      }
+
       const result = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -69,7 +83,12 @@ export function StripePaymentForm({
   };
 
   const buttonDisabled =
-    disabled || !stripe || !elements || submitting || finalizing;
+    disabled ||
+    !stripe ||
+    !elements ||
+    submitting ||
+    finalizing ||
+    !paymentElementReady;
   const buttonLabel = finalizing
     ? "Finalizing..."
     : submitting
@@ -93,7 +112,10 @@ export function StripePaymentForm({
   return (
     <form onSubmit={handleSubmit} autoComplete="off">
       <Stack spacing={2.5}>
-        <PaymentElement options={paymentElementOptions} />
+        <PaymentElement
+          options={paymentElementOptions}
+          onReady={() => setPaymentElementReady(true)}
+        />
         <Button
           type="submit"
           variant="contained"
