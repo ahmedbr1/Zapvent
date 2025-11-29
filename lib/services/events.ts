@@ -142,9 +142,9 @@ interface SalesReportResponse {
 export interface BazaarPayload {
   name: string;
   description: string;
-  startDate: string;
-  endDate: string;
-  registrationDeadline: string;
+  startDate: string | null;
+  endDate: string | null;
+  registrationDeadline: string | null;
   location: Location;
   eventType?: EventType;
 }

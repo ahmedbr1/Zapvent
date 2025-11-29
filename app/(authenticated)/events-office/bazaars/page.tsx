@@ -313,14 +313,24 @@ export default function BazaarManagementPage() {
 
   const onSubmit = handleSubmit((values) => {
     const fallbackDate = new Date();
+    const normalizedDates =
+      values.eventType === EventType.BoothInPlatform
+        ? {
+            startDate: null,
+            endDate: null,
+            registrationDeadline: null,
+          }
+        : {
+            startDate: (values.startDate ?? fallbackDate).toISOString(),
+            endDate: (values.endDate ?? fallbackDate).toISOString(),
+            registrationDeadline: (values.registrationDeadline ?? fallbackDate).toISOString(),
+          };
     const payload: BazaarPayload = {
       name: values.name,
       description: values.description,
       eventType: values.eventType,
       location: values.location,
-      startDate: (values.startDate ?? fallbackDate).toISOString(),
-      endDate: (values.endDate ?? fallbackDate).toISOString(),
-      registrationDeadline: (values.registrationDeadline ?? fallbackDate).toISOString(),
+      ...normalizedDates,
     };
 
     if (editingBazaarId) {
