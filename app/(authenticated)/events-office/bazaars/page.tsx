@@ -54,6 +54,11 @@ import { EventOfficeEventActions } from "@/components/events/EventOfficeEventAct
 
 const vendorEventTypes = [EventType.Bazaar, EventType.BoothInPlatform] as const;
 
+const isVendorEventType = (
+  eventType: EventType
+): eventType is (typeof vendorEventTypes)[number] =>
+  vendorEventTypes.includes(eventType as (typeof vendorEventTypes)[number]);
+
 const bazaarSchema = z
   .object({
     name: z.string().min(3, "Name must be at least 3 characters"),
@@ -252,6 +257,13 @@ export default function BazaarManagementPage() {
     const bazaar = (data ?? []).find((item) => item.id === bazaarId);
     if (!bazaar) return;
 
+    if (!isVendorEventType(bazaar.eventType)) {
+      enqueueSnackbar("Only vendor events can be edited here.", {
+        variant: "warning",
+      });
+      return;
+    }
+
     if (isEventsOfficeUser && !dayjs(bazaar.startDate).isAfter(dayjs())) {
       enqueueSnackbar(
         "Bazaars that have started can only be edited by administrators.",
@@ -264,7 +276,7 @@ export default function BazaarManagementPage() {
     reset({
       name: bazaar.name,
       description: bazaar.description,
-      eventType: bazaar.eventType as EventType,
+      eventType: bazaar.eventType,
       location: bazaar.location as Location,
       startDate: dayjs(bazaar.startDate).toDate(),
       endDate: dayjs(bazaar.endDate).toDate(),
