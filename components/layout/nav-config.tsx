@@ -69,7 +69,7 @@ export const navItems: NavItem[] = [
     label: "Loyalty Partners",
     href: "/user/loyalty",
     icon: LoyaltyIcon,
-    roles: [AuthRole.User],
+    roles: [AuthRole.User, AuthRole.Admin],
   },
   {
     label: "Vendor Polls",
