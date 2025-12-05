@@ -38,6 +38,7 @@ import { EventType, type EventSummary } from "@/lib/types";
 import { formatDateTime, formatRelative } from "@/lib/date";
 import { fetchFavoriteEvents, addEventToFavorites } from "@/lib/services/users";
 import { EventFeedbackSection } from "@/components/events/EventFeedbackSection";
+import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 
 // Lazy load heavy dialog components
 const EventPaymentDialog = dynamic(
@@ -562,6 +563,15 @@ export default function EventDetailsPage() {
           >
             {isFavorite ? "Saved to favorites" : "Add to favorites"}
           </Button>
+          <AddToCalendarButton
+            event={{
+              title: event.name,
+              description: event.description,
+              location: event.location,
+              startDate: event.startDate,
+              endDate: event.endDate,
+            }}
+          />
         </Stack>
       </Stack>
 

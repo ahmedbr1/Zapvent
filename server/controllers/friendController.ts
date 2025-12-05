@@ -10,7 +10,7 @@ export class FriendController {
         .json({ success: false, message: "Authentication required." });
     }
 
-    const { userId } = req.body;
+    const { userId } = req.params;
     if (!userId) {
       return res
         .status(400)

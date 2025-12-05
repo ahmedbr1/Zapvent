@@ -17,6 +17,7 @@ import LocationIcon from "@mui/icons-material/FmdGoodRounded";
 import GroupIcon from "@mui/icons-material/PeopleAltRounded";
 import { formatDateTime, formatRelative } from "@/lib/date";
 import { EventType, type EventSummary } from "@/lib/types";
+import { AddToCalendarButton } from "./AddToCalendarButton";
 
 interface EventCardProps {
   event: EventSummary;
@@ -163,6 +164,16 @@ export function EventCard({
             </span>
           </Tooltip>
         ) : null}
+        <AddToCalendarButton
+          event={{
+            title: event.name,
+            description: event.description,
+            location: event.location,
+            startDate: event.startDate,
+            endDate: event.endDate,
+          }}
+          size="small"
+        />
         <Box flexGrow={1} />
         <Typography
           variant="caption"
