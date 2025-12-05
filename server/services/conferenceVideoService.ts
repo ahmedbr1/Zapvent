@@ -360,7 +360,9 @@ export async function getConferencesWithVideos(): Promise<
       });
     }
 
-    conferenceMap.get(eventIdStr)!.videos.push(serializeVideo(video, event.name));
+    conferenceMap
+      .get(eventIdStr)!
+      .videos.push(serializeVideo(video, event.name));
   }
 
   // Sort by video count (descending)
