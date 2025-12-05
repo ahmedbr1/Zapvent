@@ -4,7 +4,7 @@ import ConferenceVideoModel, {
   MediaType,
 } from "../models/ConferenceVideo";
 import EventModel, { EventType, IEvent } from "../models/Event";
-import UserModel, { IUser, userRole } from "../models/User";
+import AdminModel, { IAdmin } from "../models/Admin";
 import fs from "fs/promises";
 
 // ============ Types ============
@@ -115,40 +115,25 @@ export async function uploadConferenceVideo(
     };
   }
 
-  // Find the user (professor)
-  const user = await UserModel.findById(userId).lean<
-    IUser & { _id: Types.ObjectId }
+  // Find the admin (EventOffice)
+  const admin = await AdminModel.findById(userId).lean<
+    IAdmin & { _id: Types.ObjectId }
   >();
-  if (!user) {
-    return { success: false, message: "User not found.", statusCode: 404 };
+  if (!admin) {
+    return { success: false, message: "Admin not found.", statusCode: 404 };
   }
 
-  // Check if user is a professor
-  if (user.role !== userRole.PROFESSOR) {
+  // Check if admin is EventOffice
+  if (admin.adminType !== "EventOffice") {
     return {
       success: false,
-      message: "Only professors can upload conference videos.",
-      statusCode: 403,
-    };
-  }
-
-  // Check if professor participated in the conference
-  const participatingProfessors = event.participatingProfessors ?? [];
-  const isParticipant = participatingProfessors.some(
-    (profId) => profId === userId || profId === user.staffId
-  );
-
-  if (!isParticipant) {
-    return {
-      success: false,
-      message:
-        "Only professors who participated in the conference can upload videos.",
+      message: "Only Event Office can upload conference videos.",
       statusCode: 403,
     };
   }
 
   // Create video record
-  const uploaderName = `${user.firstName} ${user.lastName}`.trim();
+  const uploaderName = `${admin.firstName} ${admin.lastName}`.trim();
   const video = new ConferenceVideoModel({
     eventId: new Types.ObjectId(eventId),
     uploadedBy: new Types.ObjectId(userId),
@@ -203,7 +188,7 @@ export async function getConferenceVideos(
   };
 }
 
-export async function getProfessorVideos(
+export async function getUploaderVideos(
   userId: string
 ): Promise<ServiceResponse<ConferenceVideoSummary[]>> {
   if (!Types.ObjectId.isValid(userId)) {
@@ -359,9 +344,9 @@ export async function getConferencesWithVideos(): Promise<
   };
 }
 
-// ============ Get Eligible Conferences for Professor ============
+// ============ Get Eligible Conferences for Event Office ============
 
-export async function getEligibleConferencesForProfessor(
+export async function getEligibleConferences(
   userId: string
 ): Promise<
   ServiceResponse<
@@ -377,32 +362,35 @@ export async function getEligibleConferencesForProfessor(
     return { success: false, message: "Invalid user ID.", statusCode: 400 };
   }
 
-  // Find the user (professor)
-  const user = await UserModel.findById(userId).lean<
-    IUser & { _id: Types.ObjectId }
+  // Verify the admin exists and is EventOffice
+  const admin = await AdminModel.findById(userId).lean<
+    IAdmin & { _id: Types.ObjectId }
   >();
-  if (!user) {
-    return { success: false, message: "User not found.", statusCode: 404 };
+  if (!admin) {
+    return { success: false, message: "Admin not found.", statusCode: 404 };
   }
 
-  // Get all completed conferences where this professor participated
+  if (admin.adminType !== "EventOffice") {
+    return {
+      success: false,
+      message: "Only Event Office can access this resource.",
+      statusCode: 403,
+    };
+  }
+
+  // Get all completed conferences
   const conferences = await EventModel.find({
     eventType: EventType.CONFERENCE,
     endDate: { $lt: new Date() },
-    $or: [
-      { participatingProfessors: userId },
-      { participatingProfessors: user.staffId },
-    ],
   })
     .select("_id name endDate")
     .sort({ endDate: -1 })
     .lean<Array<{ _id: Types.ObjectId; name: string; endDate: Date }>>();
 
-  // Get video counts for each conference by this professor
+  // Get video counts for each conference
   const videoCounts = await ConferenceVideoModel.aggregate([
     {
       $match: {
-        uploadedBy: new Types.ObjectId(userId),
         eventId: { $in: conferences.map((c) => c._id) },
       },
     },
@@ -411,19 +399,14 @@ export async function getEligibleConferencesForProfessor(
 
   const countMap = new Map(videoCounts.map((v) => [v._id.toString(), v.count]));
 
-  // Filter to only conferences with less than 2 videos from this professor
-  const eligibleConferences = conferences
-    .map((conf) => ({
+  return {
+    success: true,
+    message: "Eligible conferences retrieved successfully.",
+    data: conferences.map((conf) => ({
       eventId: conf._id.toString(),
       eventName: conf.name,
       endDate: conf.endDate,
       videoCount: countMap.get(conf._id.toString()) || 0,
-    }))
-    .filter((conf) => conf.videoCount < 2);
-
-  return {
-    success: true,
-    message: "Eligible conferences retrieved successfully.",
-    data: eligibleConferences,
+    })),
   };
 }
