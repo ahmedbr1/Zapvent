@@ -73,9 +73,10 @@ export default function UserEventsPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentEvent, setPaymentEvent] = useState<EventSummary | null>(null);
   const [paymentStep, setPaymentStep] = useState<"method" | "card">("method");
-  const [stripeIntent, setStripeIntent] = useState<
-    { clientSecret: string; paymentIntentId: string } | null
-  >(null);
+  const [stripeIntent, setStripeIntent] = useState<{
+    clientSecret: string;
+    paymentIntentId: string;
+  } | null>(null);
   const [cardError, setCardError] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<EventSummary | null>(null);
@@ -87,13 +88,13 @@ export default function UserEventsPage() {
   };
 
   const eventsQuery = useQuery({
-    queryKey: ["events", user?.id, token],
+    queryKey: ["events", user?.id],
     queryFn: () => fetchUpcomingEvents(token ?? undefined, user?.id),
     enabled: Boolean(token),
   });
 
   const attendedQuery = useQuery({
-    queryKey: ["registered-events", user?.id, token],
+    queryKey: ["registered-events", user?.id],
     queryFn: () => fetchUserRegisteredEvents(user!.id, token ?? undefined),
     enabled: Boolean(user?.id && token),
   });
@@ -160,8 +161,7 @@ export default function UserEventsPage() {
     return events
       .filter((event) => event.status === "Past")
       .sort(
-        (a, b) =>
-          new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
+        (a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
       )
       .slice(0, 3);
   }, [attendedQuery.data]);
@@ -250,7 +250,8 @@ export default function UserEventsPage() {
   };
 
   const walletPaymentMutation = useMutation({
-    mutationFn: (eventId: string) => payForEventByWallet(eventId, token ?? undefined),
+    mutationFn: (eventId: string) =>
+      payForEventByWallet(eventId, token ?? undefined),
     onMutate: (eventId) => {
       setPendingEventId(eventId);
     },
@@ -260,10 +261,15 @@ export default function UserEventsPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["wallet-summary", token] });
       queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
-      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
+      queryClient.invalidateQueries({
+        queryKey: ["event", eventId, user?.id, token],
+      });
     },
     onError: (error: unknown) => {
-      const message = getErrorMessage(error, "Failed to process wallet payment.");
+      const message = getErrorMessage(
+        error,
+        "Failed to process wallet payment."
+      );
       enqueueSnackbar(message, { variant: "error" });
     },
     onSettled: () => {
@@ -272,22 +278,32 @@ export default function UserEventsPage() {
   });
 
   const createStripeIntentMutation = useMutation({
-    mutationFn: (eventId: string) => createStripePaymentIntent(eventId, token ?? undefined),
+    mutationFn: (eventId: string) =>
+      createStripePaymentIntent(eventId, token ?? undefined),
   });
 
   const finalizeStripePaymentMutation = useMutation({
-    mutationFn: ({ eventId, paymentIntentId }: { eventId: string; paymentIntentId: string }) =>
-      finalizeStripePayment(eventId, paymentIntentId, token ?? undefined),
+    mutationFn: ({
+      eventId,
+      paymentIntentId,
+    }: {
+      eventId: string;
+      paymentIntentId: string;
+    }) => finalizeStripePayment(eventId, paymentIntentId, token ?? undefined),
   });
 
   const cancelRegistrationMutation = useMutation({
-    mutationFn: (eventId: string) => cancelEventRegistration(eventId, token ?? undefined),
+    mutationFn: (eventId: string) =>
+      cancelEventRegistration(eventId, token ?? undefined),
     onSuccess: (response, eventId) => {
       setCancelDialogOpen(false);
       setCancelTarget(null);
-      enqueueSnackbar(response.message ?? "Registration cancelled and refunded.", {
-        variant: "success",
-      });
+      enqueueSnackbar(
+        response.message ?? "Registration cancelled and refunded.",
+        {
+          variant: "success",
+        }
+      );
       setRegisteredEventIds((prev) => {
         const next = new Set(prev);
         next.delete(eventId);
@@ -295,13 +311,22 @@ export default function UserEventsPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["wallet-summary", token] });
       queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
-      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
-      queryClient.invalidateQueries({ queryKey: ["registered-events", user?.id, token] });
+      queryClient.invalidateQueries({
+        queryKey: ["event", eventId, user?.id, token],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["registered-events", user?.id, token],
+      });
     },
     onError: (error: unknown, eventId) => {
-      const message = getErrorMessage(error, "Unable to cancel this registration.");
+      const message = getErrorMessage(
+        error,
+        "Unable to cancel this registration."
+      );
       enqueueSnackbar(message, { variant: "error" });
-      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
+      queryClient.invalidateQueries({
+        queryKey: ["event", eventId, user?.id, token],
+      });
     },
   });
 
@@ -336,7 +361,10 @@ export default function UserEventsPage() {
       setPaymentDialogOpen(false);
       setPaymentEvent(null);
     } catch (error) {
-      const message = getErrorMessage(error, "Unable to complete registration.");
+      const message = getErrorMessage(
+        error,
+        "Unable to complete registration."
+      );
       enqueueSnackbar(message, { variant: "error" });
     }
   };
@@ -355,7 +383,9 @@ export default function UserEventsPage() {
 
     try {
       setCardError(null);
-      const intent = await createStripeIntentMutation.mutateAsync(paymentEvent.id);
+      const intent = await createStripeIntentMutation.mutateAsync(
+        paymentEvent.id
+      );
       setStripeIntent(intent);
       setPaymentStep("card");
     } catch (error) {
@@ -376,9 +406,12 @@ export default function UserEventsPage() {
         eventId: paymentEvent.id,
         paymentIntentId,
       });
-      enqueueSnackbar(response.message ?? `Payment confirmed for ${paymentEvent.name}.`, {
-        variant: "success",
-      });
+      enqueueSnackbar(
+        response.message ?? `Payment confirmed for ${paymentEvent.name}.`,
+        {
+          variant: "success",
+        }
+      );
       queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
       queryClient.invalidateQueries({
         queryKey: ["event", paymentEvent.id, user?.id, token],
@@ -438,142 +471,157 @@ export default function UserEventsPage() {
   return (
     <>
       <Stack spacing={3}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            Explore Events
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Browse upcoming workshops, trips, conferences, and bazaars tailored
-            for the GUC community.
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={() => eventsQuery.refetch()}
-          disabled={eventsQuery.isFetching}
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
         >
-          Refresh
-        </Button>
-      </Stack>
-
-      <AttendedEventsHighlight
-        loading={attendedQuery.isLoading}
-        error={attendedQuery.isError}
-        events={attendedEvents}
-        showEmpty={!attendedQuery.isLoading && attendedEvents.length === 0}
-        onRetry={() => attendedQuery.refetch()}
-      />
-
-      <EventFiltersBar
-        value={filters}
-        onChange={setFilters}
-        professors={professors}
-      />
-
-      {eventsQuery.isLoading ? (
-        <Grid container spacing={3}>
-          {Array.from({ length: PAGE_SIZE }).map((_, index) => (
-            <Grid key={index} size={{ xs: 12, md: 6, lg: 4 }}>
-              <Skeleton
-                variant="rectangular"
-                height={280}
-                sx={{ borderRadius: 3 }}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      ) : eventsQuery.isError ? (
-        <Alert
-          severity="error"
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => eventsQuery.refetch()}
-            >
-              Retry
-            </Button>
-          }
-        >
-          Failed to load events.{" "}
-          {eventsQuery.error instanceof Error ? eventsQuery.error.message : ""}
-        </Alert>
-      ) : filteredEvents.length === 0 ? (
-        <Box
-          sx={{
-            textAlign: "center",
-            py: 10,
-            borderRadius: 3,
-            backgroundColor: "#FFFFFF",
-            border: "1px dashed rgba(15,23,42,0.12)",
-          }}
-        >
-          <Typography variant="h6" fontWeight={600}>
-            No events match your filters.
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Try adjusting filters or resetting them to see all upcoming events.
-          </Typography>
+          <Box>
+            <Typography variant="h4" fontWeight={700}>
+              Explore Events
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Browse upcoming workshops, trips, conferences, and bazaars
+              tailored for the GUC community.
+            </Typography>
+          </Box>
           <Button
-            onClick={() => setFilters({ ...INITIAL_FILTERS })}
-            sx={{ mt: 3 }}
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => eventsQuery.refetch()}
+            disabled={eventsQuery.isFetching}
           >
-            Reset filters
+            Refresh
           </Button>
-        </Box>
-      ) : (
-        <>
-          <Grid container spacing={3}>
-            {paginatedEvents.map((event) => {
-              const isRegistered =
-                Boolean(event.isRegistered) || registeredEventIds.has(event.id);
-              const eventWithStatus: EventSummary = {
-                ...event,
-                isRegistered,
-              };
-              const isRegisterable =
-                event.eventType === EventType.Workshop ||
-                event.eventType === EventType.Trip;
-              const isPendingRegistration =
-                pendingEventId === event.id && registerMutation.isPending;
-              const eventStartsIn = dayjs(event.startDate).diff(dayjs());
-              const cancellationDisabled =
-                !isRegistered || eventStartsIn < CANCELLATION_WINDOW_MS;
-              const cancelTooltip = cancellationDisabled
-                ? !isRegistered
-                  ? "You are not registered for this event."
-                  : "Cancellations are only available until 14 days before the event."
-                : undefined;
+        </Stack>
 
-              return (
-                <Grid key={event.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                  <EventCard
-                    event={eventWithStatus}
-                    onRegister={isRegisterable ? handleStartRegistration : undefined}
-                    disableRegister={isRegistered || isPendingRegistration}
-                    onCancelRegistration={isRegistered ? handleCancelRegistration : undefined}
-                    cancelDisabled={cancellationDisabled || cancelRegistrationMutation.isPending}
-                    cancelDisabledReason={cancelTooltip}
-                  />
-                </Grid>
-              );
-            })}
+        <AttendedEventsHighlight
+          loading={attendedQuery.isLoading}
+          error={attendedQuery.isError}
+          events={attendedEvents}
+          showEmpty={!attendedQuery.isLoading && attendedEvents.length === 0}
+          onRetry={() => attendedQuery.refetch()}
+        />
+
+        <EventFiltersBar
+          value={filters}
+          onChange={setFilters}
+          professors={professors}
+        />
+
+        {eventsQuery.isLoading ? (
+          <Grid container spacing={3}>
+            {Array.from({ length: PAGE_SIZE }).map((_, index) => (
+              <Grid key={index} size={{ xs: 12, md: 6, lg: 4 }}>
+                <Skeleton
+                  variant="rectangular"
+                  height={280}
+                  sx={{ borderRadius: 3 }}
+                />
+              </Grid>
+            ))}
           </Grid>
-          {totalPages > 1 && (
-            <Stack alignItems="center">
-              <Pagination
-                count={totalPages}
-                page={page}
-                onChange={(_, newPage) => setPage(newPage)}
-                color="primary"
-                shape="rounded"
-              />
-            </Stack>
-          )}
-        </>
-      )}
+        ) : eventsQuery.isError ? (
+          <Alert
+            severity="error"
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => eventsQuery.refetch()}
+              >
+                Retry
+              </Button>
+            }
+          >
+            Failed to load events.{" "}
+            {eventsQuery.error instanceof Error
+              ? eventsQuery.error.message
+              : ""}
+          </Alert>
+        ) : filteredEvents.length === 0 ? (
+          <Box
+            sx={{
+              textAlign: "center",
+              py: 10,
+              borderRadius: 3,
+              backgroundColor: "#FFFFFF",
+              border: "1px dashed rgba(15,23,42,0.12)",
+            }}
+          >
+            <Typography variant="h6" fontWeight={600}>
+              No events match your filters.
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Try adjusting filters or resetting them to see all upcoming
+              events.
+            </Typography>
+            <Button
+              onClick={() => setFilters({ ...INITIAL_FILTERS })}
+              sx={{ mt: 3 }}
+            >
+              Reset filters
+            </Button>
+          </Box>
+        ) : (
+          <>
+            <Grid container spacing={3}>
+              {paginatedEvents.map((event) => {
+                const isRegistered =
+                  Boolean(event.isRegistered) ||
+                  registeredEventIds.has(event.id);
+                const eventWithStatus: EventSummary = {
+                  ...event,
+                  isRegistered,
+                };
+                const isRegisterable =
+                  event.eventType === EventType.Workshop ||
+                  event.eventType === EventType.Trip;
+                const isPendingRegistration =
+                  pendingEventId === event.id && registerMutation.isPending;
+                const eventStartsIn = dayjs(event.startDate).diff(dayjs());
+                const cancellationDisabled =
+                  !isRegistered || eventStartsIn < CANCELLATION_WINDOW_MS;
+                const cancelTooltip = cancellationDisabled
+                  ? !isRegistered
+                    ? "You are not registered for this event."
+                    : "Cancellations are only available until 14 days before the event."
+                  : undefined;
+
+                return (
+                  <Grid key={event.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                    <EventCard
+                      event={eventWithStatus}
+                      onRegister={
+                        isRegisterable ? handleStartRegistration : undefined
+                      }
+                      disableRegister={isRegistered || isPendingRegistration}
+                      onCancelRegistration={
+                        isRegistered ? handleCancelRegistration : undefined
+                      }
+                      cancelDisabled={
+                        cancellationDisabled ||
+                        cancelRegistrationMutation.isPending
+                      }
+                      cancelDisabledReason={cancelTooltip}
+                    />
+                  </Grid>
+                );
+              })}
+            </Grid>
+            {totalPages > 1 && (
+              <Stack alignItems="center">
+                <Pagination
+                  count={totalPages}
+                  page={page}
+                  onChange={(_, newPage) => setPage(newPage)}
+                  color="primary"
+                  shape="rounded"
+                />
+              </Stack>
+            )}
+          </>
+        )}
       </Stack>
 
       <EventPaymentDialog
@@ -681,8 +729,14 @@ function AttendedEventsHighlight({
                   </Typography>
                   <Divider flexItem sx={{ my: 1 }} />
                   <Stack spacing={0.5}>
-                    <Detail label="Started" value={formatDateTime(event.startDate)} />
-                    <Detail label="Ended" value={formatDateTime(event.endDate)} />
+                    <Detail
+                      label="Started"
+                      value={formatDateTime(event.startDate)}
+                    />
+                    <Detail
+                      label="Ended"
+                      value={formatDateTime(event.endDate)}
+                    />
                   </Stack>
                 </Stack>
               </CardContent>

@@ -2,11 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -79,7 +75,9 @@ function resolveBoothWindow(application: VendorApplication) {
   if (Number.isNaN(start.getTime())) {
     return null;
   }
-  let end = application.boothEndTime ? new Date(application.boothEndTime) : null;
+  let end = application.boothEndTime
+    ? new Date(application.boothEndTime)
+    : null;
   const durationWeeks = Number(application.boothDurationWeeks);
   if (
     (!end || Number.isNaN(end.getTime())) &&
@@ -372,8 +370,10 @@ function PaymentDialog({
   onUpdated,
 }: PaymentDialogProps) {
   const { enqueueSnackbar } = useSnackbar();
-  const [stripeIntent, setStripeIntent] =
-    useState<{ clientSecret: string; paymentIntentId: string } | null>(null);
+  const [stripeIntent, setStripeIntent] = useState<{
+    clientSecret: string;
+    paymentIntentId: string;
+  } | null>(null);
   const [isLoadingIntent, setIsLoadingIntent] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
@@ -476,7 +476,8 @@ function PaymentDialog({
           </Alert>
           {!payment ? (
             <Alert severity="warning">
-              Payment details were missing for this application. A fixed fee of 1,000 EGP will be used.
+              Payment details were missing for this application. A fixed fee of
+              1,000 EGP will be used.
             </Alert>
           ) : null}
           <Stack spacing={1}>
@@ -630,7 +631,7 @@ export default function VendorApplicationsPage() {
     useState<VendorApplication | null>(null);
 
   const applicationsQuery = useQuery({
-    queryKey: ["vendor-applications", user?.id, token],
+    queryKey: ["vendor-applications", user?.id],
     queryFn: () => fetchVendorApplications(token ?? undefined),
     enabled: Boolean(token && user?.id),
   });
@@ -640,7 +641,7 @@ export default function VendorApplicationsPage() {
       cancelVendorApplication(eventId, token ?? undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["vendor-applications", user?.id, token],
+        queryKey: ["vendor-applications", user?.id],
       });
       enqueueSnackbar("Application canceled.", { variant: "success" });
     },
@@ -730,14 +731,17 @@ export default function VendorApplicationsPage() {
                       application.status === "pending" &&
                       application.payment?.status !== "paid";
                     const hasQrCodes = (application.qrCodes?.length ?? 0) > 0;
-                    const eventType =
-                      application.eventType ?? EventType.Bazaar;
+                    const eventType = application.eventType ?? EventType.Bazaar;
                     const boothWindow = resolveBoothWindow(application);
                     return (
                       <TableRow key={application.eventId} hover>
                         <TableCell>
                           <Stack spacing={0.5}>
-                            <Stack direction="row" spacing={1} alignItems="center">
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              alignItems="center"
+                            >
                               <Typography fontWeight={600}>
                                 {application.eventName}
                               </Typography>
@@ -752,7 +756,10 @@ export default function VendorApplicationsPage() {
                               />
                             </Stack>
                             {application.eventDate && (
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 {formatDateTime(application.eventDate)}
                               </Typography>
                             )}
@@ -773,12 +780,20 @@ export default function VendorApplicationsPage() {
                             {application.boothLocation || "TBD"}
                           </Typography>
                           {boothWindow ? (
-                            <Typography variant="caption" display="block" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              display="block"
+                              color="text.secondary"
+                            >
                               {formatDateTime(boothWindow.start)} –{" "}
                               {formatDateTime(boothWindow.end)}
                             </Typography>
-                          ) : application.eventType === EventType.BoothInPlatform ? (
-                            <Typography variant="caption" color="text.secondary">
+                          ) : application.eventType ===
+                            EventType.BoothInPlatform ? (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               Booth window pending
                             </Typography>
                           ) : null}
@@ -797,7 +812,10 @@ export default function VendorApplicationsPage() {
                                       : "warning"
                                 }
                               />
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 {application.payment.amount}{" "}
                                 {application.payment.currency}
                               </Typography>
@@ -816,7 +834,11 @@ export default function VendorApplicationsPage() {
                           />
                         </TableCell>
                         <TableCell align="right">
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            justifyContent="flex-end"
+                          >
                             <Button
                               size="small"
                               variant="outlined"
@@ -852,7 +874,9 @@ export default function VendorApplicationsPage() {
                                 cancelMutation.variables === application.eventId
                               }
                               startIcon={<CancelIcon />}
-                              onClick={() => cancelMutation.mutate(application.eventId)}
+                              onClick={() =>
+                                cancelMutation.mutate(application.eventId)
+                              }
                               disabled={!canCancel}
                             >
                               Cancel
@@ -879,7 +903,7 @@ export default function VendorApplicationsPage() {
         }}
         onUpdated={() =>
           queryClient.invalidateQueries({
-            queryKey: ["vendor-applications", user?.id, token],
+            queryKey: ["vendor-applications", user?.id],
           })
         }
       />
@@ -894,7 +918,7 @@ export default function VendorApplicationsPage() {
         }}
         onUpdated={() =>
           queryClient.invalidateQueries({
-            queryKey: ["vendor-applications", user?.id, token],
+            queryKey: ["vendor-applications", user?.id],
           })
         }
       />

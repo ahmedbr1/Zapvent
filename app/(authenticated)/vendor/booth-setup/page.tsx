@@ -122,7 +122,7 @@ export default function VendorBoothSetupPage() {
   const [setupDialogOpen, setSetupDialogOpen] = useState(false);
 
   const boothsQuery = useQuery({
-    queryKey: ["vendor-booths", user?.id, token],
+    queryKey: ["vendor-booths", user?.id],
     queryFn: async (): Promise<BoothSetup[]> => {
       const response = (await apiFetch("/vendors/my-applications", {
         method: "GET",

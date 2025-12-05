@@ -154,7 +154,7 @@ export default function EventsOfficeGymSessionsPage() {
   });
 
   const scheduleQuery = useQuery({
-    queryKey: ["gym-schedule", selectedYear, selectedMonth, token],
+    queryKey: ["gym-schedule", selectedYear, selectedMonth],
     queryFn: () =>
       fetchGymSchedule(selectedYear, selectedMonth + 1, token ?? undefined),
     enabled: Boolean(token && canManage),

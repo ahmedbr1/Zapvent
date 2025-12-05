@@ -24,7 +24,7 @@ export default function UserRegistrationsPage() {
   const user = useSessionUser();
 
   const query = useQuery({
-    queryKey: ["registered-events", user?.id, token],
+    queryKey: ["registered-events", user?.id],
     queryFn: () => fetchUserRegisteredEvents(user!.id, token ?? undefined),
     enabled: Boolean(user?.id && token),
   });
@@ -45,12 +45,16 @@ export default function UserRegistrationsPage() {
       {query.isLoading ? (
         <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 3 }} />
       ) : query.isError ? (
-        <Alert severity="error" action={<Button onClick={() => query.refetch()}>Retry</Button>}>
+        <Alert
+          severity="error"
+          action={<Button onClick={() => query.refetch()}>Retry</Button>}
+        >
           Unable to load your registrations right now.
         </Alert>
       ) : registrations.length === 0 ? (
         <Alert severity="info">
-          You haven&apos;t registered for events yet. Explore the catalogue to get started.
+          You haven&apos;t registered for events yet. Explore the catalogue to
+          get started.
         </Alert>
       ) : (
         <Stack spacing={1.5}>
@@ -75,7 +79,8 @@ export default function UserRegistrationsPage() {
                       {item.name}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Registration closes {formatDateTime(item.registrationDeadline)}
+                      Registration closes{" "}
+                      {formatDateTime(item.registrationDeadline)}
                     </Typography>
                   </Stack>
                   <Stack direction="row" spacing={1}>
@@ -90,8 +95,14 @@ export default function UserRegistrationsPage() {
                 <Divider sx={{ my: 2 }} />
                 <GridDetails
                   data={[
-                    { label: "Event starts", value: formatDateTime(item.startDate) },
-                    { label: "Event ends", value: formatDateTime(item.endDate) },
+                    {
+                      label: "Event starts",
+                      value: formatDateTime(item.startDate),
+                    },
+                    {
+                      label: "Event ends",
+                      value: formatDateTime(item.endDate),
+                    },
                     { label: "Event ID", value: item.id },
                     { label: "Registration status", value: item.status },
                   ]}
@@ -125,11 +136,21 @@ function GridDetails({ data }: GridDetailsProps) {
     <Stack
       direction={{ xs: "column", md: "row" }}
       spacing={2}
-      divider={<Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />}
+      divider={
+        <Divider
+          orientation="vertical"
+          flexItem
+          sx={{ display: { xs: "none", md: "block" } }}
+        />
+      }
     >
       {data.map((item) => (
         <Stack key={item.label} spacing={0.5} flex={1} minWidth={0}>
-          <Typography variant="caption" color="text.secondary" textTransform="uppercase">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            textTransform="uppercase"
+          >
             {item.label}
           </Typography>
           <Typography variant="body2" fontWeight={600}>

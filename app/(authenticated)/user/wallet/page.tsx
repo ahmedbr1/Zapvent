@@ -36,12 +36,16 @@ export default function UserWalletPage() {
   const token = useAuthToken();
 
   const walletQuery = useQuery({
-    queryKey: ["wallet-summary", token],
+    queryKey: ["wallet-summary"],
     queryFn: () => fetchWalletSummary(token ?? undefined),
     enabled: Boolean(token),
   });
 
-  const summary = walletQuery.data ?? { balance: 0, totalRefunded: 0, refunds: [] };
+  const summary = walletQuery.data ?? {
+    balance: 0,
+    totalRefunded: 0,
+    refunds: [],
+  };
   const refunds = useMemo(() => summary.refunds ?? [], [summary.refunds]);
 
   return (
@@ -51,7 +55,8 @@ export default function UserWalletPage() {
           Wallet overview
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Track your current balance and see the most recent refunds related to trip and workshop registrations.
+          Track your current balance and see the most recent refunds related to
+          trip and workshop registrations.
         </Typography>
       </Stack>
 
@@ -59,7 +64,11 @@ export default function UserWalletPage() {
         <Grid container spacing={3}>
           {[0, 1].map((item) => (
             <Grid key={item} size={{ xs: 12, md: 6 }}>
-              <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 3 }} />
+              <Skeleton
+                variant="rectangular"
+                height={140}
+                sx={{ borderRadius: 3 }}
+              />
             </Grid>
           ))}
         </Grid>
@@ -92,7 +101,9 @@ export default function UserWalletPage() {
       {walletQuery.isLoading ? (
         <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 3 }} />
       ) : refunds.length === 0 ? (
-        <Alert severity="info">No refunds have been processed on your wallet yet.</Alert>
+        <Alert severity="info">
+          No refunds have been processed on your wallet yet.
+        </Alert>
       ) : (
         <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
           <Table>
@@ -114,31 +125,37 @@ export default function UserWalletPage() {
                   <TableRow key={key}>
                     <TableCell>
                       <Stack spacing={0.5}>
-                        <Typography fontWeight={600}>{refund.eventName ?? "Event"}</Typography>
+                        <Typography fontWeight={600}>
+                          {refund.eventName ?? "Event"}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {refund.eventId}
-                      </Typography>
-                    </Stack>
-                  </TableCell>
-                  <TableCell>{currencyFormatter.format(refund.amount)}</TableCell>
-                  <TableCell>
-                    {refund.refundedAt ? formatDateTime(refund.refundedAt) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Stack spacing={0.5}>
-                      {refund.receiptNumber ? (
-                        <Chip
-                          size="small"
-                          icon={<ReceiptIcon fontSize="small" />}
-                          label={`Receipt ${refund.receiptNumber}`}
-                        />
-                      ) : null}
-                      {refund.refundReference ? (
-                        <Typography variant="caption" color="text.secondary">
-                          Ref: {refund.refundReference}
                         </Typography>
-                      ) : null}
-                    </Stack>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      {currencyFormatter.format(refund.amount)}
+                    </TableCell>
+                    <TableCell>
+                      {refund.refundedAt
+                        ? formatDateTime(refund.refundedAt)
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Stack spacing={0.5}>
+                        {refund.receiptNumber ? (
+                          <Chip
+                            size="small"
+                            icon={<ReceiptIcon fontSize="small" />}
+                            label={`Receipt ${refund.receiptNumber}`}
+                          />
+                        ) : null}
+                        {refund.refundReference ? (
+                          <Typography variant="caption" color="text.secondary">
+                            Ref: {refund.refundReference}
+                          </Typography>
+                        ) : null}
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 );

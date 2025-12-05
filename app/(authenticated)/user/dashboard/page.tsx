@@ -36,16 +36,18 @@ export default function UserDashboardPage() {
   const router = useRouter();
   const firstName = (user?.name ?? "").trim().split(" ")[0] ?? "";
   const greetingName =
-    user?.userRole === UserRole.Professor && firstName ? `Prof. ${firstName}` : firstName;
+    user?.userRole === UserRole.Professor && firstName
+      ? `Prof. ${firstName}`
+      : firstName;
 
   const eventsQuery = useQuery({
-    queryKey: ["events", user?.id, token],
+    queryKey: ["events", user?.id],
     queryFn: () => fetchUpcomingEvents(token ?? undefined, user?.id),
     enabled: Boolean(token),
   });
 
   const registrationsQuery = useQuery({
-    queryKey: ["registered-events", user?.id, token],
+    queryKey: ["registered-events", user?.id],
     queryFn: () => fetchUserRegisteredEvents(user!.id, token ?? undefined),
     enabled: Boolean(user?.id && token),
   });
@@ -78,7 +80,8 @@ export default function UserDashboardPage() {
           Welcome back{greetingName ? `, ${greetingName}` : ""}!
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Track your registrations, discover new events, and stay on top of campus life.
+          Track your registrations, discover new events, and stay on top of
+          campus life.
         </Typography>
       </Stack>
 
@@ -108,7 +111,10 @@ export default function UserDashboardPage() {
             title="Next on your calendar"
             value={
               stats.nextRegistration
-                ? formatDateTime(stats.nextRegistration.startDate, "MMM D, h:mm A")
+                ? formatDateTime(
+                    stats.nextRegistration.startDate,
+                    "MMM D, h:mm A"
+                  )
                 : "No upcoming events"
             }
             icon={<EventNoteIcon fontSize="large" color="action" />}
@@ -124,7 +130,11 @@ export default function UserDashboardPage() {
       </Grid>
 
       <Stack spacing={2}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+        >
           <Typography variant="h6" fontWeight={700}>
             Recent registrations
           </Typography>
@@ -137,14 +147,19 @@ export default function UserDashboardPage() {
           </Button>
         </Stack>
         {registrationsQuery.isLoading ? (
-          <Skeleton variant="rectangular" height={240} sx={{ borderRadius: 3 }} />
+          <Skeleton
+            variant="rectangular"
+            height={240}
+            sx={{ borderRadius: 3 }}
+          />
         ) : registrationsQuery.isError ? (
           <Alert severity="error">
             Unable to load registrations. Please try again later.
           </Alert>
         ) : recentRegistrations.length === 0 ? (
           <Alert severity="info">
-            You haven&apos;t registered for any events yet. Browse the catalogue to get started.
+            You haven&apos;t registered for any events yet. Browse the catalogue
+            to get started.
           </Alert>
         ) : (
           <TableContainer component={Card} sx={{ borderRadius: 3 }}>
@@ -163,7 +178,9 @@ export default function UserDashboardPage() {
                   <TableRow key={registration.id} hover>
                     <TableCell>
                       <Stack spacing={0.5}>
-                        <Typography fontWeight={600}>{registration.name}</Typography>
+                        <Typography fontWeight={600}>
+                          {registration.name}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
                           ID: {registration.id}
                         </Typography>
@@ -172,13 +189,19 @@ export default function UserDashboardPage() {
                     <TableCell>
                       <Chip label={registration.location} size="small" />
                     </TableCell>
-                    <TableCell>{formatDateTime(registration.startDate)}</TableCell>
-                    <TableCell>{formatDateTime(registration.registrationDeadline)}</TableCell>
+                    <TableCell>
+                      {formatDateTime(registration.startDate)}
+                    </TableCell>
+                    <TableCell>
+                      {formatDateTime(registration.registrationDeadline)}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={registration.status}
                         size="small"
-                        color={registration.status === "Past" ? "warning" : "success"}
+                        color={
+                          registration.status === "Past" ? "warning" : "success"
+                        }
                       />
                     </TableCell>
                   </TableRow>
@@ -201,9 +224,18 @@ interface MetricCardProps {
   loading?: boolean;
 }
 
-function MetricCard({ title, value, icon, actionLabel, onAction, loading }: MetricCardProps) {
+function MetricCard({
+  title,
+  value,
+  icon,
+  actionLabel,
+  onAction,
+  loading,
+}: MetricCardProps) {
   return (
-    <Card sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}>
+    <Card
+      sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}
+    >
       <CardContent>
         <Stack spacing={2}>
           <Stack direction="row" spacing={2} alignItems="center">
@@ -233,7 +265,11 @@ function MetricCard({ title, value, icon, actionLabel, onAction, loading }: Metr
               )}
             </Stack>
           </Stack>
-          <Button onClick={onAction} endIcon={<ArrowForwardIcon />} sx={{ alignSelf: "flex-start" }}>
+          <Button
+            onClick={onAction}
+            endIcon={<ArrowForwardIcon />}
+            sx={{ alignSelf: "flex-start" }}
+          >
             {actionLabel}
           </Button>
         </Stack>

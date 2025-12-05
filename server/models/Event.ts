@@ -123,6 +123,14 @@ const EventSchema = new Schema<IEvent>(
   },
   { timestamps: true }
 );
+
+// Performance indexes for common queries
+EventSchema.index({ date: 1, eventType: 1 });
+EventSchema.index({ startDate: 1, endDate: 1 });
+EventSchema.index({ workshopStatus: 1 });
+EventSchema.index({ archived: 1, eventType: 1 });
+EventSchema.index({ createdBy: 1 });
+
 const EventModel =
   mongoose.models.Event || mongoose.model<IEvent>("Event", EventSchema);
 export default EventModel;

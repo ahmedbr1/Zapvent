@@ -102,7 +102,7 @@ export default function VendorLoyaltyPage() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
   const loyaltyQuery = useQuery({
-    queryKey: ["vendor-loyalty", token],
+    queryKey: ["vendor-loyalty"],
     queryFn: () => fetchVendorLoyaltyProgram(token ?? undefined),
     enabled: Boolean(token),
   });
@@ -122,14 +122,17 @@ export default function VendorLoyaltyPage() {
   }, [loyaltyQuery.data, loyaltyQuery.isSuccess]);
 
   const applyMutation = useMutation({
-    mutationFn: (payload: { discountRate: number; promoCode: string; termsAndConditions: string }) =>
-      applyToVendorLoyaltyProgram(payload, token ?? undefined),
+    mutationFn: (payload: {
+      discountRate: number;
+      promoCode: string;
+      termsAndConditions: string;
+    }) => applyToVendorLoyaltyProgram(payload, token ?? undefined),
     onSuccess: (response) => {
       enqueueSnackbar(response.message ?? "Application submitted.", {
         variant: "success",
       });
       setFormErrors({});
-      queryClient.invalidateQueries({ queryKey: ["vendor-loyalty", token] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-loyalty"] });
     },
     onError: (error: unknown) => {
       const message =
@@ -146,7 +149,7 @@ export default function VendorLoyaltyPage() {
       enqueueSnackbar(response.message ?? "Participation cancelled.", {
         variant: "info",
       });
-      queryClient.invalidateQueries({ queryKey: ["vendor-loyalty", token] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-loyalty"] });
     },
     onError: (error: unknown) => {
       const message =
@@ -196,7 +199,8 @@ export default function VendorLoyaltyPage() {
           GUC Loyalty Program
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Publish your campus offer so students and staff can redeem it with your promo code.
+          Publish your campus offer so students and staff can redeem it with
+          your promo code.
         </Typography>
       </Stack>
 
@@ -237,7 +241,10 @@ export default function VendorLoyaltyPage() {
                       {activeProgram.termsAndConditions}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Joined {activeProgram.appliedAt ? formatDateTime(activeProgram.appliedAt) : "recently"}
+                      Joined{" "}
+                      {activeProgram.appliedAt
+                        ? formatDateTime(activeProgram.appliedAt)
+                        : "recently"}
                     </Typography>
                     {activeProgram.cancelledAt && (
                       <Typography variant="caption" color="text.secondary">
@@ -247,7 +254,8 @@ export default function VendorLoyaltyPage() {
                   </Stack>
                 ) : (
                   <Alert severity="info">
-                    You haven&apos;t joined the loyalty program yet. Create your offer to get started.
+                    You haven&apos;t joined the loyalty program yet. Create your
+                    offer to get started.
                   </Alert>
                 )}
                 <LoadingButton
@@ -290,7 +298,10 @@ export default function VendorLoyaltyPage() {
                   }
                   inputProps={{ min: 1, max: 100, step: "1" }}
                   error={Boolean(formErrors.discountRate)}
-                  helperText={formErrors.discountRate ?? "Enter a whole number between 1 and 100."}
+                  helperText={
+                    formErrors.discountRate ??
+                    "Enter a whole number between 1 and 100."
+                  }
                   required
                   fullWidth
                 />
@@ -305,7 +316,10 @@ export default function VendorLoyaltyPage() {
                     }))
                   }
                   error={Boolean(formErrors.promoCode)}
-                  helperText={formErrors.promoCode ?? "This will be shared with students and staff."}
+                  helperText={
+                    formErrors.promoCode ??
+                    "This will be shared with students and staff."
+                  }
                   required
                   fullWidth
                 />

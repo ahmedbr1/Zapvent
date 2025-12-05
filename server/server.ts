@@ -1,12 +1,16 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import { connectDB } from "./db";
 import api from "./routes";
 import { startReminderScheduler } from "./services/notificationService";
 import { startCertificateScheduler } from "./services/certificateScheduler";
 
 const app = express();
+
+// Enable gzip compression for all responses
+app.use(compression());
 const allowedOrigin =
   process.env.CLIENT_ORIGIN ??
   process.env.NEXT_PUBLIC_APP_URL ??
@@ -18,8 +22,15 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
-app.use("/uploads", express.static("uploads"));
+app.use(express.json({ limit: "10mb" }));
+app.use(
+  "/uploads",
+  express.static("uploads", {
+    maxAge: "7d",
+    etag: true,
+    lastModified: true,
+  })
+);
 
 app.use((_req, res, next) => {
   res.header("Access-Control-Allow-Credentials", "true");
