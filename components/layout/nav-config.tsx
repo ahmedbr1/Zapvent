@@ -89,13 +89,6 @@ export const navItems: NavItem[] = [
     userRoles: [UserRole.Professor],
   },
   {
-    label: "Conference Videos",
-    href: "/user/conference-videos",
-    icon: VideoLibraryIcon,
-    roles: [AuthRole.User],
-    userRoles: [UserRole.Professor],
-  },
-  {
     label: "Courts & Gym",
     href: "/user/gym",
     icon: FitnessCenterIcon,
@@ -242,6 +235,12 @@ export const navItems: NavItem[] = [
     label: "Conference Management",
     href: "/events-office/conferences",
     icon: ConferenceIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
+    label: "Conference Videos",
+    href: "/events-office/conference-videos",
+    icon: VideoLibraryIcon,
     roles: [AuthRole.EventOffice],
   },
   {
