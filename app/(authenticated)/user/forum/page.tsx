@@ -28,7 +28,6 @@ import AddIcon from "@mui/icons-material/AddRounded";
 import CheckCircleIcon from "@mui/icons-material/CheckCircleRounded";
 import ThumbUpIcon from "@mui/icons-material/ThumbUpAltRounded";
 import ChatBubbleIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
-import VisibilityIcon from "@mui/icons-material/VisibilityRounded";
 import PushPinIcon from "@mui/icons-material/PushPinRounded";
 import LockIcon from "@mui/icons-material/LockRounded";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -51,19 +50,21 @@ export default function ForumPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const postsQuery = useQuery({
-    queryKey: ["forum-posts", page, search, sortBy, selectedTags, token],
+    queryKey: ["forum-posts", page, search, sortBy, selectedTags],
     queryFn: () =>
       getForumPosts(
         { page, limit: 20, search, sortBy, tags: selectedTags },
         token ?? undefined
       ),
     enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   const tagsQuery = useQuery({
-    queryKey: ["forum-tags", token],
+    queryKey: ["forum-tags"],
     queryFn: () => getPopularTags(token ?? undefined),
     enabled: Boolean(token),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const handleSearch = () => {
@@ -292,12 +293,6 @@ function ForumPostCard({
                 color={post.hasAcceptedAnswer ? "success.main" : "inherit"}
               >
                 {post.answerCount}
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={0.5}>
-              <VisibilityIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="text.secondary">
-                {post.viewCount}
               </Typography>
             </Stack>
           </Stack>

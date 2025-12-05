@@ -61,9 +61,10 @@ export default function ForumPostDetailPage() {
   const [answerContent, setAnswerContent] = useState("");
 
   const postQuery = useQuery({
-    queryKey: ["forum-post", postId, token],
+    queryKey: ["forum-post", postId],
     queryFn: () => getForumPost(postId!, token ?? undefined),
     enabled: Boolean(postId && token),
+    staleTime: 60 * 1000, // 1 minute
   });
 
   const post = postQuery.data?.data;

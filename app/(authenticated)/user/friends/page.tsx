@@ -66,21 +66,24 @@ export default function FriendsPage() {
 
   // Queries
   const friendsQuery = useQuery({
-    queryKey: ["friends", token],
+    queryKey: ["friends"],
     queryFn: () => getFriendsList(token!),
     enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   const requestsQuery = useQuery({
-    queryKey: ["friend-requests", token],
+    queryKey: ["friend-requests"],
     queryFn: () => getPendingFriendRequests(token!),
     enabled: Boolean(token),
+    staleTime: 60 * 1000, // 1 minute
   });
 
   const searchResultsQuery = useQuery({
-    queryKey: ["search-students", searchQuery, token],
+    queryKey: ["search-students", searchQuery],
     queryFn: () => searchStudents(searchQuery, token!, 20),
     enabled: Boolean(token && searchQuery.length >= 2),
+    staleTime: 30 * 1000, // 30 seconds
   });
 
   const friends = friendsQuery.data?.data ?? [];

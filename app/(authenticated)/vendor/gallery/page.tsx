@@ -64,12 +64,16 @@ export default function VendorGalleryPage() {
   );
 
   const galleryQuery = useQuery({
-    queryKey: ["vendor-gallery", token],
+    queryKey: ["vendor-gallery"],
     queryFn: () => getMyVendorGallery(token!),
     enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  const items = galleryQuery.data?.data ?? [];
+  const items = useMemo(
+    () => galleryQuery.data?.data ?? [],
+    [galleryQuery.data?.data]
+  );
 
   // Group items by event
   const groupedItems = useMemo(() => {
