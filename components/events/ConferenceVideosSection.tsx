@@ -20,7 +20,10 @@ import CloseIcon from "@mui/icons-material/CloseRounded";
 import PlayCircleIcon from "@mui/icons-material/PlayCircleRounded";
 import ImageIcon from "@mui/icons-material/ImageRounded";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibraryRounded";
-import { MediaType, type ConferenceVideoSummary } from "@/lib/services/conference-videos";
+import {
+  MediaType,
+  type ConferenceVideoSummary,
+} from "@/lib/services/conference-videos";
 import { formatRelative } from "@/lib/date";
 import { SERVER_BASE_URL } from "@/lib/config";
 
