@@ -30,7 +30,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.0",
     "multer": "^2.0.2",
-    "next": "15.5.4",
+    "next": "^15.5.7",
     "nodemailer": "^7.0.10",
     "notistack": "^3.0.2",
     "qr-image": "^3.2.0",
@@ -41,6 +41,10 @@
     "stripe": "^14.19.0",
     "xlsx": "^0.18.5",
     "zod": "^4.1.12"
+  },
+  "overrides": {
+    "glob": "^10.0.0",
+    "inflight": "npm:lru-cache@^10.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
