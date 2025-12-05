@@ -69,7 +69,7 @@ export async function getConferenceVideos(
   );
 }
 
-export async function getProfessorVideos(
+export async function getUploaderVideos(
   token: string
 ): Promise<ConferenceVideosResponse> {
   return apiFetch<ConferenceVideosResponse>("/conference-videos/my-videos", {
