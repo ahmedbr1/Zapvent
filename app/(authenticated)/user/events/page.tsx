@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,8 +22,17 @@ import RefreshIcon from "@mui/icons-material/RefreshRounded";
 import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
 import { useSnackbar } from "notistack";
 import { EventCard } from "@/components/events/EventCard";
-import EventPaymentDialog from "@/components/events/EventPaymentDialog";
-import EventCancellationDialog from "@/components/events/EventCancellationDialog";
+
+// Lazy load heavy dialog components
+const EventPaymentDialog = dynamic(
+  () => import("@/components/events/EventPaymentDialog"),
+  { ssr: false }
+);
+const EventCancellationDialog = dynamic(
+  () => import("@/components/events/EventCancellationDialog"),
+  { ssr: false }
+);
+
 import {
   EventFiltersBar,
   type EventFilters,

@@ -53,15 +53,14 @@ export function EventCard({
   const registrationClosed =
     new Date(event.registrationDeadline).getTime() < Date.now();
   const isRegistered = Boolean(event.isRegistered);
-  const buttonDisabled =
-    registrationClosed || disableRegister || isRegistered;
+  const buttonDisabled = registrationClosed || disableRegister || isRegistered;
   const buttonLabel = registrationClosed
     ? "Closed"
     : isRegistered
-    ? "Registered"
-    : disableRegister
-    ? "Registering..."
-    : "Register";
+      ? "Registered"
+      : disableRegister
+        ? "Registering..."
+        : "Register";
 
   return (
     <Card
@@ -94,7 +93,8 @@ export function EventCard({
           <Stack direction="row" spacing={1} alignItems="center">
             <CalendarIcon fontSize="small" />
             <Typography variant="body2">
-              {formatDateTime(event.startDate)} – {formatDateTime(event.endDate)}
+              {formatDateTime(event.startDate)} –{" "}
+              {formatDateTime(event.endDate)}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -111,7 +111,9 @@ export function EventCard({
           )}
           {isBazaar && event.vendors && event.vendors.length > 0 && (
             <Tooltip
-              title={event.vendors.map((vendor) => vendor.companyName).join(", ")}
+              title={event.vendors
+                .map((vendor) => vendor.companyName)
+                .join(", ")}
               arrow
             >
               <Chip
@@ -125,7 +127,7 @@ export function EventCard({
           )}
         </Stack>
       </CardContent>
-      <CardActions sx={{ px: 3, pb: 3, pt: 0, gap: 1 }}>
+      <CardActions sx={{ px: 3, pb: 3, pt: 0, gap: 1.5, flexWrap: "wrap" }}>
         <Button
           component={Link}
           href={`/user/events/${event.id}`}
@@ -133,7 +135,7 @@ export function EventCard({
           color="primary"
           size="small"
         >
-          Details
+          View Details
         </Button>
         {onRegister && (
           <Button
@@ -141,17 +143,18 @@ export function EventCard({
             disabled={buttonDisabled}
             variant="contained"
             size="small"
+            color={isRegistered ? "success" : "primary"}
           >
             {buttonLabel}
           </Button>
         )}
         {onCancelRegistration ? (
-          <Tooltip title={cancelDisabled ? cancelDisabledReason ?? "" : ""}>
+          <Tooltip title={cancelDisabled ? (cancelDisabledReason ?? "") : ""}>
             <span>
               <Button
                 onClick={() => onCancelRegistration(event)}
                 disabled={Boolean(cancelDisabled)}
-                variant="text"
+                variant="outlined"
                 size="small"
                 color="error"
               >
@@ -161,8 +164,13 @@ export function EventCard({
           </Tooltip>
         ) : null}
         <Box flexGrow={1} />
-        <Typography variant="caption" color="text.secondary">
-          Register by {formatDateTime(event.registrationDeadline, "MMM D, h:mm A")}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ opacity: 0.8 }}
+        >
+          Register by{" "}
+          {formatDateTime(event.registrationDeadline, "MMM D, h:mm A")}
         </Typography>
       </CardActions>
     </Card>

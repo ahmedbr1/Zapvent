@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -35,10 +36,18 @@ import {
 } from "@/lib/services/events";
 import { EventType, type EventSummary } from "@/lib/types";
 import { formatDateTime, formatRelative } from "@/lib/date";
-import EventPaymentDialog from "@/components/events/EventPaymentDialog";
-import EventCancellationDialog from "@/components/events/EventCancellationDialog";
 import { fetchFavoriteEvents, addEventToFavorites } from "@/lib/services/users";
 import { EventFeedbackSection } from "@/components/events/EventFeedbackSection";
+
+// Lazy load heavy dialog components
+const EventPaymentDialog = dynamic(
+  () => import("@/components/events/EventPaymentDialog"),
+  { ssr: false }
+);
+const EventCancellationDialog = dynamic(
+  () => import("@/components/events/EventCancellationDialog"),
+  { ssr: false }
+);
 
 const CANCELLATION_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -53,9 +62,10 @@ export default function EventDetailsPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentEvent, setPaymentEvent] = useState<EventSummary | null>(null);
   const [paymentStep, setPaymentStep] = useState<"method" | "card">("method");
-  const [stripeIntent, setStripeIntent] = useState<
-    { clientSecret: string; paymentIntentId: string } | null
-  >(null);
+  const [stripeIntent, setStripeIntent] = useState<{
+    clientSecret: string;
+    paymentIntentId: string;
+  } | null>(null);
   const [cardError, setCardError] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const resetPaymentFlow = () => {
@@ -78,16 +88,22 @@ export default function EventDetailsPage() {
 
   const event = query.data;
   const supportsRegistration =
-    event?.eventType === EventType.Workshop || event?.eventType === EventType.Trip;
+    event?.eventType === EventType.Workshop ||
+    event?.eventType === EventType.Trip;
   const registeredCount = event?.registeredCount ?? 0;
-  const totalCapacity = typeof event?.capacity === "number" ? event.capacity : undefined;
+  const totalCapacity =
+    typeof event?.capacity === "number" ? event.capacity : undefined;
   const hasCapacity = typeof totalCapacity === "number";
-  const remainingCapacity = hasCapacity ? Math.max((totalCapacity ?? 0) - registeredCount, 0) : undefined;
+  const remainingCapacity = hasCapacity
+    ? Math.max((totalCapacity ?? 0) - registeredCount, 0)
+    : undefined;
   const capacityReached = hasCapacity ? remainingCapacity === 0 : false;
   const registrationDeadlinePassed = event?.registrationDeadline
     ? dayjs(event.registrationDeadline).isBefore(dayjs())
     : false;
-  const eventHasStarted = event?.startDate ? dayjs(event.startDate).isBefore(dayjs()) : false;
+  const eventHasStarted = event?.startDate
+    ? dayjs(event.startDate).isBefore(dayjs())
+    : false;
 
   useEffect(() => {
     setIsRegistered(Boolean(event?.isRegistered));
@@ -127,7 +143,9 @@ export default function EventDetailsPage() {
       setIsRegistered(true);
       const message =
         response.message ??
-        (event ? `Registration successful for ${event.name}.` : "Registration successful.");
+        (event
+          ? `Registration successful for ${event.name}.`
+          : "Registration successful.");
       enqueueSnackbar(message, { variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
       queryClient.invalidateQueries({
@@ -150,10 +168,15 @@ export default function EventDetailsPage() {
         variant: "success",
       });
       queryClient.invalidateQueries({ queryKey: ["wallet-summary", token] });
-      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
+      queryClient.invalidateQueries({
+        queryKey: ["event", eventId, user?.id, token],
+      });
     },
     onError: (error: unknown) => {
-      const message = getErrorMessage(error, "Failed to process wallet payment.");
+      const message = getErrorMessage(
+        error,
+        "Failed to process wallet payment."
+      );
       enqueueSnackbar(message, { variant: "error" });
     },
   });
@@ -271,7 +294,10 @@ export default function EventDetailsPage() {
       setPaymentDialogOpen(false);
       setPaymentEvent(null);
     } catch (error) {
-      const message = getErrorMessage(error, "Unable to complete registration.");
+      const message = getErrorMessage(
+        error,
+        "Unable to complete registration."
+      );
       enqueueSnackbar(message, { variant: "error" });
     }
   };
@@ -301,11 +327,17 @@ export default function EventDetailsPage() {
     if (!event) return;
     try {
       setCardError(null);
-      const response = await finalizeStripePaymentMutation.mutateAsync(paymentIntentId);
-      enqueueSnackbar(response.message ?? `Payment confirmed for ${event.name}.`, {
-        variant: "success",
+      const response =
+        await finalizeStripePaymentMutation.mutateAsync(paymentIntentId);
+      enqueueSnackbar(
+        response.message ?? `Payment confirmed for ${event.name}.`,
+        {
+          variant: "success",
+        }
+      );
+      queryClient.invalidateQueries({
+        queryKey: ["event", eventId, user?.id, token],
       });
-      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
       queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
       setPaymentDialogOpen(false);
       setPaymentEvent(null);
@@ -333,9 +365,12 @@ export default function EventDetailsPage() {
   const handleCancelRegistration = () => {
     if (!event) return;
     if (!canCancelRegistration) {
-      enqueueSnackbar("Cancellations are only available until 14 days before the event.", {
-        variant: "info",
-      });
+      enqueueSnackbar(
+        "Cancellations are only available until 14 days before the event.",
+        {
+          variant: "info",
+        }
+      );
       return;
     }
     setCancelDialogOpen(true);
@@ -358,13 +393,18 @@ export default function EventDetailsPage() {
   const cancelRegistrationMutation = useMutation({
     mutationFn: () => cancelEventRegistration(eventId!, token ?? undefined),
     onSuccess: (response) => {
-      enqueueSnackbar(response.message ?? "Registration cancelled and refunded", {
-        variant: "success",
-      });
+      enqueueSnackbar(
+        response.message ?? "Registration cancelled and refunded",
+        {
+          variant: "success",
+        }
+      );
       setIsRegistered(false);
       setCancelDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["wallet-summary", token] });
-      queryClient.invalidateQueries({ queryKey: ["event", eventId, user?.id, token] });
+      queryClient.invalidateQueries({
+        queryKey: ["event", eventId, user?.id, token],
+      });
       queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
     },
     onError: (error: unknown) => {
@@ -385,7 +425,10 @@ export default function EventDetailsPage() {
 
   if (query.isError) {
     return (
-      <Alert severity="error" action={<Button onClick={() => query.refetch()}>Retry</Button>}>
+      <Alert
+        severity="error"
+        action={<Button onClick={() => query.refetch()}>Retry</Button>}
+      >
         Unable to load event details.
       </Alert>
     );
@@ -399,8 +442,11 @@ export default function EventDetailsPage() {
     );
   }
 
-  const cancellationWindowRemaining = event ? new Date(event.startDate).getTime() - Date.now() : 0;
-  const canCancelRegistration = isRegistered && cancellationWindowRemaining >= CANCELLATION_WINDOW_MS;
+  const cancellationWindowRemaining = event
+    ? new Date(event.startDate).getTime() - Date.now()
+    : 0;
+  const canCancelRegistration =
+    isRegistered && cancellationWindowRemaining >= CANCELLATION_WINDOW_MS;
   const registerDisabledReason = registrationDeadlinePassed
     ? "deadline"
     : capacityReached
@@ -419,18 +465,26 @@ export default function EventDetailsPage() {
             ? "Registering..."
             : "Register";
   const registerButtonIcon =
-    registerDisabledReason === "deadline"
-      ? <EventBusyIcon />
-      : registerDisabledReason === "capacity"
-        ? <BlockIcon />
-        : <EventIcon />;
+    registerDisabledReason === "deadline" ? (
+      <EventBusyIcon />
+    ) : registerDisabledReason === "capacity" ? (
+      <BlockIcon />
+    ) : (
+      <EventIcon />
+    );
   const canSubmitFeedback = Boolean(isRegistered && eventHasStarted);
 
-  const paymentLoading = registerMutation.isPending || walletPaymentMutation.isPending;
+  const paymentLoading =
+    registerMutation.isPending || walletPaymentMutation.isPending;
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" alignItems={{ xs: "flex-start", md: "center" }} justifyContent="space-between" spacing={2}>
+      <Stack
+        direction="row"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+      >
         <Box>
           <Stack direction="row" spacing={1.5} alignItems="center">
             <Chip label={event.eventType} color="primary" variant="outlined" />
@@ -449,7 +503,9 @@ export default function EventDetailsPage() {
           <Typography variant="subtitle2" color="text.secondary">
             Registration deadline
           </Typography>
-          <Typography variant="h6">{formatDateTime(event.registrationDeadline)}</Typography>
+          <Typography variant="h6">
+            {formatDateTime(event.registrationDeadline)}
+          </Typography>
           {supportsRegistration ? (
             <Stack direction="row" spacing={1} alignItems="center">
               <Button
@@ -472,10 +528,15 @@ export default function EventDetailsPage() {
                     <Button
                       variant="outlined"
                       color="error"
-                      disabled={!canCancelRegistration || cancelRegistrationMutation.isPending}
+                      disabled={
+                        !canCancelRegistration ||
+                        cancelRegistrationMutation.isPending
+                      }
                       onClick={handleCancelRegistration}
                     >
-                      {cancelRegistrationMutation.isPending ? "Cancelling..." : "Cancel & refund"}
+                      {cancelRegistrationMutation.isPending
+                        ? "Cancelling..."
+                        : "Cancel & refund"}
                     </Button>
                   </span>
                 </Tooltip>
@@ -490,7 +551,11 @@ export default function EventDetailsPage() {
             variant="text"
             color="secondary"
             startIcon={
-              isFavorite ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />
+              isFavorite ? (
+                <FavoriteIcon color="error" />
+              ) : (
+                <FavoriteBorderIcon />
+              )
             }
             disabled={isFavorite || favoriteMutation.isPending}
             onClick={handleAddFavorite}
@@ -502,15 +567,32 @@ export default function EventDetailsPage() {
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
-          <Stack spacing={2.5} sx={{ p: 3, backgroundColor: "#FFFFFF", borderRadius: 3 }}>
+          <Stack
+            spacing={2.5}
+            sx={{ p: 3, backgroundColor: "#FFFFFF", borderRadius: 3 }}
+          >
             <Typography variant="h6" fontWeight={700}>
               Schedule
             </Typography>
             <Stack spacing={1}>
-              <DetailRow icon={<CalendarIcon />} label="Start" value={formatDateTime(event.startDate)} />
-              <DetailRow icon={<CalendarIcon />} label="End" value={formatDateTime(event.endDate)} />
-              <DetailRow icon={<LocationIcon />} label="Location" value={event.location} />
-              {hasCapacity && remainingCapacity !== undefined && totalCapacity !== undefined ? (
+              <DetailRow
+                icon={<CalendarIcon />}
+                label="Start"
+                value={formatDateTime(event.startDate)}
+              />
+              <DetailRow
+                icon={<CalendarIcon />}
+                label="End"
+                value={formatDateTime(event.endDate)}
+              />
+              <DetailRow
+                icon={<LocationIcon />}
+                label="Location"
+                value={event.location}
+              />
+              {hasCapacity &&
+              remainingCapacity !== undefined &&
+              totalCapacity !== undefined ? (
                 <DetailRow
                   icon={<PeopleIcon />}
                   label="Remaining capacity"
@@ -527,21 +609,37 @@ export default function EventDetailsPage() {
             </Stack>
           </Stack>
 
-          {event.participatingProfessors && event.participatingProfessors.length > 0 && (
-            <Stack spacing={2} sx={{ p: 3, backgroundColor: "#FFFFFF", borderRadius: 3, mt: 3 }}>
-              <Typography variant="h6" fontWeight={700}>
-                Faculty & speakers
-              </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {event.participatingProfessors.map((professor) => (
-                  <Chip key={professor} label={professor} variant="outlined" />
-                ))}
+          {event.participatingProfessors &&
+            event.participatingProfessors.length > 0 && (
+              <Stack
+                spacing={2}
+                sx={{
+                  p: 3,
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 3,
+                  mt: 3,
+                }}
+              >
+                <Typography variant="h6" fontWeight={700}>
+                  Faculty & speakers
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {event.participatingProfessors.map((professor) => (
+                    <Chip
+                      key={professor}
+                      label={professor}
+                      variant="outlined"
+                    />
+                  ))}
+                </Stack>
               </Stack>
-            </Stack>
-          )}
+            )}
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
-          <Stack spacing={2.5} sx={{ p: 3, backgroundColor: "#FFFFFF", borderRadius: 3 }}>
+          <Stack
+            spacing={2.5}
+            sx={{ p: 3, backgroundColor: "#FFFFFF", borderRadius: 3 }}
+          >
             <Typography variant="h6" fontWeight={700}>
               Vendors & partners
             </Typography>
@@ -549,7 +647,12 @@ export default function EventDetailsPage() {
               vendorList.length > 0 ? (
                 <Stack spacing={1}>
                   {vendorList.map((vendor) => (
-                    <Chip key={vendor.id} label={vendor.name} color="secondary" variant="outlined" />
+                    <Chip
+                      key={vendor.id}
+                      label={vendor.name}
+                      color="secondary"
+                      variant="outlined"
+                    />
                   ))}
                 </Stack>
               ) : (
@@ -563,20 +666,37 @@ export default function EventDetailsPage() {
               </Typography>
             )}
             <Typography variant="caption" color="text.secondary">
-              Vendor details are synced automatically from approved applications.
+              Vendor details are synced automatically from approved
+              applications.
             </Typography>
           </Stack>
 
-          <Stack spacing={2.5} sx={{ p: 3, backgroundColor: "#FFFFFF", borderRadius: 3, mt: 3 }}>
+          <Stack
+            spacing={2.5}
+            sx={{ p: 3, backgroundColor: "#FFFFFF", borderRadius: 3, mt: 3 }}
+          >
             <Typography variant="h6" fontWeight={700}>
               Timeline
             </Typography>
             <Stack spacing={1.5}>
-              <TimelineItem label="Registration opens" value={dayjs(event.registrationDeadline).subtract(4, "week").format("MMM D, YYYY")}
+              <TimelineItem
+                label="Registration opens"
+                value={dayjs(event.registrationDeadline)
+                  .subtract(4, "week")
+                  .format("MMM D, YYYY")}
               />
-              <TimelineItem label="Registration closes" value={formatDateTime(event.registrationDeadline)} />
-              <TimelineItem label="Event start" value={formatDateTime(event.startDate)} />
-              <TimelineItem label="Event end" value={formatDateTime(event.endDate)} />
+              <TimelineItem
+                label="Registration closes"
+                value={formatDateTime(event.registrationDeadline)}
+              />
+              <TimelineItem
+                label="Event start"
+                value={formatDateTime(event.startDate)}
+              />
+              <TimelineItem
+                label="Event end"
+                value={formatDateTime(event.endDate)}
+              />
             </Stack>
           </Stack>
         </Grid>
