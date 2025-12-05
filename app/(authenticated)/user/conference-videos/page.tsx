@@ -120,8 +120,8 @@ export default function UserConferenceVideosPage() {
 
           {conferences.length > 0 && !selectedConference && (
             <Typography variant="caption" color="text.secondary">
-              {conferences.length} conference{conferences.length !== 1 ? "s" : ""}{" "}
-              with videos available
+              {conferences.length} conference
+              {conferences.length !== 1 ? "s" : ""} with videos available
             </Typography>
           )}
         </Stack>
@@ -159,9 +159,7 @@ export default function UserConferenceVideosPage() {
             backgroundColor: "grey.50",
           }}
         >
-          <VideoLibraryIcon
-            sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
-          />
+          <VideoLibraryIcon sx={{ fontSize: 64, color: "grey.400", mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
             No Conference Selected
           </Typography>
