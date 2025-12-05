@@ -134,10 +134,9 @@ export class ConferenceVideoController {
         .json({ success: false, message: "Authentication required." });
     }
 
-    const result =
-      await conferenceVideoService.getEligibleConferences(
-        req.user.id
-      );
+    const result = await conferenceVideoService.getEligibleConferences(
+      req.user.id
+    );
     return res.status(result.success ? 200 : 400).json(result);
   }
 }
