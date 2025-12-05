@@ -181,7 +181,10 @@ export default function ForumPostDetailPage() {
               <IconButton
                 size="small"
                 onClick={() => votePostMutation.mutate(1)}
-                color={post.userVote === 1 ? "primary" : "default"}
+                sx={{
+                  color: post.userVote === 1 ? "success.main" : "action.active",
+                  "&:hover": { color: "success.main" },
+                }}
               >
                 <ThumbUpIcon />
               </IconButton>
@@ -191,7 +194,10 @@ export default function ForumPostDetailPage() {
               <IconButton
                 size="small"
                 onClick={() => votePostMutation.mutate(-1)}
-                color={post.userVote === -1 ? "error" : "default"}
+                sx={{
+                  color: post.userVote === -1 ? "error.main" : "action.active",
+                  "&:hover": { color: "error.main" },
+                }}
               >
                 <ThumbDownIcon />
               </IconButton>
@@ -404,7 +410,10 @@ function AnswerCard({
             <IconButton
               size="small"
               onClick={() => voteMutation.mutate(1)}
-              color={answer.userVote === 1 ? "primary" : "default"}
+              sx={{
+                color: answer.userVote === 1 ? "success.main" : "action.active",
+                "&:hover": { color: "success.main" },
+              }}
             >
               <ThumbUpIcon />
             </IconButton>
@@ -414,7 +423,10 @@ function AnswerCard({
             <IconButton
               size="small"
               onClick={() => voteMutation.mutate(-1)}
-              color={answer.userVote === -1 ? "error" : "default"}
+              sx={{
+                color: answer.userVote === -1 ? "error.main" : "action.active",
+                "&:hover": { color: "error.main" },
+              }}
             >
               <ThumbDownIcon />
             </IconButton>

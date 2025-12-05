@@ -19,6 +19,8 @@ import ChecklistIcon from "@mui/icons-material/ChecklistRtlRounded";
 import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
 import CollectionsIcon from "@mui/icons-material/CollectionsRounded";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibraryRounded";
+import PeopleIcon from "@mui/icons-material/PeopleRounded";
+import ForumIcon from "@mui/icons-material/ForumRounded";
 import { AuthRole, UserRole } from "@/lib/types";
 
 export interface NavItem {
@@ -103,6 +105,19 @@ export const navItems: NavItem[] = [
       [UserRole.Staff]: "Gym Sessions",
       [UserRole.TA]: "Gym Sessions",
     },
+  },
+  {
+    label: "Friends",
+    href: "/user/friends",
+    icon: PeopleIcon,
+    roles: [AuthRole.User],
+    userRoles: [UserRole.Student],
+  },
+  {
+    label: "Forum",
+    href: "/user/forum",
+    icon: ForumIcon,
+    roles: [AuthRole.User],
   },
   {
     label: "User Management",

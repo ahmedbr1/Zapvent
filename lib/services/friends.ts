@@ -92,7 +92,7 @@ export async function searchStudents(
   token: string,
   limit?: number
 ): Promise<SearchStudentsResponse> {
-  const params = new URLSearchParams({ query });
+  const params = new URLSearchParams({ q: query });
   if (limit) params.set("limit", limit.toString());
   return apiFetch<SearchStudentsResponse>(
     `/friends/search?${params.toString()}`,

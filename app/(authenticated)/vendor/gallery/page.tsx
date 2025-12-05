@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -10,6 +10,7 @@ import {
   CardContent,
   CardMedia,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -30,6 +31,8 @@ import DeleteIcon from "@mui/icons-material/DeleteRounded";
 import EditIcon from "@mui/icons-material/EditRounded";
 import VideoIcon from "@mui/icons-material/VideoLibraryRounded";
 import ImageIcon from "@mui/icons-material/ImageRounded";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMoreRounded";
+import ExpandLessIcon from "@mui/icons-material/ExpandLessRounded";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import {
@@ -59,9 +62,6 @@ export default function VendorGalleryPage() {
   const [editingItem, setEditingItem] = useState<VendorGalleryItem | null>(
     null
   );
-  const [filterCategory, setFilterCategory] = useState<
-    GalleryItemCategory | "all"
-  >("all");
 
   const galleryQuery = useQuery({
     queryKey: ["vendor-gallery", token],
@@ -70,10 +70,41 @@ export default function VendorGalleryPage() {
   });
 
   const items = galleryQuery.data?.data ?? [];
-  const filteredItems =
-    filterCategory === "all"
-      ? items
-      : items.filter((item) => item.category === filterCategory);
+
+  // Group items by event
+  const groupedItems = useMemo(() => {
+    const groups: Record<
+      string,
+      { eventName: string; items: VendorGalleryItem[] }
+    > = {};
+
+    items.forEach((item) => {
+      const key = item.eventId || "general";
+      const eventName = item.eventName || "General Gallery";
+
+      if (!groups[key]) {
+        groups[key] = { eventName, items: [] };
+      }
+      groups[key].items.push(item);
+    });
+
+    // Sort: specific events first (by name), then general at the end
+    return Object.entries(groups).sort(([keyA], [keyB]) => {
+      if (keyA === "general") return 1;
+      if (keyB === "general") return -1;
+      return groups[keyA].eventName.localeCompare(groups[keyB].eventName);
+    });
+  }, [items]);
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const isGroupExpanded = (key: string) => expandedGroups[key] !== false; // Default to expanded
 
   const deleteMutation = useMutation({
     mutationFn: (itemId: string) => deleteVendorGalleryItem(itemId, token!),
@@ -109,25 +140,6 @@ export default function VendorGalleryPage() {
         </Button>
       </Stack>
 
-      {/* Filter */}
-      <Stack direction="row" spacing={1} mb={3}>
-        <Chip
-          label="All"
-          onClick={() => setFilterCategory("all")}
-          color={filterCategory === "all" ? "primary" : "default"}
-          variant={filterCategory === "all" ? "filled" : "outlined"}
-        />
-        {Object.entries(categoryLabels).map(([key, label]) => (
-          <Chip
-            key={key}
-            label={label}
-            onClick={() => setFilterCategory(key as GalleryItemCategory)}
-            color={filterCategory === key ? "primary" : "default"}
-            variant={filterCategory === key ? "filled" : "outlined"}
-          />
-        ))}
-      </Stack>
-
       {galleryQuery.isLoading ? (
         <Grid container spacing={3}>
           {[1, 2, 3, 4].map((i) => (
@@ -140,29 +152,65 @@ export default function VendorGalleryPage() {
             </Grid>
           ))}
         </Grid>
-      ) : filteredItems.length === 0 ? (
+      ) : items.length === 0 ? (
         <Alert severity="info">
-          {filterCategory === "all"
-            ? "Your gallery is empty. Add photos and videos of your products and past booths!"
-            : `No items in the "${categoryLabels[filterCategory as GalleryItemCategory]}" category.`}
+          Your gallery is empty. Add photos and videos of your products and past
+          booths!
         </Alert>
       ) : (
-        <Grid container spacing={3}>
-          {filteredItems.map((item) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={item.id}>
-              <GalleryCard
-                item={item}
-                onEdit={() => setEditingItem(item)}
-                onDelete={() => {
-                  if (confirm("Delete this item?")) {
-                    deleteMutation.mutate(item.id);
-                  }
+        <Stack spacing={4}>
+          {groupedItems.map(([eventKey, group]) => (
+            <Box key={eventKey}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{
+                  mb: 2,
+                  pb: 1,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
                 }}
-                deleting={deleteMutation.isPending}
-              />
-            </Grid>
+              >
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Typography variant="h6" fontWeight={600}>
+                    {group.eventName}
+                  </Typography>
+                  <Chip
+                    label={`${group.items.length} item${group.items.length !== 1 ? "s" : ""}`}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Stack>
+                <IconButton size="small" onClick={() => toggleGroup(eventKey)}>
+                  {isGroupExpanded(eventKey) ? (
+                    <ExpandLessIcon />
+                  ) : (
+                    <ExpandMoreIcon />
+                  )}
+                </IconButton>
+              </Stack>
+              <Collapse in={isGroupExpanded(eventKey)}>
+                <Grid container spacing={3}>
+                  {group.items.map((item) => (
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={item.id}>
+                      <GalleryCard
+                        item={item}
+                        onEdit={() => setEditingItem(item)}
+                        onDelete={() => {
+                          if (confirm("Delete this item?")) {
+                            deleteMutation.mutate(item.id);
+                          }
+                        }}
+                        deleting={deleteMutation.isPending}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Collapse>
+            </Box>
           ))}
-        </Grid>
+        </Stack>
       )}
 
       {/* Upload Dialog */}

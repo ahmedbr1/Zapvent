@@ -62,7 +62,7 @@ export function VendorGalleryView({
     enabled: Boolean(vendorId),
   });
 
-  const allItems = data?.data ?? [];
+  const allItems = data?.data?.items ?? [];
 
   // Filter by event if specified - only show items tied to this specific event
   let items = eventId

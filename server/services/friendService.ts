@@ -385,9 +385,7 @@ export async function getFriendsList(
 
 // ============ Get Pending Friend Requests ============
 
-export async function getPendingFriendRequests(
-  userId: string
-): Promise<
+export async function getPendingFriendRequests(userId: string): Promise<
   ServiceResponse<{
     received: FriendRequestSummary[];
     sent: FriendRequestSummary[];
@@ -570,11 +568,21 @@ export async function updatePrivacySettings(
 
 // ============ Search Students ============
 
+export interface SearchStudentResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  isFriend: boolean;
+  hasPendingRequest: boolean;
+}
+
 export async function searchStudents(
   query: string,
   excludeUserId: string,
   limit: number = 20
-): Promise<ServiceResponse<FriendSummary[]>> {
+): Promise<ServiceResponse<SearchStudentResult[]>> {
   if (!query?.trim()) {
     return {
       success: false,
@@ -582,6 +590,28 @@ export async function searchStudents(
       statusCode: 400,
     };
   }
+
+  // Get the current user to check friends and pending requests
+  const currentUser = await UserModel.findById(excludeUserId)
+    .select("friends friendRequestsSent friendRequestsReceived")
+    .lean<{
+      friends?: Types.ObjectId[];
+      friendRequestsSent?: IFriendRequest[];
+      friendRequestsReceived?: IFriendRequest[];
+    }>();
+
+  const friendIds = new Set(
+    currentUser?.friends?.map((f) => f.toString()) ?? []
+  );
+
+  const pendingRequestIds = new Set([
+    ...(currentUser?.friendRequestsSent
+      ?.filter((r) => r.status === FriendRequestStatus.PENDING)
+      .map((r) => r.odId.toString()) ?? []),
+    ...(currentUser?.friendRequestsReceived
+      ?.filter((r) => r.status === FriendRequestStatus.PENDING)
+      .map((r) => r.odId.toString()) ?? []),
+  ]);
 
   const searchRegex = new RegExp(query.trim(), "i");
 
@@ -608,6 +638,8 @@ export async function searchStudents(
       lastName: s.lastName,
       email: s.email,
       role: s.role,
+      isFriend: friendIds.has(s._id.toString()),
+      hasPendingRequest: pendingRequestIds.has(s._id.toString()),
     })),
   };
 }

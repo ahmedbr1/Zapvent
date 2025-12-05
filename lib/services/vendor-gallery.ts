@@ -36,6 +36,15 @@ export interface VendorGalleryResponse {
   message?: string;
 }
 
+export interface PublicVendorGalleryResponse {
+  success: boolean;
+  data?: {
+    vendor: { id: string; companyName: string; logo?: string };
+    items: VendorGalleryItem[];
+  };
+  message?: string;
+}
+
 export interface VendorGalleryItemResponse {
   success: boolean;
   data?: VendorGalleryItem;
@@ -53,11 +62,11 @@ export async function getMyVendorGallery(
 export async function getPublicVendorGallery(
   vendorId: string,
   category?: GalleryItemCategory
-): Promise<VendorGalleryResponse> {
+): Promise<PublicVendorGalleryResponse> {
   const params = new URLSearchParams();
   if (category) params.set("category", category);
   const query = params.toString();
-  return apiFetch<VendorGalleryResponse>(
+  return apiFetch<PublicVendorGalleryResponse>(
     `/vendor-gallery/public/${vendorId}${query ? `?${query}` : ""}`
   );
 }
