@@ -33,11 +33,11 @@ router.get(
   conferenceVideoController.getConferenceVideos.bind(conferenceVideoController)
 );
 
-// Professor routes
+// Event Office routes
 router.get(
   "/eligible-conferences",
   loginRequired,
-  allowedRoles(["Professor"]),
+  allowedRoles(["EventOffice"]),
   conferenceVideoController.getEligibleConferences.bind(
     conferenceVideoController
   )
@@ -45,26 +45,26 @@ router.get(
 router.post(
   "/events/:eventId",
   loginRequired,
-  allowedRoles(["Professor"]),
+  allowedRoles(["EventOffice"]),
   upload.single("file"),
   conferenceVideoController.uploadVideo.bind(conferenceVideoController)
 );
 router.get(
   "/my-videos",
   loginRequired,
-  allowedRoles(["Professor"]),
-  conferenceVideoController.getProfessorVideos.bind(conferenceVideoController)
+  allowedRoles(["EventOffice"]),
+  conferenceVideoController.getUploaderVideos.bind(conferenceVideoController)
 );
 router.put(
   "/:videoId",
   loginRequired,
-  allowedRoles(["Professor"]),
+  allowedRoles(["EventOffice"]),
   conferenceVideoController.updateVideo.bind(conferenceVideoController)
 );
 router.delete(
   "/:videoId",
   loginRequired,
-  allowedRoles(["Professor", "Admin", "EventOffice"]),
+  allowedRoles(["EventOffice", "Admin"]),
   conferenceVideoController.deleteVideo.bind(conferenceVideoController)
 );
 
