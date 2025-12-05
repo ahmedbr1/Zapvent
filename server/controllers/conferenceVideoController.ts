@@ -67,14 +67,14 @@ export class ConferenceVideoController {
       .json(result);
   }
 
-  async getProfessorVideos(req: AuthRequest, res: Response) {
+  async getUploaderVideos(req: AuthRequest, res: Response) {
     if (!req.user) {
       return res
         .status(401)
         .json({ success: false, message: "Authentication required." });
     }
 
-    const result = await conferenceVideoService.getProfessorVideos(req.user.id);
+    const result = await conferenceVideoService.getUploaderVideos(req.user.id);
     return res.status(result.success ? 200 : 400).json(result);
   }
 
@@ -135,7 +135,7 @@ export class ConferenceVideoController {
     }
 
     const result =
-      await conferenceVideoService.getEligibleConferencesForProfessor(
+      await conferenceVideoService.getEligibleConferences(
         req.user.id
       );
     return res.status(result.success ? 200 : 400).json(result);
