@@ -39,6 +39,7 @@ import { formatDateTime, formatRelative } from "@/lib/date";
 import { fetchFavoriteEvents, addEventToFavorites } from "@/lib/services/users";
 import { EventFeedbackSection } from "@/components/events/EventFeedbackSection";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
+import { FriendsAttendingBadge } from "@/components/events/FriendsAttendingBadge";
 
 // Lazy load heavy dialog components
 const EventPaymentDialog = dynamic(
@@ -572,6 +573,7 @@ export default function EventDetailsPage() {
               endDate: event.endDate,
             }}
           />
+          <FriendsAttendingBadge eventId={eventId!} />
         </Stack>
       </Stack>
 

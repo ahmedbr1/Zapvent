@@ -18,6 +18,7 @@ import GroupIcon from "@mui/icons-material/PeopleAltRounded";
 import { formatDateTime, formatRelative } from "@/lib/date";
 import { EventType, type EventSummary } from "@/lib/types";
 import { AddToCalendarButton } from "./AddToCalendarButton";
+import { FriendsAttendingBadge } from "./FriendsAttendingBadge";
 
 interface EventCardProps {
   event: EventSummary;
@@ -126,6 +127,7 @@ export function EventCard({
               />
             </Tooltip>
           )}
+          <FriendsAttendingBadge eventId={event.id} compact />
         </Stack>
       </CardContent>
       <CardActions sx={{ px: 3, pb: 3, pt: 0, gap: 1.5, flexWrap: "wrap" }}>
