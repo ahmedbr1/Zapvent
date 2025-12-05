@@ -346,9 +346,7 @@ export async function getConferencesWithVideos(): Promise<
 
 // ============ Get Eligible Conferences for Event Office ============
 
-export async function getEligibleConferences(
-  userId: string
-): Promise<
+export async function getEligibleConferences(userId: string): Promise<
   ServiceResponse<
     Array<{
       eventId: string;
