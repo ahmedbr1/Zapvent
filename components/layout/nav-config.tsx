@@ -82,6 +82,12 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.User],
   },
   {
+    label: "Conference Videos",
+    href: "/user/conference-videos",
+    icon: VideoLibraryIcon,
+    roles: [AuthRole.User],
+  },
+  {
     label: "My Workshops",
     href: "/user/workshops",
     icon: SchoolIcon,
