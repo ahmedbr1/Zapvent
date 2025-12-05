@@ -312,30 +312,61 @@ export async function updateConferenceVideo(
 
 export async function getConferencesWithVideos(): Promise<
   ServiceResponse<
-    Array<{ eventId: string; eventName: string; videoCount: number }>
+    Array<{
+      eventId: string;
+      eventName: string;
+      eventDate: string;
+      videos: ConferenceVideoSummary[];
+    }>
   >
 > {
-  const result = await ConferenceVideoModel.aggregate([
-    { $group: { _id: "$eventId", videoCount: { $sum: 1 } } },
+  // Get all videos grouped by event
+  const allVideos = await ConferenceVideoModel.find()
+    .sort({ createdAt: -1 })
+    .lean<(IConferenceVideo & { _id: Types.ObjectId })[]>();
+
+  // Get unique event IDs
+  const eventIds = [...new Set(allVideos.map((v) => v.eventId.toString()))];
+
+  // Fetch event details
+  const events = await EventModel.find({
+    _id: { $in: eventIds.map((id) => new Types.ObjectId(id)) },
+  }).lean<(IEvent & { _id: Types.ObjectId })[]>();
+
+  const eventMap = new Map(events.map((e) => [e._id.toString(), e]));
+
+  // Group videos by event
+  const conferenceMap = new Map<
+    string,
     {
-      $lookup: {
-        from: "events",
-        localField: "_id",
-        foreignField: "_id",
-        as: "event",
-      },
-    },
-    { $unwind: "$event" },
-    {
-      $project: {
-        eventId: { $toString: "$_id" },
-        eventName: "$event.name",
-        videoCount: 1,
-        _id: 0,
-      },
-    },
-    { $sort: { videoCount: -1 } },
-  ]);
+      eventId: string;
+      eventName: string;
+      eventDate: string;
+      videos: ConferenceVideoSummary[];
+    }
+  >();
+
+  for (const video of allVideos) {
+    const eventIdStr = video.eventId.toString();
+    const event = eventMap.get(eventIdStr);
+    if (!event) continue;
+
+    if (!conferenceMap.has(eventIdStr)) {
+      conferenceMap.set(eventIdStr, {
+        eventId: eventIdStr,
+        eventName: event.name,
+        eventDate: event.startDate.toISOString(),
+        videos: [],
+      });
+    }
+
+    conferenceMap.get(eventIdStr)!.videos.push(serializeVideo(video, event.name));
+  }
+
+  // Sort by video count (descending)
+  const result = Array.from(conferenceMap.values()).sort(
+    (a, b) => b.videos.length - a.videos.length
+  );
 
   return {
     success: true,
