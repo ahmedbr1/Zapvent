@@ -615,7 +615,7 @@ export default function VendorBazaarsPage() {
 
   // Fetch vendor profile to get company name
   const profileQuery = useQuery({
-    queryKey: ["vendorProfile"],
+    queryKey: ["vendorProfile", user?.id],
     queryFn: () => fetchVendorProfile(token || ""),
     enabled: Boolean(token),
     ...VENDOR_CACHE_SETTINGS,

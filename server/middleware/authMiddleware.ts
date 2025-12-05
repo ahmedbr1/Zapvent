@@ -1,12 +1,15 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-// Replace the default-fallback with a fail-fast check
-if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET is required for authentication");
+// Get JWT_SECRET lazily to allow tests to set it before use
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is required for authentication");
+  }
+  return secret;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
 export type UserRole =
   | "Student"
   | "Professor"
@@ -58,7 +61,7 @@ function extractAndVerifyToken(req: AuthRequest): {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
+    const decoded = jwt.verify(token, getJwtSecret(), {
       algorithms: ["HS256"], // Or ['RS256'] if using asymmetric keys
     }) as {
       id: string;

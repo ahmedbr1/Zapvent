@@ -403,7 +403,7 @@ export default function EventDetailsPage() {
       setCancelDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["wallet-summary", token] });
       queryClient.invalidateQueries({
-        queryKey: ["event", eventId, user?.id, token],
+        queryKey: ["event", eventId, user?.id],
       });
       queryClient.invalidateQueries({ queryKey: ["events", user?.id, token] });
     },
