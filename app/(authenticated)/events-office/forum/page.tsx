@@ -3,8 +3,8 @@
 import { ForumPostsList } from "@/components/forum";
 import { useAuthToken } from "@/hooks/useAuthToken";
 
-export default function ForumPage() {
+export default function EventsOfficeForumPage() {
   const token = useAuthToken();
 
-  return <ForumPostsList token={token} basePath="/user/forum" />;
+  return <ForumPostsList token={token} basePath="/events-office/forum" />;
 }

@@ -3,8 +3,8 @@
 import { NewForumPostForm } from "@/components/forum";
 import { useAuthToken } from "@/hooks/useAuthToken";
 
-export default function NewForumPostPage() {
+export default function AdminNewForumPostPage() {
   const token = useAuthToken();
 
-  return <NewForumPostForm token={token} basePath="/user/forum" />;
+  return <NewForumPostForm token={token} basePath="/admin/forum" />;
 }

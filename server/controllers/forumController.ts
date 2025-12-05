@@ -96,6 +96,14 @@ export class ForumController {
 
     const { postId } = req.params;
     const isAdmin = author.type === "Admin";
+    const reason = req.body?.reason as string | undefined;
+
+    // Log moderation action with reason if admin is deleting someone else's content
+    if (isAdmin && reason) {
+      console.log(
+        `[Forum Moderation] Admin ${author.id} deleted post ${postId}. Reason: ${reason}`
+      );
+    }
 
     const result = await forumService.deletePost(
       postId,
@@ -224,6 +232,14 @@ export class ForumController {
 
     const { postId, answerId } = req.params;
     const isAdmin = author.type === "Admin";
+    const reason = req.body?.reason as string | undefined;
+
+    // Log moderation action with reason if admin is deleting someone else's content
+    if (isAdmin && reason) {
+      console.log(
+        `[Forum Moderation] Admin ${author.id} deleted answer ${answerId} on post ${postId}. Reason: ${reason}`
+      );
+    }
 
     const result = await forumService.deleteAnswer(
       postId,
@@ -274,6 +290,14 @@ export class ForumController {
 
     const { postId, answerId, commentId } = req.params;
     const isAdmin = author.type === "Admin";
+    const reason = req.body?.reason as string | undefined;
+
+    // Log moderation action with reason if admin is deleting someone else's content
+    if (isAdmin && reason) {
+      console.log(
+        `[Forum Moderation] Admin ${author.id} deleted comment ${commentId} on answer ${answerId}. Reason: ${reason}`
+      );
+    }
 
     const result = await forumService.deleteComment(
       postId,

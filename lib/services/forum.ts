@@ -143,12 +143,14 @@ export async function createForumPost(
 
 export async function deleteForumPost(
   postId: string,
-  token: string
+  token: string,
+  reason?: string
 ): Promise<{ success: boolean; message?: string }> {
   return apiFetch<{ success: boolean; message?: string }>(
     `/forum/posts/${postId}`,
     {
       method: "DELETE",
+      body: reason ? { reason } : undefined,
       token,
     }
   );
@@ -181,12 +183,14 @@ export async function createAnswer(
 export async function deleteAnswer(
   postId: string,
   answerId: string,
-  token: string
+  token: string,
+  reason?: string
 ): Promise<{ success: boolean; message?: string }> {
   return apiFetch<{ success: boolean; message?: string }>(
     `/forum/posts/${postId}/answers/${answerId}`,
     {
       method: "DELETE",
+      body: reason ? { reason } : undefined,
       token,
     }
   );
@@ -242,12 +246,14 @@ export async function deleteComment(
   postId: string,
   answerId: string,
   commentId: string,
-  token: string
+  token: string,
+  reason?: string
 ): Promise<{ success: boolean; message?: string }> {
   return apiFetch<{ success: boolean; message?: string }>(
     `/forum/posts/${postId}/answers/${answerId}/comments/${commentId}`,
     {
       method: "DELETE",
+      body: reason ? { reason } : undefined,
       token,
     }
   );

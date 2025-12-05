@@ -116,12 +116,19 @@ export const navItems: NavItem[] = [
     label: "Forum",
     href: "/user/forum",
     icon: ForumIcon,
-    roles: [
-      AuthRole.User,
-      AuthRole.Vendor,
-      AuthRole.Admin,
-      AuthRole.EventOffice,
-    ],
+    roles: [AuthRole.User, AuthRole.Vendor],
+  },
+  {
+    label: "Forum",
+    href: "/admin/forum",
+    icon: ForumIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
+    label: "Forum",
+    href: "/events-office/forum",
+    icon: ForumIcon,
+    roles: [AuthRole.EventOffice],
   },
   {
     label: "User Management",

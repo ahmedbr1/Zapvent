@@ -4,7 +4,7 @@ import { ForumPostDetailView } from "@/components/forum";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 
-export default function ForumPostDetailPage() {
+export default function EventsOfficeForumPostDetailPage() {
   const token = useAuthToken();
   const user = useSessionUser();
 
@@ -13,7 +13,7 @@ export default function ForumPostDetailPage() {
       token={token}
       userId={user?.id}
       userRole={user?.role}
-      basePath="/user/forum"
+      basePath="/events-office/forum"
     />
   );
 }
