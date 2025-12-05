@@ -71,7 +71,7 @@ function extractAndVerifyToken(req: AuthRequest): {
       success: true,
       user: decoded,
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       message: "Invalid or expired token.",
