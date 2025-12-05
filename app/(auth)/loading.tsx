@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Typography } from "@mui/material";
+import { Box, CircularProgress, Typography, Stack } from "@mui/material";
 
 export default function AuthLoading() {
   return (
@@ -9,14 +9,20 @@ export default function AuthLoading() {
         justifyContent: "center",
         alignItems: "center",
         minHeight: "100vh",
-        backgroundColor: "#F8FAFC",
+        background: "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
         gap: 2,
       }}
     >
-      <CircularProgress size={36} />
-      <Typography variant="body2" color="text.secondary">
-        Signing you in...
-      </Typography>
+      <CircularProgress
+        size={40}
+        thickness={4}
+        sx={{ color: "primary.main" }}
+      />
+      <Stack spacing={0.5} alignItems="center">
+        <Typography variant="body2" color="text.secondary" fontWeight={500}>
+          Signing you in...
+        </Typography>
+      </Stack>
     </Box>
   );
 }

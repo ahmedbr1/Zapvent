@@ -234,17 +234,26 @@ function MetricCard({
 }: MetricCardProps) {
   return (
     <Card
-      sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}
+      sx={{
+        borderRadius: 3,
+        height: "100%",
+        transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: "0 20px 50px rgba(15,23,42,0.12)",
+        },
+      }}
     >
-      <CardContent>
-        <Stack spacing={2}>
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={2.5}>
           <Stack direction="row" spacing={2} alignItems="center">
             <Stack
               sx={{
-                width: 52,
-                height: 52,
-                borderRadius: 2,
-                backgroundColor: "rgba(30,58,138,0.08)",
+                width: 56,
+                height: 56,
+                borderRadius: 2.5,
+                background:
+                  "linear-gradient(135deg, rgba(30,58,138,0.1) 0%, rgba(37,99,235,0.08) 100%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -252,14 +261,18 @@ function MetricCard({
             >
               {icon}
             </Stack>
-            <Stack spacing={0.5}>
-              <Typography variant="subtitle2" color="text.secondary">
+            <Stack spacing={0.5} flex={1}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontWeight={500}
+              >
                 {title}
               </Typography>
               {loading ? (
-                <Skeleton variant="text" width={120} height={32} />
+                <Skeleton variant="text" width={100} height={36} />
               ) : (
-                <Typography variant="h5" fontWeight={700}>
+                <Typography variant="h4" fontWeight={700} color="text.primary">
                   {value}
                 </Typography>
               )}
@@ -268,7 +281,9 @@ function MetricCard({
           <Button
             onClick={onAction}
             endIcon={<ArrowForwardIcon />}
-            sx={{ alignSelf: "flex-start" }}
+            variant="text"
+            size="small"
+            sx={{ alignSelf: "flex-start", ml: -1 }}
           >
             {actionLabel}
           </Button>

@@ -1,4 +1,4 @@
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Stack, Typography } from "@mui/material";
 
 export default function RootLoading() {
   return (
@@ -8,10 +8,23 @@ export default function RootLoading() {
         justifyContent: "center",
         alignItems: "center",
         minHeight: "100vh",
-        backgroundColor: "#F8FAFC",
+        background: "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
       }}
     >
-      <CircularProgress size={40} />
+      <Stack spacing={2} alignItems="center">
+        <CircularProgress
+          size={44}
+          thickness={4}
+          sx={{ color: "primary.main" }}
+        />
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ opacity: 0.7 }}
+        >
+          Loading...
+        </Typography>
+      </Stack>
     </Box>
   );
 }

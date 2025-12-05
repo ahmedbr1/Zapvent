@@ -1,4 +1,4 @@
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Typography, Stack } from "@mui/material";
 
 export default function AuthenticatedLoading() {
   return (
@@ -7,10 +7,25 @@ export default function AuthenticatedLoading() {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        minHeight: "50vh",
+        minHeight: "60vh",
       }}
     >
-      <CircularProgress />
+      <Stack spacing={2} alignItems="center">
+        <CircularProgress
+          size={44}
+          thickness={4}
+          sx={{
+            color: "primary.main",
+          }}
+        />
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ opacity: 0.7 }}
+        >
+          Loading...
+        </Typography>
+      </Stack>
     </Box>
   );
 }

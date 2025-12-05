@@ -221,18 +221,26 @@ export function AppShell({
   );
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", background: "#F1F5F9" }}>
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
+      }}
+    >
       {!hideNavigation && (
         <>
           <AppBar
             position="fixed"
             color="inherit"
+            elevation={0}
             sx={{
-              boxShadow: "0 4px 14px rgba(15, 23, 42, 0.08)",
-              borderBottom: "1px solid rgba(148, 163, 184, 0.15)",
+              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
+              borderBottom: "1px solid rgba(148, 163, 184, 0.12)",
               width: isLarge ? `calc(100% - ${drawerWidth}px)` : "100%",
               ml: isLarge ? `${drawerWidth}px` : 0,
-              backgroundColor: "#fff",
+              backgroundColor: "rgba(255,255,255,0.95)",
+              backdropFilter: "blur(8px)",
             }}
           >
             <Toolbar>
