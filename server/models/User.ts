@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 import { IBaseModel } from "./BaseModel";
 import bcrypt from "bcrypt";
 
@@ -14,10 +14,27 @@ export enum userStatus {
   BLOCKED = "Blocked",
 }
 
+export enum FriendRequestStatus {
+  PENDING = "pending",
+  ACCEPTED = "accepted",
+  REJECTED = "rejected",
+}
+
+export interface IFriendRequest {
+  odId: Types.ObjectId;
+  odName: string;
+  status: FriendRequestStatus;
+  createdAt: Date;
+}
+
 export interface IUserNotification {
   message: string;
   seen: boolean;
   createdAt?: Date;
+}
+
+export interface IUserPrivacySettings {
+  hideEventAttendance: boolean;
 }
 
 export interface IUser extends IBaseModel {
@@ -37,6 +54,11 @@ export interface IUser extends IBaseModel {
   workshops?: string[];
   registeredGymSessions?: string[];
   reservedCourts?: string[];
+  // Friends system
+  friends?: Types.ObjectId[];
+  friendRequestsSent?: IFriendRequest[];
+  friendRequestsReceived?: IFriendRequest[];
+  privacySettings?: IUserPrivacySettings;
 }
 
 const NotificationSchema = new Schema<IUserNotification>(
@@ -44,6 +66,27 @@ const NotificationSchema = new Schema<IUserNotification>(
     message: { type: String, required: true },
     seen: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const FriendRequestSchema = new Schema<IFriendRequest>(
+  {
+    odId: { type: Schema.Types.ObjectId, required: true },
+    odName: { type: String, required: true },
+    status: {
+      type: String,
+      enum: Object.values(FriendRequestStatus),
+      default: FriendRequestStatus.PENDING,
+    },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const PrivacySettingsSchema = new Schema<IUserPrivacySettings>(
+  {
+    hideEventAttendance: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -94,6 +137,14 @@ const UserSchema = new Schema<IUser>(
     workshops: [{ type: String }],
     registeredGymSessions: [{ type: String }],
     reservedCourts: [{ type: String }],
+    // Friends system
+    friends: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    friendRequestsSent: { type: [FriendRequestSchema], default: [] },
+    friendRequestsReceived: { type: [FriendRequestSchema], default: [] },
+    privacySettings: {
+      type: PrivacySettingsSchema,
+      default: { hideEventAttendance: false },
+    },
   },
   { timestamps: true }
 );
