@@ -146,7 +146,20 @@ export function EventCard({
             disabled={buttonDisabled}
             variant="contained"
             size="small"
-            color={isRegistered ? "success" : "primary"}
+            color={
+              isRegistered
+                ? "success"
+                : registrationClosed
+                  ? "inherit"
+                  : "primary"
+            }
+            sx={
+              buttonDisabled
+                ? isRegistered
+                  ? { color: "white" }
+                  : { bgcolor: "grey.400", color: "white" }
+                : {}
+            }
           >
             {buttonLabel}
           </Button>
@@ -157,9 +170,12 @@ export function EventCard({
               <Button
                 onClick={() => onCancelRegistration(event)}
                 disabled={Boolean(cancelDisabled)}
-                variant="outlined"
+                variant="contained"
                 size="small"
                 color="error"
+                sx={
+                  cancelDisabled ? { bgcolor: "grey.400", color: "white" } : {}
+                }
               >
                 {cancelLabel}
               </Button>

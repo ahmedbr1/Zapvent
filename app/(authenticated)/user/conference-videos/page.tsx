@@ -14,8 +14,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   Grid,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
   Skeleton,
   Stack,
   TextField,
@@ -30,6 +34,7 @@ import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import {
   getProfessorVideos,
+  getEligibleConferences,
   uploadConferenceVideo,
   updateConferenceVideo,
   deleteConferenceVideo,
@@ -37,7 +42,7 @@ import {
   type ConferenceVideoSummary,
 } from "@/lib/services/conference-videos";
 import { formatRelative } from "@/lib/date";
-import { API_BASE_URL } from "@/lib/config";
+import { SERVER_BASE_URL } from "@/lib/config";
 
 export default function ProfessorConferenceVideosPage() {
   const token = useAuthToken();
@@ -165,7 +170,7 @@ function VideoCard({
   deleting: boolean;
 }) {
   const isVideo = video.mediaType === MediaType.VIDEO;
-  const mediaUrl = `${API_BASE_URL}/${video.filePath}`;
+  const mediaUrl = `${SERVER_BASE_URL}/${video.filePath}`;
 
   return (
     <Card>
@@ -239,6 +244,15 @@ function UploadVideoDialog({
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
+  // Fetch eligible conferences
+  const conferencesQuery = useQuery({
+    queryKey: ["eligible-conferences", token],
+    queryFn: () => getEligibleConferences(token),
+    enabled: Boolean(token) && open,
+  });
+
+  const eligibleConferences = conferencesQuery.data?.data ?? [];
+
   const uploadMutation = useMutation({
     mutationFn: () => {
       if (!file || !eventId) throw new Error("Missing file or event");
@@ -272,20 +286,42 @@ function UploadVideoDialog({
     setFile(null);
   };
 
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Upload Conference Video</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label="Event ID"
-            placeholder="Enter the conference event ID"
-            value={eventId}
-            onChange={(e) => setEventId(e.target.value)}
-            fullWidth
-            required
-            helperText="The ID of the conference you participated in"
-          />
+          <FormControl fullWidth required>
+            <InputLabel>Conference</InputLabel>
+            <Select
+              value={eventId}
+              label="Conference"
+              onChange={(e) => setEventId(e.target.value)}
+            >
+              {conferencesQuery.isLoading ? (
+                <MenuItem disabled>Loading conferences...</MenuItem>
+              ) : eligibleConferences.length === 0 ? (
+                <MenuItem disabled>No eligible conferences</MenuItem>
+              ) : (
+                eligibleConferences.map((conf) => (
+                  <MenuItem key={conf.eventId} value={conf.eventId}>
+                    {conf.eventName} ({conf.videoCount}/2 videos)
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
+          {eligibleConferences.length === 0 && !conferencesQuery.isLoading && (
+            <Alert severity="info" sx={{ mt: -1 }}>
+              No eligible conferences. You can only upload videos for completed
+              conferences you participated in (max 2 videos per conference).
+            </Alert>
+          )}
           <TextField
             label="Title"
             value={title}
@@ -312,7 +348,7 @@ function UploadVideoDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleClose}>Cancel</Button>
         <Button
           variant="contained"
           onClick={() => uploadMutation.mutate()}

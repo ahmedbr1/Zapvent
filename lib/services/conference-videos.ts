@@ -77,6 +77,28 @@ export async function getProfessorVideos(
   });
 }
 
+export interface EligibleConference {
+  eventId: string;
+  eventName: string;
+  endDate: string;
+  videoCount: number;
+}
+
+export interface EligibleConferencesResponse {
+  success: boolean;
+  data?: EligibleConference[];
+  message?: string;
+}
+
+export async function getEligibleConferences(
+  token: string
+): Promise<EligibleConferencesResponse> {
+  return apiFetch<EligibleConferencesResponse>(
+    "/conference-videos/eligible-conferences",
+    { token }
+  );
+}
+
 export async function uploadConferenceVideo(
   eventId: string,
   file: File,

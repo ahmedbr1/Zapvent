@@ -42,7 +42,7 @@ import {
   type VendorGalleryItem,
 } from "@/lib/services/vendor-gallery";
 import { formatRelative } from "@/lib/date";
-import { API_BASE_URL } from "@/lib/config";
+import { SERVER_BASE_URL } from "@/lib/config";
 
 const categoryLabels: Record<GalleryItemCategory, string> = {
   [GalleryItemCategory.PRODUCT]: "Product",
@@ -205,7 +205,7 @@ function GalleryCard({
   deleting: boolean;
 }) {
   const isVideo = item.mediaType === MediaType.VIDEO;
-  const mediaUrl = `${API_BASE_URL}/${item.filePath}`;
+  const mediaUrl = `${SERVER_BASE_URL}/${item.filePath}`;
 
   return (
     <Card>
@@ -283,18 +283,38 @@ function UploadGalleryItemDialog({
   const { enqueueSnackbar } = useSnackbar();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<GalleryItemCategory>(
-    GalleryItemCategory.PRODUCT
-  );
   const [eventId, setEventId] = useState("");
   const [file, setFile] = useState<File | null>(null);
+
+  // Fetch vendor's approved bazaar applications
+  const applicationsQuery = useQuery({
+    queryKey: ["vendor-applications-for-gallery"],
+    queryFn: async () => {
+      const response = (await import("@/lib/api-client").then((m) =>
+        m.apiFetch("/vendors/my-applications", {
+          method: "GET",
+          token,
+        })
+      )) as {
+        success: boolean;
+        data: Array<{ eventId: string; eventName: string; status: string }>;
+      };
+      // Only return approved applications
+      return response.success
+        ? response.data.filter((app) => app.status === "approved")
+        : [];
+    },
+    enabled: Boolean(token) && open,
+  });
+
+  const approvedBazaars = applicationsQuery.data ?? [];
 
   const uploadMutation = useMutation({
     mutationFn: () => {
       if (!file) throw new Error("No file selected");
       return addVendorGalleryItem(
         file,
-        { title, description, category, eventId: eventId || undefined },
+        { title, description, eventId: eventId || undefined },
         token
       );
     },
@@ -317,13 +337,17 @@ function UploadGalleryItemDialog({
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setCategory(GalleryItemCategory.PRODUCT);
     setEventId("");
     setFile(null);
   };
 
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Gallery Item</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -342,28 +366,22 @@ function UploadGalleryItemDialog({
             rows={3}
           />
           <FormControl fullWidth>
-            <InputLabel>Category</InputLabel>
+            <InputLabel>Bazaar / Booth</InputLabel>
             <Select
-              value={category}
-              label="Category"
-              onChange={(e) =>
-                setCategory(e.target.value as GalleryItemCategory)
-              }
+              value={eventId}
+              label="Bazaar / Booth"
+              onChange={(e) => setEventId(e.target.value)}
             >
-              {Object.entries(categoryLabels).map(([key, label]) => (
-                <MenuItem key={key} value={key}>
-                  {label}
+              <MenuItem value="">
+                <em>None (General gallery item)</em>
+              </MenuItem>
+              {approvedBazaars.map((app) => (
+                <MenuItem key={app.eventId} value={app.eventId}>
+                  {app.eventName}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
-          <TextField
-            label="Event ID (optional)"
-            placeholder="Link to a specific event"
-            value={eventId}
-            onChange={(e) => setEventId(e.target.value)}
-            fullWidth
-          />
           <Button variant="outlined" component="label">
             {file ? file.name : "Select Image or Video"}
             <input
@@ -376,7 +394,7 @@ function UploadGalleryItemDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleClose}>Cancel</Button>
         <Button
           variant="contained"
           onClick={() => uploadMutation.mutate()}

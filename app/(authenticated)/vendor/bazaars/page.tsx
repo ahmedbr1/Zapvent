@@ -814,6 +814,8 @@ export default function VendorBazaarsPage() {
                     disabled={
                       !canApplyToBazaar(bazaar) || hasApplied(bazaar.id)
                     }
+                    color={hasApplied(bazaar.id) ? "success" : "primary"}
+                    sx={hasApplied(bazaar.id) ? { color: "white" } : undefined}
                   >
                     {hasApplied(bazaar.id)
                       ? "Already Applied"

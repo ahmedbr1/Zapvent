@@ -22,6 +22,7 @@ import EventBusyIcon from "@mui/icons-material/EventBusyRounded";
 import BlockIcon from "@mui/icons-material/BlockRounded";
 import FavoriteIcon from "@mui/icons-material/FavoriteRounded";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorderRounded";
+import CollectionsIcon from "@mui/icons-material/CollectionsRounded";
 import dayjs from "dayjs";
 import { useSnackbar } from "notistack";
 import { useAuthToken } from "@/hooks/useAuthToken";
@@ -40,6 +41,7 @@ import { fetchFavoriteEvents, addEventToFavorites } from "@/lib/services/users";
 import { EventFeedbackSection } from "@/components/events/EventFeedbackSection";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 import { FriendsAttendingBadge } from "@/components/events/FriendsAttendingBadge";
+import { VendorGalleryDialog } from "@/components/vendors/VendorGalleryView";
 
 // Lazy load heavy dialog components
 const EventPaymentDialog = dynamic(
@@ -133,6 +135,11 @@ export default function EventDetailsPage() {
       name: vendor.companyName ?? `Vendor ${index + 1}`,
     }));
   }, [event]);
+
+  const [galleryVendor, setGalleryVendor] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const isFavorite = useMemo(() => {
     if (!eventId || !favoritesQuery.data) return false;
@@ -512,9 +519,15 @@ export default function EventDetailsPage() {
             <Stack direction="row" spacing={1} alignItems="center">
               <Button
                 variant="contained"
+                color={registerDisabledReason ? "inherit" : "primary"}
                 onClick={handleStartRegistration}
                 startIcon={registerButtonIcon}
                 disabled={Boolean(registerDisabledReason) || paymentLoading}
+                sx={
+                  registerDisabledReason
+                    ? { bgcolor: "grey.400", color: "white" }
+                    : {}
+                }
               >
                 {paymentLoading ? "Processing..." : registerButtonLabel}
               </Button>
@@ -528,13 +541,18 @@ export default function EventDetailsPage() {
                 >
                   <span>
                     <Button
-                      variant="outlined"
+                      variant="contained"
                       color="error"
                       disabled={
                         !canCancelRegistration ||
                         cancelRegistrationMutation.isPending
                       }
                       onClick={handleCancelRegistration}
+                      sx={
+                        !canCancelRegistration
+                          ? { bgcolor: "grey.400", color: "white" }
+                          : {}
+                      }
                     >
                       {cancelRegistrationMutation.isPending
                         ? "Cancelling..."
@@ -655,18 +673,28 @@ export default function EventDetailsPage() {
             <Typography variant="h6" fontWeight={700}>
               Vendors & partners
             </Typography>
-            {event.eventType === EventType.Bazaar ? (
+            {event.eventType === EventType.Bazaar ||
+            event.eventType === EventType.BoothInPlatform ? (
               vendorList.length > 0 ? (
-                <Stack spacing={1}>
-                  {vendorList.map((vendor) => (
-                    <Chip
-                      key={vendor.id}
-                      label={vendor.name}
-                      color="secondary"
-                      variant="outlined"
-                    />
-                  ))}
-                </Stack>
+                <>
+                  <Typography variant="caption" color="text.secondary">
+                    Click on a vendor to view their booth gallery
+                  </Typography>
+                  <Stack spacing={1}>
+                    {vendorList.map((vendor) => (
+                      <Chip
+                        key={vendor.id}
+                        label={vendor.name}
+                        color="secondary"
+                        variant="outlined"
+                        onClick={() => setGalleryVendor(vendor)}
+                        onDelete={() => setGalleryVendor(vendor)}
+                        deleteIcon={<CollectionsIcon />}
+                        sx={{ cursor: "pointer" }}
+                      />
+                    ))}
+                  </Stack>
+                </>
               ) : (
                 <Typography variant="body2" color="text.secondary">
                   Vendors will be announced soon. Stay tuned!
@@ -676,6 +704,17 @@ export default function EventDetailsPage() {
               <Typography variant="body2" color="text.secondary">
                 This event does not include vendor participation.
               </Typography>
+            )}
+
+            {/* Vendor Gallery Dialog */}
+            {galleryVendor && (
+              <VendorGalleryDialog
+                open={Boolean(galleryVendor)}
+                onClose={() => setGalleryVendor(null)}
+                vendorId={galleryVendor.id}
+                vendorName={galleryVendor.name}
+                eventId={eventId}
+              />
             )}
             <Typography variant="caption" color="text.secondary">
               Vendor details are synced automatically from approved

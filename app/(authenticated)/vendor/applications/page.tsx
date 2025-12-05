@@ -575,8 +575,11 @@ function QrCodesDialog({ open, application, onClose }: QrCodesDialogProps) {
           </Alert>
         ) : (
           <Grid container spacing={3} sx={{ mt: 1 }}>
-            {qrCodes.map((code) => (
-              <Grid key={code.visitorEmail} size={{ xs: 12, sm: 6, md: 4 }}>
+            {qrCodes.map((code, index) => (
+              <Grid
+                key={`${code.visitorEmail}-${index}`}
+                size={{ xs: 12, sm: 6, md: 4 }}
+              >
                 <Paper
                   variant="outlined"
                   sx={{

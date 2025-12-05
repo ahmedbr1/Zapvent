@@ -429,7 +429,9 @@ export default function TripManagementPage() {
                           <LoadingButton
                             startIcon={<ArchiveIcon />}
                             color="inherit"
-                            onClick={() => handleArchiveTrip(trip.id, trip.name)}
+                            onClick={() =>
+                              handleArchiveTrip(trip.id, trip.name)
+                            }
                             loading={archivingThis}
                             disabled={archiveDisabled}
                           >
@@ -447,6 +449,7 @@ export default function TripManagementPage() {
                       Edit
                     </Button>
                     <Button
+                      variant="contained"
                       color="error"
                       startIcon={<DeleteIcon />}
                       onClick={() => handleDeleteClick(trip.id, trip.name)}

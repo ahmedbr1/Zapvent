@@ -10,11 +10,9 @@ import {
   Tooltip,
 } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonthRounded";
-import DownloadIcon from "@mui/icons-material/DownloadRounded";
 import GoogleIcon from "@mui/icons-material/Google";
 import EventIcon from "@mui/icons-material/EventRounded";
 import {
-  downloadICSFile,
   getGoogleCalendarUrl,
   getOutlookCalendarUrl,
   type CalendarEvent,
@@ -38,11 +36,6 @@ export function AddToCalendarButton({
 
   const handleClose = () => {
     setAnchorEl(null);
-  };
-
-  const handleDownloadICS = () => {
-    downloadICSFile(event);
-    handleClose();
   };
 
   const handleGoogleCalendar = () => {
@@ -80,12 +73,6 @@ export function AddToCalendarButton({
           horizontal: "right",
         }}
       >
-        <MenuItem onClick={handleDownloadICS}>
-          <ListItemIcon>
-            <DownloadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Download .ics file</ListItemText>
-        </MenuItem>
         <MenuItem onClick={handleGoogleCalendar}>
           <ListItemIcon>
             <GoogleIcon fontSize="small" />

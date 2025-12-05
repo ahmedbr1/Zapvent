@@ -599,13 +599,19 @@ export default function UserGymPage() {
                                 {remainingSpots === 1 ? "" : "s"} left
                               </Typography>
                               <Button
-                                variant={
-                                  isRegistered ? "outlined" : "contained"
-                                }
+                                variant="contained"
                                 size="small"
                                 disabled={disableRegisterButton}
                                 onClick={() =>
                                   handleRegisterSession(session.id)
+                                }
+                                color={isRegistered ? "success" : "primary"}
+                                sx={
+                                  disableRegisterButton
+                                    ? isRegistered
+                                      ? { color: "white" }
+                                      : { bgcolor: "grey.400", color: "white" }
+                                    : {}
                                 }
                               >
                                 {buttonLabel}

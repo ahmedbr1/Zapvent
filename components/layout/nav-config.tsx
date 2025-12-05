@@ -17,6 +17,8 @@ import SchoolIcon from "@mui/icons-material/SchoolRounded";
 import ConferenceIcon from "@mui/icons-material/CampaignRounded";
 import ChecklistIcon from "@mui/icons-material/ChecklistRtlRounded";
 import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
+import CollectionsIcon from "@mui/icons-material/CollectionsRounded";
+import VideoLibraryIcon from "@mui/icons-material/VideoLibraryRounded";
 import { AuthRole, UserRole } from "@/lib/types";
 
 export interface NavItem {
@@ -81,6 +83,13 @@ export const navItems: NavItem[] = [
     label: "My Workshops",
     href: "/user/workshops",
     icon: SchoolIcon,
+    roles: [AuthRole.User],
+    userRoles: [UserRole.Professor],
+  },
+  {
+    label: "Conference Videos",
+    href: "/user/conference-videos",
+    icon: VideoLibraryIcon,
     roles: [AuthRole.User],
     userRoles: [UserRole.Professor],
   },
@@ -261,6 +270,12 @@ export const navItems: NavItem[] = [
     label: "Booth Setup",
     href: "/vendor/booth-setup",
     icon: WorkIcon,
+    roles: [AuthRole.Vendor],
+  },
+  {
+    label: "My Gallery",
+    href: "/vendor/gallery",
+    icon: CollectionsIcon,
     roles: [AuthRole.Vendor],
   },
 ];

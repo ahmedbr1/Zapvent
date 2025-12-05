@@ -34,6 +34,14 @@ router.get(
 );
 
 // Professor routes
+router.get(
+  "/eligible-conferences",
+  loginRequired,
+  allowedRoles(["Professor"]),
+  conferenceVideoController.getEligibleConferences.bind(
+    conferenceVideoController
+  )
+);
 router.post(
   "/events/:eventId",
   loginRequired,

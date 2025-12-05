@@ -30,12 +30,10 @@ export class ConferenceVideoController {
     } else {
       // Clean up uploaded file
       await fs.unlink(file.path).catch(() => {});
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Only video and image files are allowed.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Only video and image files are allowed.",
+      });
     }
 
     const result = await conferenceVideoService.uploadConferenceVideo(
@@ -126,6 +124,20 @@ export class ConferenceVideoController {
 
   async getConferencesWithVideos(_req: AuthRequest, res: Response) {
     const result = await conferenceVideoService.getConferencesWithVideos();
+    return res.status(result.success ? 200 : 400).json(result);
+  }
+
+  async getEligibleConferences(req: AuthRequest, res: Response) {
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required." });
+    }
+
+    const result =
+      await conferenceVideoService.getEligibleConferencesForProfessor(
+        req.user.id
+      );
     return res.status(result.success ? 200 : 400).json(result);
   }
 }

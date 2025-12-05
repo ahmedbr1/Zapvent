@@ -358,3 +358,72 @@ export async function getConferencesWithVideos(): Promise<
     data: result,
   };
 }
+
+// ============ Get Eligible Conferences for Professor ============
+
+export async function getEligibleConferencesForProfessor(
+  userId: string
+): Promise<
+  ServiceResponse<
+    Array<{
+      eventId: string;
+      eventName: string;
+      endDate: Date;
+      videoCount: number;
+    }>
+  >
+> {
+  if (!Types.ObjectId.isValid(userId)) {
+    return { success: false, message: "Invalid user ID.", statusCode: 400 };
+  }
+
+  // Find the user (professor)
+  const user = await UserModel.findById(userId).lean<
+    IUser & { _id: Types.ObjectId }
+  >();
+  if (!user) {
+    return { success: false, message: "User not found.", statusCode: 404 };
+  }
+
+  // Get all completed conferences where this professor participated
+  const conferences = await EventModel.find({
+    eventType: EventType.CONFERENCE,
+    endDate: { $lt: new Date() },
+    $or: [
+      { participatingProfessors: userId },
+      { participatingProfessors: user.staffId },
+    ],
+  })
+    .select("_id name endDate")
+    .sort({ endDate: -1 })
+    .lean<Array<{ _id: Types.ObjectId; name: string; endDate: Date }>>();
+
+  // Get video counts for each conference by this professor
+  const videoCounts = await ConferenceVideoModel.aggregate([
+    {
+      $match: {
+        uploadedBy: new Types.ObjectId(userId),
+        eventId: { $in: conferences.map((c) => c._id) },
+      },
+    },
+    { $group: { _id: "$eventId", count: { $sum: 1 } } },
+  ]);
+
+  const countMap = new Map(videoCounts.map((v) => [v._id.toString(), v.count]));
+
+  // Filter to only conferences with less than 2 videos from this professor
+  const eligibleConferences = conferences
+    .map((conf) => ({
+      eventId: conf._id.toString(),
+      eventName: conf.name,
+      endDate: conf.endDate,
+      videoCount: countMap.get(conf._id.toString()) || 0,
+    }))
+    .filter((conf) => conf.videoCount < 2);
+
+  return {
+    success: true,
+    message: "Eligible conferences retrieved successfully.",
+    data: eligibleConferences,
+  };
+}
