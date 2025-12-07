@@ -17,6 +17,10 @@ import SchoolIcon from "@mui/icons-material/SchoolRounded";
 import ConferenceIcon from "@mui/icons-material/CampaignRounded";
 import ChecklistIcon from "@mui/icons-material/ChecklistRtlRounded";
 import RateReviewIcon from "@mui/icons-material/RateReviewRounded";
+import CollectionsIcon from "@mui/icons-material/CollectionsRounded";
+import VideoLibraryIcon from "@mui/icons-material/VideoLibraryRounded";
+import PeopleIcon from "@mui/icons-material/PeopleRounded";
+import ForumIcon from "@mui/icons-material/ForumRounded";
 import { AuthRole, UserRole } from "@/lib/types";
 
 export interface NavItem {
@@ -78,6 +82,12 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.User],
   },
   {
+    label: "Conference Videos",
+    href: "/user/conference-videos",
+    icon: VideoLibraryIcon,
+    roles: [AuthRole.User],
+  },
+  {
     label: "My Workshops",
     href: "/user/workshops",
     icon: SchoolIcon,
@@ -94,6 +104,31 @@ export const navItems: NavItem[] = [
       [UserRole.Staff]: "Gym Sessions",
       [UserRole.TA]: "Gym Sessions",
     },
+  },
+  {
+    label: "Friends",
+    href: "/user/friends",
+    icon: PeopleIcon,
+    roles: [AuthRole.User],
+    userRoles: [UserRole.Student],
+  },
+  {
+    label: "Forum",
+    href: "/user/forum",
+    icon: ForumIcon,
+    roles: [AuthRole.User, AuthRole.Vendor],
+  },
+  {
+    label: "Forum",
+    href: "/admin/forum",
+    icon: ForumIcon,
+    roles: [AuthRole.Admin],
+  },
+  {
+    label: "Forum",
+    href: "/events-office/forum",
+    icon: ForumIcon,
+    roles: [AuthRole.EventOffice],
   },
   {
     label: "User Management",
@@ -216,6 +251,12 @@ export const navItems: NavItem[] = [
     roles: [AuthRole.EventOffice],
   },
   {
+    label: "Conference Videos",
+    href: "/events-office/conference-videos",
+    icon: VideoLibraryIcon,
+    roles: [AuthRole.EventOffice],
+  },
+  {
     label: "Conference Management",
     href: "/admin/conferences",
     icon: ConferenceIcon,
@@ -261,6 +302,12 @@ export const navItems: NavItem[] = [
     label: "Booth Setup",
     href: "/vendor/booth-setup",
     icon: WorkIcon,
+    roles: [AuthRole.Vendor],
+  },
+  {
+    label: "My Gallery",
+    href: "/vendor/gallery",
+    icon: CollectionsIcon,
     roles: [AuthRole.Vendor],
   },
 ];

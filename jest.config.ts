@@ -5,6 +5,7 @@ const config: Config = {
   testEnvironment: "node",
   verbose: true,
   collectCoverage: true,
+  coverageProvider: "v8",
   coverageDirectory: "coverage",
   coveragePathIgnorePatterns: ["/node_modules/"],
   testMatch: ["**/tests/**/*.ts", "**/?(*.)+(spec|test).ts"],

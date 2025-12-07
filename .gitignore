@@ -40,4 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
+# uploads (videos, images, etc.)
+/uploads/
+
 .vscode/*

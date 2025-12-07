@@ -30,6 +30,10 @@ const GymSessionSchema = new Schema<IGymSession>(
   { timestamps: true }
 );
 
+// Performance indexes for schedule queries
+GymSessionSchema.index({ date: 1, time: 1 });
+GymSessionSchema.index({ type: 1, date: 1 });
+
 const GymSessionModel =
   mongoose.models.GymSession ||
   mongoose.model<IGymSession>("GymSession", GymSessionSchema);

@@ -55,7 +55,7 @@ export default function VendorDashboardPage() {
 
   // Fetch all applications from the API
   const applicationsQuery = useQuery({
-    queryKey: ["vendor-applications", user?.id, token],
+    queryKey: ["vendor-applications", user?.id],
     queryFn: async (): Promise<VendorApplication[]> => {
       const response = (await apiFetch("/vendors/my-applications", {
         method: "GET",

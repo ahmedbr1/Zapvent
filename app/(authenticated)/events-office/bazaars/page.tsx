@@ -94,7 +94,11 @@ const bazaarSchema = z
         message: "Deadline is required",
       });
     }
-    if (values.startDate && values.endDate && values.startDate >= values.endDate) {
+    if (
+      values.startDate &&
+      values.endDate &&
+      values.startDate >= values.endDate
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["startDate"],
@@ -323,7 +327,9 @@ export default function BazaarManagementPage() {
         : {
             startDate: (values.startDate ?? fallbackDate).toISOString(),
             endDate: (values.endDate ?? fallbackDate).toISOString(),
-            registrationDeadline: (values.registrationDeadline ?? fallbackDate).toISOString(),
+            registrationDeadline: (
+              values.registrationDeadline ?? fallbackDate
+            ).toISOString(),
           };
     const payload: BazaarPayload = {
       name: values.name,
@@ -407,7 +413,8 @@ export default function BazaarManagementPage() {
               deleteMutation.isPending && pendingDeleteId === bazaar.id;
             const disableActions = hasStarted || isDeleting;
             const archivingThis =
-              archiveMutation.isPending && archiveMutation.variables === bazaar.id;
+              archiveMutation.isPending &&
+              archiveMutation.variables === bazaar.id;
             const serverArchived = Boolean(bazaar.archived);
             const isArchived =
               serverArchived || archivedBazaarIds.has(bazaar.id);
@@ -454,7 +461,8 @@ export default function BazaarManagementPage() {
                       <Divider sx={{ my: 1 }} />
                       {isPlatformBooth ? (
                         <Alert severity="info" sx={{ py: 0.5 }}>
-                          Platform booths stay active indefinitely. Vendors pick their own booth windows.
+                          Platform booths stay active indefinitely. Vendors pick
+                          their own booth windows.
                         </Alert>
                       ) : (
                         <>
@@ -535,6 +543,7 @@ export default function BazaarManagementPage() {
                         Edit bazaar
                       </Button>
                       <Button
+                        variant="contained"
                         color="error"
                         startIcon={<DeleteIcon />}
                         onClick={() =>
@@ -599,7 +608,9 @@ export default function BazaarManagementPage() {
               helperText={formState.errors.eventType?.message}
             >
               <MenuItem value={EventType.Bazaar}>Bazaar</MenuItem>
-              <MenuItem value={EventType.BoothInPlatform}>Booth in platform</MenuItem>
+              <MenuItem value={EventType.BoothInPlatform}>
+                Booth in platform
+              </MenuItem>
             </TextField>
             <Controller
               control={control}
@@ -628,8 +639,9 @@ export default function BazaarManagementPage() {
             />
             {isPlatformBoothType ? (
               <Alert severity="info">
-                Booth in platform events stay open indefinitely. Vendors will choose their own
-                booth window when applying, so no dates are required here.
+                Booth in platform events stay open indefinitely. Vendors will
+                choose their own booth window when applying, so no dates are
+                required here.
               </Alert>
             ) : (
               <>

@@ -123,7 +123,7 @@ export default function LandingPage() {
                   href="/login/admin"
                   size="large"
                   variant="outlined"
-                  color="secondary"
+                  color="primary"
                 >
                   Admin Console
                 </Button>
@@ -245,8 +245,8 @@ export default function LandingPage() {
                           <Button
                             component={Link}
                             href={role.registerHref}
-                            variant="text"
-                            color="secondary"
+                            variant="outlined"
+                            color="primary"
                           >
                             Register
                           </Button>
@@ -301,10 +301,22 @@ export default function LandingPage() {
               University in Cairo.
             </Typography>
             <Stack direction="row" spacing={2}>
-              <Button component={Link} href="/login/admin" variant="text">
+              <Button
+                component={Link}
+                href="/login/admin"
+                variant="text"
+                color="primary"
+                size="small"
+              >
                 Admin Login
               </Button>
-              <Button component={Link} href="/register/vendor" variant="text">
+              <Button
+                component={Link}
+                href="/register/vendor"
+                variant="text"
+                color="primary"
+                size="small"
+              >
                 Vendor Onboarding
               </Button>
             </Stack>

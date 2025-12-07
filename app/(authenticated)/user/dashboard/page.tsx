@@ -36,16 +36,18 @@ export default function UserDashboardPage() {
   const router = useRouter();
   const firstName = (user?.name ?? "").trim().split(" ")[0] ?? "";
   const greetingName =
-    user?.userRole === UserRole.Professor && firstName ? `Prof. ${firstName}` : firstName;
+    user?.userRole === UserRole.Professor && firstName
+      ? `Prof. ${firstName}`
+      : firstName;
 
   const eventsQuery = useQuery({
-    queryKey: ["events", user?.id, token],
+    queryKey: ["events", user?.id],
     queryFn: () => fetchUpcomingEvents(token ?? undefined, user?.id),
     enabled: Boolean(token),
   });
 
   const registrationsQuery = useQuery({
-    queryKey: ["registered-events", user?.id, token],
+    queryKey: ["registered-events", user?.id],
     queryFn: () => fetchUserRegisteredEvents(user!.id, token ?? undefined),
     enabled: Boolean(user?.id && token),
   });
@@ -78,7 +80,8 @@ export default function UserDashboardPage() {
           Welcome back{greetingName ? `, ${greetingName}` : ""}!
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Track your registrations, discover new events, and stay on top of campus life.
+          Track your registrations, discover new events, and stay on top of
+          campus life.
         </Typography>
       </Stack>
 
@@ -108,7 +111,10 @@ export default function UserDashboardPage() {
             title="Next on your calendar"
             value={
               stats.nextRegistration
-                ? formatDateTime(stats.nextRegistration.startDate, "MMM D, h:mm A")
+                ? formatDateTime(
+                    stats.nextRegistration.startDate,
+                    "MMM D, h:mm A"
+                  )
                 : "No upcoming events"
             }
             icon={<EventNoteIcon fontSize="large" color="action" />}
@@ -124,7 +130,11 @@ export default function UserDashboardPage() {
       </Grid>
 
       <Stack spacing={2}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+        >
           <Typography variant="h6" fontWeight={700}>
             Recent registrations
           </Typography>
@@ -137,14 +147,19 @@ export default function UserDashboardPage() {
           </Button>
         </Stack>
         {registrationsQuery.isLoading ? (
-          <Skeleton variant="rectangular" height={240} sx={{ borderRadius: 3 }} />
+          <Skeleton
+            variant="rectangular"
+            height={240}
+            sx={{ borderRadius: 3 }}
+          />
         ) : registrationsQuery.isError ? (
           <Alert severity="error">
             Unable to load registrations. Please try again later.
           </Alert>
         ) : recentRegistrations.length === 0 ? (
           <Alert severity="info">
-            You haven&apos;t registered for any events yet. Browse the catalogue to get started.
+            You haven&apos;t registered for any events yet. Browse the catalogue
+            to get started.
           </Alert>
         ) : (
           <TableContainer component={Card} sx={{ borderRadius: 3 }}>
@@ -163,7 +178,9 @@ export default function UserDashboardPage() {
                   <TableRow key={registration.id} hover>
                     <TableCell>
                       <Stack spacing={0.5}>
-                        <Typography fontWeight={600}>{registration.name}</Typography>
+                        <Typography fontWeight={600}>
+                          {registration.name}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
                           ID: {registration.id}
                         </Typography>
@@ -172,13 +189,19 @@ export default function UserDashboardPage() {
                     <TableCell>
                       <Chip label={registration.location} size="small" />
                     </TableCell>
-                    <TableCell>{formatDateTime(registration.startDate)}</TableCell>
-                    <TableCell>{formatDateTime(registration.registrationDeadline)}</TableCell>
+                    <TableCell>
+                      {formatDateTime(registration.startDate)}
+                    </TableCell>
+                    <TableCell>
+                      {formatDateTime(registration.registrationDeadline)}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={registration.status}
                         size="small"
-                        color={registration.status === "Past" ? "warning" : "success"}
+                        color={
+                          registration.status === "Past" ? "warning" : "success"
+                        }
                       />
                     </TableCell>
                   </TableRow>
@@ -201,18 +224,36 @@ interface MetricCardProps {
   loading?: boolean;
 }
 
-function MetricCard({ title, value, icon, actionLabel, onAction, loading }: MetricCardProps) {
+function MetricCard({
+  title,
+  value,
+  icon,
+  actionLabel,
+  onAction,
+  loading,
+}: MetricCardProps) {
   return (
-    <Card sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}>
-      <CardContent>
-        <Stack spacing={2}>
+    <Card
+      sx={{
+        borderRadius: 3,
+        height: "100%",
+        transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: "0 20px 50px rgba(15,23,42,0.12)",
+        },
+      }}
+    >
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={2.5}>
           <Stack direction="row" spacing={2} alignItems="center">
             <Stack
               sx={{
-                width: 52,
-                height: 52,
-                borderRadius: 2,
-                backgroundColor: "rgba(30,58,138,0.08)",
+                width: 56,
+                height: 56,
+                borderRadius: 2.5,
+                background:
+                  "linear-gradient(135deg, rgba(30,58,138,0.1) 0%, rgba(37,99,235,0.08) 100%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -220,20 +261,30 @@ function MetricCard({ title, value, icon, actionLabel, onAction, loading }: Metr
             >
               {icon}
             </Stack>
-            <Stack spacing={0.5}>
-              <Typography variant="subtitle2" color="text.secondary">
+            <Stack spacing={0.5} flex={1}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontWeight={500}
+              >
                 {title}
               </Typography>
               {loading ? (
-                <Skeleton variant="text" width={120} height={32} />
+                <Skeleton variant="text" width={100} height={36} />
               ) : (
-                <Typography variant="h5" fontWeight={700}>
+                <Typography variant="h4" fontWeight={700} color="text.primary">
                   {value}
                 </Typography>
               )}
             </Stack>
           </Stack>
-          <Button onClick={onAction} endIcon={<ArrowForwardIcon />} sx={{ alignSelf: "flex-start" }}>
+          <Button
+            onClick={onAction}
+            endIcon={<ArrowForwardIcon />}
+            variant="text"
+            size="small"
+            sx={{ alignSelf: "flex-start", ml: -1 }}
+          >
             {actionLabel}
           </Button>
         </Stack>

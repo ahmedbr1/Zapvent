@@ -17,6 +17,8 @@ import LocationIcon from "@mui/icons-material/FmdGoodRounded";
 import GroupIcon from "@mui/icons-material/PeopleAltRounded";
 import { formatDateTime, formatRelative } from "@/lib/date";
 import { EventType, type EventSummary } from "@/lib/types";
+import { AddToCalendarButton } from "./AddToCalendarButton";
+import { FriendsAttendingBadge } from "./FriendsAttendingBadge";
 
 interface EventCardProps {
   event: EventSummary;
@@ -53,15 +55,14 @@ export function EventCard({
   const registrationClosed =
     new Date(event.registrationDeadline).getTime() < Date.now();
   const isRegistered = Boolean(event.isRegistered);
-  const buttonDisabled =
-    registrationClosed || disableRegister || isRegistered;
+  const buttonDisabled = registrationClosed || disableRegister || isRegistered;
   const buttonLabel = registrationClosed
     ? "Closed"
     : isRegistered
-    ? "Registered"
-    : disableRegister
-    ? "Registering..."
-    : "Register";
+      ? "Registered"
+      : disableRegister
+        ? "Registering..."
+        : "Register";
 
   return (
     <Card
@@ -94,7 +95,8 @@ export function EventCard({
           <Stack direction="row" spacing={1} alignItems="center">
             <CalendarIcon fontSize="small" />
             <Typography variant="body2">
-              {formatDateTime(event.startDate)} – {formatDateTime(event.endDate)}
+              {formatDateTime(event.startDate)} –{" "}
+              {formatDateTime(event.endDate)}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -111,7 +113,9 @@ export function EventCard({
           )}
           {isBazaar && event.vendors && event.vendors.length > 0 && (
             <Tooltip
-              title={event.vendors.map((vendor) => vendor.companyName).join(", ")}
+              title={event.vendors
+                .map((vendor) => vendor.companyName)
+                .join(", ")}
               arrow
             >
               <Chip
@@ -123,9 +127,10 @@ export function EventCard({
               />
             </Tooltip>
           )}
+          <FriendsAttendingBadge eventId={event.id} compact />
         </Stack>
       </CardContent>
-      <CardActions sx={{ px: 3, pb: 3, pt: 0, gap: 1 }}>
+      <CardActions sx={{ px: 3, pb: 3, pt: 0, gap: 1.5, flexWrap: "wrap" }}>
         <Button
           component={Link}
           href={`/user/events/${event.id}`}
@@ -133,7 +138,7 @@ export function EventCard({
           color="primary"
           size="small"
         >
-          Details
+          View Details
         </Button>
         {onRegister && (
           <Button
@@ -141,28 +146,60 @@ export function EventCard({
             disabled={buttonDisabled}
             variant="contained"
             size="small"
+            color={
+              isRegistered
+                ? "success"
+                : registrationClosed
+                  ? "inherit"
+                  : "primary"
+            }
+            sx={
+              buttonDisabled
+                ? isRegistered
+                  ? { color: "white" }
+                  : { bgcolor: "grey.400", color: "white" }
+                : {}
+            }
           >
             {buttonLabel}
           </Button>
         )}
         {onCancelRegistration ? (
-          <Tooltip title={cancelDisabled ? cancelDisabledReason ?? "" : ""}>
+          <Tooltip title={cancelDisabled ? (cancelDisabledReason ?? "") : ""}>
             <span>
               <Button
                 onClick={() => onCancelRegistration(event)}
                 disabled={Boolean(cancelDisabled)}
-                variant="text"
+                variant="contained"
                 size="small"
                 color="error"
+                sx={
+                  cancelDisabled ? { bgcolor: "grey.400", color: "white" } : {}
+                }
               >
                 {cancelLabel}
               </Button>
             </span>
           </Tooltip>
         ) : null}
+        <AddToCalendarButton
+          event={{
+            title: event.name,
+            description: event.description,
+            location: event.location,
+            startDate: event.startDate,
+            endDate: event.endDate,
+          }}
+          size="small"
+        />
         <Box flexGrow={1} />
-        <Typography variant="caption" color="text.secondary">
-          Register by {formatDateTime(event.registrationDeadline, "MMM D, h:mm A")}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ opacity: 0.8 }}
+        >
+          Register by{" "}
+          {formatDateTime(event.registrationDeadline, "MMM D, h:mm A")}
         </Typography>
       </CardActions>
     </Card>

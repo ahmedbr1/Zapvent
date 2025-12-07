@@ -37,8 +37,17 @@ import StadiumIcon from "@mui/icons-material/StadiumRounded";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { fetchGymSchedule, registerForGymSession } from "@/lib/services/gym";
-import { type GymSession, GymSessionType, CourtType, UserRole } from "@/lib/types";
-import { fetchCourts, fetchCourtAvailabilitySlots, reserveCourtSlot } from "@/lib/services/courts";
+import {
+  type GymSession,
+  GymSessionType,
+  CourtType,
+  UserRole,
+} from "@/lib/types";
+import {
+  fetchCourts,
+  fetchCourtAvailabilitySlots,
+  reserveCourtSlot,
+} from "@/lib/services/courts";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useSnackbar } from "notistack";
 
@@ -46,9 +55,20 @@ dayjs.extend(localeData);
 
 const MONTHS = dayjs.months();
 const TODAY = dayjs();
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
-const SESSION_COLOR_MAP: Record<GymSessionType, "primary" | "secondary" | "success" | "info" | "warning" | "error"> = {
+const SESSION_COLOR_MAP: Record<
+  GymSessionType,
+  "primary" | "secondary" | "success" | "info" | "warning" | "error"
+> = {
   [GymSessionType.Yoga]: "primary",
   [GymSessionType.Cardio]: "secondary",
   [GymSessionType.Strength]: "success",
@@ -56,11 +76,12 @@ const SESSION_COLOR_MAP: Record<GymSessionType, "primary" | "secondary" | "succe
   [GymSessionType.CrossFit]: "warning",
 };
 
-const COURT_COLOR_MAP: Record<CourtType, "primary" | "secondary" | "success"> = {
-  [CourtType.Basketball]: "primary",
-  [CourtType.Tennis]: "success",
-  [CourtType.Football]: "secondary",
-};
+const COURT_COLOR_MAP: Record<CourtType, "primary" | "secondary" | "success"> =
+  {
+    [CourtType.Basketball]: "primary",
+    [CourtType.Tennis]: "success",
+    [CourtType.Football]: "secondary",
+  };
 
 const COURT_LABELS: Record<CourtType, string> = {
   [CourtType.Basketball]: "Basketball Court",
@@ -107,31 +128,40 @@ export default function UserGymPage() {
   const isStudent = user?.userRole === UserRole.Student;
   const canRegisterForGym = Boolean(
     user?.userRole &&
-      [UserRole.Student, UserRole.Staff, UserRole.Professor, UserRole.TA].includes(
-        user.userRole
-      )
+      [
+        UserRole.Student,
+        UserRole.Staff,
+        UserRole.Professor,
+        UserRole.TA,
+      ].includes(user.userRole)
   );
   const { enqueueSnackbar } = useSnackbar();
   const [selectedMonth, setSelectedMonth] = useState(TODAY.month());
   const [selectedYear, setSelectedYear] = useState(TODAY.year());
-  const [courtTypeFilter, setCourtTypeFilter] = useState<"all" | CourtType>("all");
+  const [courtTypeFilter, setCourtTypeFilter] = useState<"all" | CourtType>(
+    "all"
+  );
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [reservationDialog, setReservationDialog] = useState<{
     courtId: string;
     courtLabel: string;
   } | null>(null);
   const [reservationDate, setReservationDate] = useState(dayjs());
-  const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{
+    startTime: string;
+    endTime: string;
+  } | null>(null);
   const reservationDateKey = reservationDate.format("YYYY-MM-DD");
 
   const scheduleQuery = useQuery({
-    queryKey: ["gym-schedule", selectedYear, selectedMonth, token],
-    queryFn: () => fetchGymSchedule(selectedYear, selectedMonth + 1, token ?? undefined),
+    queryKey: ["gym-schedule", selectedYear, selectedMonth],
+    queryFn: () =>
+      fetchGymSchedule(selectedYear, selectedMonth + 1, token ?? undefined),
     enabled: Boolean(token),
   });
 
   const courtsQuery = useQuery({
-    queryKey: ["courts", token],
+    queryKey: ["courts"],
     queryFn: () => fetchCourts(token ?? undefined),
     enabled: Boolean(token && isStudent),
   });
@@ -141,7 +171,11 @@ export default function UserGymPage() {
   }, [reservationDateKey, reservationDialog?.courtId]);
 
   const availabilityQuery = useQuery({
-    queryKey: ["court-availability", reservationDialog?.courtId, reservationDateKey, token],
+    queryKey: [
+      "court-availability",
+      reservationDialog?.courtId,
+      reservationDateKey,
+    ],
     queryFn: () =>
       fetchCourtAvailabilitySlots(
         reservationDialog!.courtId,
@@ -153,39 +187,58 @@ export default function UserGymPage() {
   const availabilitySlots = availabilityQuery.data ?? [];
 
   const registerMutation = useMutation({
-    mutationFn: (sessionId: string) => registerForGymSession(sessionId, token ?? undefined),
+    mutationFn: (sessionId: string) =>
+      registerForGymSession(sessionId, token ?? undefined),
     onMutate: (sessionId) => {
       setPendingSessionId(sessionId);
     },
     onSuccess: (result) => {
-      enqueueSnackbar(result.message ?? "Successfully registered for the session.", {
-        variant: "success",
-      });
+      enqueueSnackbar(
+        result.message ?? "Successfully registered for the session.",
+        {
+          variant: "success",
+        }
+      );
       scheduleQuery.refetch();
     },
     onError: (error: unknown) => {
       const message =
-        error instanceof Error ? error.message : "Failed to register for this session.";
+        error instanceof Error
+          ? error.message
+          : "Failed to register for this session.";
       enqueueSnackbar(message, { variant: "error" });
     },
     onSettled: () => setPendingSessionId(null),
   });
 
   const reservationMutation = useMutation({
-    mutationFn: (payload: { courtId: string; date: string; startTime: string; endTime: string }) =>
+    mutationFn: (payload: {
+      courtId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+    }) =>
       reserveCourtSlot(
         payload.courtId,
-        { date: payload.date, startTime: payload.startTime, endTime: payload.endTime },
+        {
+          date: payload.date,
+          startTime: payload.startTime,
+          endTime: payload.endTime,
+        },
         token ?? undefined
       ),
     onSuccess: (message) => {
-      enqueueSnackbar(message ?? "Court reserved successfully.", { variant: "success" });
+      enqueueSnackbar(message ?? "Court reserved successfully.", {
+        variant: "success",
+      });
       setReservationDialog(null);
       setSelectedSlot(null);
     },
     onError: (error: unknown) => {
       const message =
-        error instanceof Error ? error.message : "Failed to reserve this court slot.";
+        error instanceof Error
+          ? error.message
+          : "Failed to reserve this court slot.";
       enqueueSnackbar(message, { variant: "error" });
     },
   });
@@ -265,9 +318,12 @@ export default function UserGymPage() {
 
   const handleRegisterSession = (sessionId: string) => {
     if (!canRegisterForGym) {
-      enqueueSnackbar("Only student, staff, professor, or TA accounts can register.", {
-        variant: "info",
-      });
+      enqueueSnackbar(
+        "Only student, staff, professor, or TA accounts can register.",
+        {
+          variant: "info",
+        }
+      );
       return;
     }
 
@@ -287,7 +343,9 @@ export default function UserGymPage() {
 
   const handleSubmitReservation = () => {
     if (!reservationDialog || !selectedSlot) {
-      enqueueSnackbar("Select an available slot to continue.", { variant: "info" });
+      enqueueSnackbar("Select an available slot to continue.", {
+        variant: "info",
+      });
       return;
     }
 
@@ -299,368 +357,503 @@ export default function UserGymPage() {
     });
   };
 
-  const reservationLoading = availabilityQuery.isLoading || availabilityQuery.isFetching;
+  const reservationLoading =
+    availabilityQuery.isLoading || availabilityQuery.isFetching;
 
   return (
     <>
       <Stack spacing={4}>
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", md: "center" }}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            Gym Sessions
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            View this month&apos;s schedule and plan ahead for yoga, pilates, cardio, and more.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <IconButton aria-label="Previous month" onClick={() => handleMonthShift(-1)}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Select
-            size="small"
-            value={selectedMonth}
-            onChange={(event) => setSelectedMonth(Number(event.target.value))}
-          >
-            {MONTHS.map((label, index) => (
-              <MenuItem key={label} value={index}>
-                {label}
-              </MenuItem>
-            ))}
-          </Select>
-          <TextField
-            size="small"
-            type="number"
-            value={selectedYear}
-            onChange={(event) => setSelectedYear(Number(event.target.value) || TODAY.year())}
-            inputProps={{ min: 2000, max: 2100 }}
-            sx={{ width: 96 }}
-          />
-          <IconButton aria-label="Next month" onClick={() => handleMonthShift(1)}>
-            <ArrowForwardIcon />
-          </IconButton>
-        </Stack>
-      </Stack>
-
-      <Card sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}>
-        <CardContent>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={2}
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <FitnessCenterIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={700}>
-                {sessionStats.total} session{sessionStats.total === 1 ? "" : "s"} scheduled
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              {Object.values(GymSessionType).map((type) => (
-                <Chip
-                  key={type}
-                  label={`${type} (${sessionStats.totals.get(type) ?? 0})`}
-                  color={SESSION_COLOR_MAP[type]}
-                  variant="outlined"
-                />
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", md: "center" }}
+        >
+          <Box>
+            <Typography variant="h4" fontWeight={700}>
+              Gym Sessions
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              View this month&apos;s schedule and plan ahead for yoga, pilates,
+              cardio, and more.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <IconButton
+              aria-label="Previous month"
+              onClick={() => handleMonthShift(-1)}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <Select
+              size="small"
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(Number(event.target.value))}
+            >
+              {MONTHS.map((label, index) => (
+                <MenuItem key={label} value={index}>
+                  {label}
+                </MenuItem>
               ))}
-            </Stack>
+            </Select>
+            <TextField
+              size="small"
+              type="number"
+              value={selectedYear}
+              onChange={(event) =>
+                setSelectedYear(Number(event.target.value) || TODAY.year())
+              }
+              inputProps={{ min: 2000, max: 2100 }}
+              sx={{ width: 96 }}
+            />
+            <IconButton
+              aria-label="Next month"
+              onClick={() => handleMonthShift(1)}
+            >
+              <ArrowForwardIcon />
+            </IconButton>
           </Stack>
-        </CardContent>
-      </Card>
+        </Stack>
 
-      {scheduleQuery.isLoading ? (
-        <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 3 }} />
-      ) : scheduleQuery.isError ? (
-        <Alert severity="error" action={<Button onClick={() => scheduleQuery.refetch()}>Retry</Button>}>
-          Unable to load gym sessions right now.
-        </Alert>
-      ) : groupedSessions.length === 0 ? (
-        <Alert severity="info">
-          No gym sessions scheduled for {MONTHS[selectedMonth]} {selectedYear}. Check back later or choose another month.
-        </Alert>
-      ) : (
-        <Grid container spacing={3}>
-          {groupedSessions.map(({ date, sessions }) => (
-            <Grid key={date} size={{ xs: 12, md: 6 }}>
-              <Card
-                sx={{
-                  borderRadius: 3,
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  boxShadow: "0 12px 32px rgba(15,23,42,0.06)",
-                }}
-              >
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-                    <EventIcon color="primary" />
-                    <Typography variant="h6" fontWeight={700}>
-                      {formatSessionDate(date)}
-                    </Typography>
-                  </Stack>
-                  <Stack spacing={2}>
-                    {sessions.map((session) => {
-                      const registered = session.registeredCount ?? 0;
-                      const capacity = session.maxParticipants;
-                      const progress =
-                        capacity > 0 ? Math.min((registered / capacity) * 100, 100) : undefined;
-                      const isRegistered = session.isRegistered ?? false;
-                      const remainingSpots = session.remainingSpots ?? Math.max(capacity - registered, 0);
-                      const isProcessing = pendingSessionId === session.id && registerMutation.isPending;
-                      const buttonLabel = isRegistered
-                        ? "Registered"
-                        : isProcessing
-                          ? "Registering..."
-                          : "Register";
-                      const disableRegisterButton =
-                        isRegistered ||
-                        !canRegisterForGym ||
-                        remainingSpots === 0 ||
-                        isProcessing;
-                      return (
-                        <Box
-                          key={session.id}
-                          sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            border: "1px solid rgba(15,23,42,0.08)",
-                            backgroundColor: "rgba(15,23,42,0.02)",
-                          }}
-                        >
-                          <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            justifyContent="space-between"
-                            spacing={1}
-                          >
-                            <Stack spacing={0.5}>
-                              <Typography variant="subtitle1" fontWeight={600}>
-                                {session.type}
-                              </Typography>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <AccessTimeIcon fontSize="small" color="action" />
-                                <Typography variant="body2" color="text.secondary">
-                                  {formatSessionTime(session.date, session.time)} • {session.duration} minutes
-                                </Typography>
-                              </Stack>
-                            </Stack>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <PeopleIcon fontSize="small" color="action" />
-                              <Typography variant="body2" color="text.secondary">
-                                {registered}/{capacity} booked
-                              </Typography>
-                            </Stack>
-                          </Stack>
-                          {progress !== undefined && (
-                            <Tooltip title={`${registered} of ${capacity} spots taken`}>
-                              <LinearProgress
-                                variant="determinate"
-                                value={progress}
-                                sx={{ mt: 1.5, height: 6, borderRadius: 999 }}
-                              />
-                            </Tooltip>
-                          )}
-                          <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={1}
-                            alignItems={{ sm: "center" }}
-                            justifyContent="space-between"
-                            mt={1.5}
-                          >
-                            <Typography variant="caption" color="text.secondary">
-                              {remainingSpots} spot{remainingSpots === 1 ? "" : "s"} left
-                            </Typography>
-                            <Button
-                              variant={isRegistered ? "outlined" : "contained"}
-                              size="small"
-                              disabled={disableRegisterButton}
-                              onClick={() => handleRegisterSession(session.id)}
-                            >
-                              {buttonLabel}
-                            </Button>
-                          </Stack>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-
-      {isStudent ? (
-        <>
-          <Divider sx={{ my: 1 }} />
-
-          <Stack spacing={2}>
+        <Card
+          sx={{ borderRadius: 3, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" }}
+        >
+          <CardContent>
             <Stack
               direction={{ xs: "column", md: "row" }}
               spacing={2}
+              alignItems="center"
               justifyContent="space-between"
-              alignItems={{ xs: "flex-start", md: "center" }}
             >
-              <Box>
-                <Typography variant="h4" fontWeight={700}>
-                  Campus Courts
+              <Stack direction="row" spacing={1} alignItems="center">
+                <FitnessCenterIcon color="primary" />
+                <Typography variant="subtitle1" fontWeight={700}>
+                  {sessionStats.total} session
+                  {sessionStats.total === 1 ? "" : "s"} scheduled
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  View basketball, tennis, and football courts along with weekly availability and blackout dates.
-                </Typography>
-              </Box>
+              </Stack>
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {COURT_FILTERS.map((option) => {
-                  const selected = courtTypeFilter === option.value;
-                  return (
-                    <Chip
-                      key={option.label}
-                      label={
-                        option.value === "all"
-                          ? option.label
-                          : `${option.label} (${courtCounts.get(option.value as CourtType) ?? 0})`
-                      }
-                      color={selected ? "primary" : "default"}
-                      variant={selected ? "filled" : "outlined"}
-                      onClick={() => setCourtTypeFilter(option.value)}
-                      sx={{ textTransform: "capitalize" }}
-                    />
-                  );
-                })}
+                {Object.values(GymSessionType).map((type) => (
+                  <Chip
+                    key={type}
+                    label={`${type} (${sessionStats.totals.get(type) ?? 0})`}
+                    color={SESSION_COLOR_MAP[type]}
+                    variant="outlined"
+                  />
+                ))}
               </Stack>
             </Stack>
+          </CardContent>
+        </Card>
 
-            {courtsQuery.isLoading ? (
-              <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 3 }} />
-            ) : courtsQuery.isError ? (
-              <Alert severity="error" action={<Button onClick={() => courtsQuery.refetch()}>Retry</Button>}>
-                Unable to load court availability right now.
-              </Alert>
-            ) : filteredCourts.length === 0 ? (
-              <Alert severity="info">No courts match your current filter. Try selecting a different type.</Alert>
-            ) : (
-              <Grid container spacing={3}>
-                {filteredCourts.map((court) => {
-                  const courtType = court.type;
-                  const openingHours = [...court.openingHours].sort((a, b) => a.weekday - b.weekday);
-                  const exceptions = court.exceptions;
-
-                  return (
-                    <Grid key={court.id} size={{ xs: 12, md: 6 }}>
-                      <Card
-                        sx={{
-                          borderRadius: 3,
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          boxShadow: "0 12px 32px rgba(15,23,42,0.05)",
-                        }}
-                      >
-                        <CardContent sx={{ flexGrow: 1 }}>
-                          <Stack
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={1.5}
-                            justifyContent="space-between"
-                            alignItems={{ sm: "center" }}
-                            mb={2}
+        {scheduleQuery.isLoading ? (
+          <Skeleton
+            variant="rectangular"
+            height={360}
+            sx={{ borderRadius: 3 }}
+          />
+        ) : scheduleQuery.isError ? (
+          <Alert
+            severity="error"
+            action={
+              <Button onClick={() => scheduleQuery.refetch()}>Retry</Button>
+            }
+          >
+            Unable to load gym sessions right now.
+          </Alert>
+        ) : groupedSessions.length === 0 ? (
+          <Alert severity="info">
+            No gym sessions scheduled for {MONTHS[selectedMonth]} {selectedYear}
+            . Check back later or choose another month.
+          </Alert>
+        ) : (
+          <Grid container spacing={3}>
+            {groupedSessions.map(({ date, sessions }) => (
+              <Grid key={date} size={{ xs: 12, md: 6 }}>
+                <Card
+                  sx={{
+                    borderRadius: 3,
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: "0 12px 32px rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      mb={2}
+                    >
+                      <EventIcon color="primary" />
+                      <Typography variant="h6" fontWeight={700}>
+                        {formatSessionDate(date)}
+                      </Typography>
+                    </Stack>
+                    <Stack spacing={2}>
+                      {sessions.map((session) => {
+                        const registered = session.registeredCount ?? 0;
+                        const capacity = session.maxParticipants;
+                        const progress =
+                          capacity > 0
+                            ? Math.min((registered / capacity) * 100, 100)
+                            : undefined;
+                        const isRegistered = session.isRegistered ?? false;
+                        const remainingSpots =
+                          session.remainingSpots ??
+                          Math.max(capacity - registered, 0);
+                        const isProcessing =
+                          pendingSessionId === session.id &&
+                          registerMutation.isPending;
+                        const buttonLabel = isRegistered
+                          ? "Registered"
+                          : isProcessing
+                            ? "Registering..."
+                            : "Register";
+                        const disableRegisterButton =
+                          isRegistered ||
+                          !canRegisterForGym ||
+                          remainingSpots === 0 ||
+                          isProcessing;
+                        return (
+                          <Box
+                            key={session.id}
+                            sx={{
+                              p: 2,
+                              borderRadius: 2,
+                              border: "1px solid rgba(15,23,42,0.08)",
+                              backgroundColor: "rgba(15,23,42,0.02)",
+                            }}
                           >
-                            <Stack spacing={0.5}>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <Chip
-                                  label={COURT_LABELS[courtType] ?? court.type}
-                                  color={COURT_COLOR_MAP[courtType] ?? "primary"}
-                                />
-                                <Tooltip title="Venue">
-                                  <StadiumIcon fontSize="small" color="action" />
-                                </Tooltip>
-                                <Typography variant="body2" color="text.secondary">
-                                  {court.venue}
+                            <Stack
+                              direction={{ xs: "column", sm: "row" }}
+                              justifyContent="space-between"
+                              spacing={1}
+                            >
+                              <Stack spacing={0.5}>
+                                <Typography
+                                  variant="subtitle1"
+                                  fontWeight={600}
+                                >
+                                  {session.type}
                                 </Typography>
-                              </Stack>
-                              {court.timezone && (
-                                <Typography variant="caption" color="text.secondary">
-                                  Local time zone: {court.timezone}
-                                </Typography>
-                              )}
-                            </Stack>
-                            <Chip
-                              icon={<FlagIcon />}
-                              label={`Court ID: ${court.id.slice(-6).toUpperCase()}`}
-                              variant="outlined"
-                              color="default"
-                            />
-                          </Stack>
-
-                          <Divider sx={{ my: 2 }} />
-                          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-                            Weekly availability
-                          </Typography>
-                          {openingHours.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">
-                              No recurring availability set for this court.
-                            </Typography>
-                          ) : (
-                            <Stack spacing={1}>
-                              {openingHours.map((slot, index) => (
                                 <Stack
-                                  key={`${slot.weekday}-${index}`}
                                   direction="row"
-                                  spacing={1.5}
+                                  spacing={1}
                                   alignItems="center"
                                 >
-                                  <Chip label={WEEKDAYS[slot.weekday] ?? `Day ${slot.weekday}`} size="small" />
-                                  <Typography variant="body2" color="text.secondary">
-                                    {formatCourtTime(slot.startTime)} – {formatCourtTime(slot.endTime)}
+                                  <AccessTimeIcon
+                                    fontSize="small"
+                                    color="action"
+                                  />
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                  >
+                                    {formatSessionTime(
+                                      session.date,
+                                      session.time
+                                    )}{" "}
+                                    • {session.duration} minutes
                                   </Typography>
                                 </Stack>
-                              ))}
+                              </Stack>
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                              >
+                                <PeopleIcon fontSize="small" color="action" />
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
+                                  {registered}/{capacity} booked
+                                </Typography>
+                              </Stack>
                             </Stack>
-                          )}
-
-                          {exceptions.length > 0 && (
-                            <Alert severity="warning" variant="outlined" sx={{ mt: 3 }}>
-                              <Typography variant="subtitle2" fontWeight={700}>
-                                Upcoming exceptions
+                            {progress !== undefined && (
+                              <Tooltip
+                                title={`${registered} of ${capacity} spots taken`}
+                              >
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={progress}
+                                  sx={{ mt: 1.5, height: 6, borderRadius: 999 }}
+                                />
+                              </Tooltip>
+                            )}
+                            <Stack
+                              direction={{ xs: "column", sm: "row" }}
+                              spacing={1}
+                              alignItems={{ sm: "center" }}
+                              justifyContent="space-between"
+                              mt={1.5}
+                            >
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {remainingSpots} spot
+                                {remainingSpots === 1 ? "" : "s"} left
                               </Typography>
-                              <Stack spacing={0.5} mt={1}>
-                                {exceptions.map((exception, index) => (
-                                  <Typography key={index} variant="body2">
-                                    {formatExceptionRange(exception.startDate, exception.endDate)}
-                                    {exception.reason ? ` — ${exception.reason}` : ""}
+                              <Button
+                                variant="contained"
+                                size="small"
+                                disabled={disableRegisterButton}
+                                onClick={() =>
+                                  handleRegisterSession(session.id)
+                                }
+                                color={isRegistered ? "success" : "primary"}
+                                sx={
+                                  disableRegisterButton
+                                    ? isRegistered
+                                      ? { color: "white" }
+                                      : { bgcolor: "grey.400", color: "white" }
+                                    : {}
+                                }
+                              >
+                                {buttonLabel}
+                              </Button>
+                            </Stack>
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+
+        {isStudent ? (
+          <>
+            <Divider sx={{ my: 1 }} />
+
+            <Stack spacing={2}>
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={2}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", md: "center" }}
+              >
+                <Box>
+                  <Typography variant="h4" fontWeight={700}>
+                    Campus Courts
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    View basketball, tennis, and football courts along with
+                    weekly availability and blackout dates.
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {COURT_FILTERS.map((option) => {
+                    const selected = courtTypeFilter === option.value;
+                    return (
+                      <Chip
+                        key={option.label}
+                        label={
+                          option.value === "all"
+                            ? option.label
+                            : `${option.label} (${courtCounts.get(option.value as CourtType) ?? 0})`
+                        }
+                        color={selected ? "primary" : "default"}
+                        variant={selected ? "filled" : "outlined"}
+                        onClick={() => setCourtTypeFilter(option.value)}
+                        sx={{ textTransform: "capitalize" }}
+                      />
+                    );
+                  })}
+                </Stack>
+              </Stack>
+
+              {courtsQuery.isLoading ? (
+                <Skeleton
+                  variant="rectangular"
+                  height={320}
+                  sx={{ borderRadius: 3 }}
+                />
+              ) : courtsQuery.isError ? (
+                <Alert
+                  severity="error"
+                  action={
+                    <Button onClick={() => courtsQuery.refetch()}>Retry</Button>
+                  }
+                >
+                  Unable to load court availability right now.
+                </Alert>
+              ) : filteredCourts.length === 0 ? (
+                <Alert severity="info">
+                  No courts match your current filter. Try selecting a different
+                  type.
+                </Alert>
+              ) : (
+                <Grid container spacing={3}>
+                  {filteredCourts.map((court) => {
+                    const courtType = court.type;
+                    const openingHours = [...court.openingHours].sort(
+                      (a, b) => a.weekday - b.weekday
+                    );
+                    const exceptions = court.exceptions;
+
+                    return (
+                      <Grid key={court.id} size={{ xs: 12, md: 6 }}>
+                        <Card
+                          sx={{
+                            borderRadius: 3,
+                            height: "100%",
+                            display: "flex",
+                            flexDirection: "column",
+                            boxShadow: "0 12px 32px rgba(15,23,42,0.05)",
+                          }}
+                        >
+                          <CardContent sx={{ flexGrow: 1 }}>
+                            <Stack
+                              direction={{ xs: "column", sm: "row" }}
+                              spacing={1.5}
+                              justifyContent="space-between"
+                              alignItems={{ sm: "center" }}
+                              mb={2}
+                            >
+                              <Stack spacing={0.5}>
+                                <Stack
+                                  direction="row"
+                                  spacing={1}
+                                  alignItems="center"
+                                >
+                                  <Chip
+                                    label={
+                                      COURT_LABELS[courtType] ?? court.type
+                                    }
+                                    color={
+                                      COURT_COLOR_MAP[courtType] ?? "primary"
+                                    }
+                                  />
+                                  <Tooltip title="Venue">
+                                    <StadiumIcon
+                                      fontSize="small"
+                                      color="action"
+                                    />
+                                  </Tooltip>
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                  >
+                                    {court.venue}
                                   </Typography>
+                                </Stack>
+                                {court.timezone && (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Local time zone: {court.timezone}
+                                  </Typography>
+                                )}
+                              </Stack>
+                              <Chip
+                                icon={<FlagIcon />}
+                                label={`Court ID: ${court.id.slice(-6).toUpperCase()}`}
+                                variant="outlined"
+                                color="default"
+                              />
+                            </Stack>
+
+                            <Divider sx={{ my: 2 }} />
+                            <Typography
+                              variant="subtitle2"
+                              fontWeight={700}
+                              gutterBottom
+                            >
+                              Weekly availability
+                            </Typography>
+                            {openingHours.length === 0 ? (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                No recurring availability set for this court.
+                              </Typography>
+                            ) : (
+                              <Stack spacing={1}>
+                                {openingHours.map((slot, index) => (
+                                  <Stack
+                                    key={`${slot.weekday}-${index}`}
+                                    direction="row"
+                                    spacing={1.5}
+                                    alignItems="center"
+                                  >
+                                    <Chip
+                                      label={
+                                        WEEKDAYS[slot.weekday] ??
+                                        `Day ${slot.weekday}`
+                                      }
+                                      size="small"
+                                    />
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                    >
+                                      {formatCourtTime(slot.startTime)} –{" "}
+                                      {formatCourtTime(slot.endTime)}
+                                    </Typography>
+                                  </Stack>
                                 ))}
                               </Stack>
-                            </Alert>
-                          )}
-                          <Button
-                            variant="contained"
-                            sx={{ mt: 3 }}
-                            onClick={() =>
-                              handleOpenReservationDialog(
-                                court.id,
-                                COURT_LABELS[courtType] ?? court.venue
-                              )
-                            }
-                          >
-                            Reserve this court
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  );
-                })}
-              </Grid>
-            )}
-          </Stack>
-        </>
-      ) : null}
-    </Stack>
+                            )}
+
+                            {exceptions.length > 0 && (
+                              <Alert
+                                severity="warning"
+                                variant="outlined"
+                                sx={{ mt: 3 }}
+                              >
+                                <Typography
+                                  variant="subtitle2"
+                                  fontWeight={700}
+                                >
+                                  Upcoming exceptions
+                                </Typography>
+                                <Stack spacing={0.5} mt={1}>
+                                  {exceptions.map((exception, index) => (
+                                    <Typography key={index} variant="body2">
+                                      {formatExceptionRange(
+                                        exception.startDate,
+                                        exception.endDate
+                                      )}
+                                      {exception.reason
+                                        ? ` — ${exception.reason}`
+                                        : ""}
+                                    </Typography>
+                                  ))}
+                                </Stack>
+                              </Alert>
+                            )}
+                            <Button
+                              variant="contained"
+                              sx={{ mt: 3 }}
+                              onClick={() =>
+                                handleOpenReservationDialog(
+                                  court.id,
+                                  COURT_LABELS[courtType] ?? court.venue
+                                )
+                              }
+                            >
+                              Reserve this court
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+            </Stack>
+          </>
+        ) : null}
+      </Stack>
       <Dialog
         open={Boolean(reservationDialog)}
         onClose={handleCloseReservationDialog}
@@ -707,7 +900,13 @@ export default function UserGymPage() {
                             ? "secondary"
                             : "primary"
                       }
-                      variant={slot.isAvailable ? (isSelected ? "filled" : "outlined") : "outlined"}
+                      variant={
+                        slot.isAvailable
+                          ? isSelected
+                            ? "filled"
+                            : "outlined"
+                          : "outlined"
+                      }
                       disabled={!slot.isAvailable}
                       onClick={() => slot.isAvailable && setSelectedSlot(slot)}
                     />

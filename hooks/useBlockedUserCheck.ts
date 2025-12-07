@@ -63,8 +63,8 @@ export function useBlockedUserCheck() {
     // Check immediately
     checkUserStatus();
 
-    // Then check every 30 seconds
-    const interval = setInterval(checkUserStatus, 30000);
+    // Then check every 2 minutes (reduced from 30s to minimize API calls)
+    const interval = setInterval(checkUserStatus, 120000);
 
     return () => clearInterval(interval);
   }, [token, sessionUser, router, queryClient]);

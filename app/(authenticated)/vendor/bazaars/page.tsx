@@ -453,7 +453,11 @@ function ApplyDialog({
                   value={boothLocation}
                   onChange={(location) => setBoothLocation(location)}
                 />
-                <Typography variant="body2" color="text.secondary" textAlign="center">
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  textAlign="center"
+                >
                   Selected: {boothLocation || "Choose a booth slot"}
                 </Typography>
               </Stack>
@@ -470,7 +474,9 @@ function ApplyDialog({
                   label="Duration (weeks)"
                   type="number"
                   value={boothDurationWeeks}
-                  onChange={(event) => setBoothDurationWeeks(event.target.value)}
+                  onChange={(event) =>
+                    setBoothDurationWeeks(event.target.value)
+                  }
                   fullWidth
                   inputProps={{ min: 1, max: 4, step: 1 }}
                 />
@@ -480,7 +486,9 @@ function ApplyDialog({
                   Planned end date: {formatDateTime(computedBoothEnd)}
                 </Typography>
               ) : null}
-              {boothInfoError ? <Alert severity="error">{boothInfoError}</Alert> : null}
+              {boothInfoError ? (
+                <Alert severity="error">{boothInfoError}</Alert>
+              ) : null}
             </Stack>
           ) : null}
           <Stack spacing={2}>
@@ -551,9 +559,7 @@ function ApplyDialog({
                       />
                     </Button>
                     <Typography variant="body2" color="text.secondary">
-                      {attendee.file
-                        ? attendee.file.name
-                        : "No file selected"}
+                      {attendee.file ? attendee.file.name : "No file selected"}
                     </Typography>
                   </Stack>
                 </Stack>
@@ -568,9 +574,7 @@ function ApplyDialog({
                 Add Another Attendee
               </Button>
             )}
-            {attendeeError && (
-              <Alert severity="error">{attendeeError}</Alert>
-            )}
+            {attendeeError && <Alert severity="error">{attendeeError}</Alert>}
           </Stack>
         </Stack>
       </DialogContent>
@@ -599,7 +603,7 @@ export default function VendorBazaarsPage() {
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
 
   const bazaarsQuery = useQuery({
-    queryKey: ["bazaars", token],
+    queryKey: ["bazaars"],
     queryFn: () =>
       fetchUpcomingBazaars(token ?? undefined, user?.id, [
         EventType.Bazaar,
@@ -611,7 +615,7 @@ export default function VendorBazaarsPage() {
 
   // Fetch vendor profile to get company name
   const profileQuery = useQuery({
-    queryKey: ["vendorProfile", token],
+    queryKey: ["vendorProfile", user?.id],
     queryFn: () => fetchVendorProfile(token || ""),
     enabled: Boolean(token),
     ...VENDOR_CACHE_SETTINGS,
@@ -619,7 +623,7 @@ export default function VendorBazaarsPage() {
 
   // Fetch vendor applications to check which bazaars already applied to
   const applicationsQuery = useQuery({
-    queryKey: ["vendor-applications", token],
+    queryKey: ["vendor-applications"],
     queryFn: async () => {
       const response = (await apiFetch("/vendors/my-applications", {
         method: "GET",
@@ -743,7 +747,8 @@ export default function VendorBazaarsPage() {
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <CalendarTodayIcon fontSize="small" color="action" />
                           <Typography variant="body2" color="text.secondary">
-                            Platform booths stay active. Pick your own dates when applying.
+                            Platform booths stay active. Pick your own dates
+                            when applying.
                           </Typography>
                         </Stack>
                       ) : (
@@ -787,10 +792,9 @@ export default function VendorBazaarsPage() {
                       {isBazaarOutdated(bazaar) && (
                         <Chip label="Finished" size="small" color="default" />
                       )}
-                      {isBazaarFull(bazaar) &&
-                        !isBazaarOutdated(bazaar) && (
-                          <Chip label="Full" size="small" color="error" />
-                        )}
+                      {isBazaarFull(bazaar) && !isBazaarOutdated(bazaar) && (
+                        <Chip label="Full" size="small" color="error" />
+                      )}
                       {hasApplied(bazaar.id) && (
                         <Chip
                           label="Already Applied"
@@ -810,6 +814,8 @@ export default function VendorBazaarsPage() {
                     disabled={
                       !canApplyToBazaar(bazaar) || hasApplied(bazaar.id)
                     }
+                    color={hasApplied(bazaar.id) ? "success" : "primary"}
+                    sx={hasApplied(bazaar.id) ? { color: "white" } : undefined}
                   >
                     {hasApplied(bazaar.id)
                       ? "Already Applied"

@@ -231,7 +231,7 @@ export default function WorkshopManager({
   });
 
   const professorsQuery = useQuery({
-    queryKey: ["professors", token],
+    queryKey: ["professors"],
     queryFn: () => fetchProfessors(token ?? undefined),
     enabled: Boolean(token && canManage),
     ...WORKSHOP_QUERY_SETTINGS,
@@ -305,9 +305,12 @@ export default function WorkshopManager({
   });
 
   const participantsQuery = useQuery({
-    queryKey: ["workshop-participants", participantsDialog?.workshopId, token],
+    queryKey: ["workshop-participants", participantsDialog?.workshopId],
     queryFn: () =>
-      fetchWorkshopParticipants(participantsDialog!.workshopId, token ?? undefined),
+      fetchWorkshopParticipants(
+        participantsDialog!.workshopId,
+        token ?? undefined
+      ),
     enabled: Boolean(participantsDialog?.workshopId && token),
   });
 
@@ -315,12 +318,9 @@ export default function WorkshopManager({
     mutationFn: (workshopId: string) =>
       approveWorkshopRequest(workshopId, token ?? undefined),
     onSuccess: (response, workshopId) => {
-      enqueueSnackbar(
-        response.message ?? "Workshop approved and published.",
-        {
-          variant: "success",
-        }
-      );
+      enqueueSnackbar(response.message ?? "Workshop approved and published.", {
+        variant: "success",
+      });
       setRecentlyApproved((prev) => new Set(prev).add(workshopId));
       queryClient.invalidateQueries({ queryKey });
     },
@@ -408,7 +408,9 @@ export default function WorkshopManager({
     if (!focusWorkshopId) {
       return null;
     }
-    return workshops.find((workshop) => workshop.id === focusWorkshopId) ?? null;
+    return (
+      workshops.find((workshop) => workshop.id === focusWorkshopId) ?? null
+    );
   }, [focusWorkshopId, workshops]);
   const submitting = createMutation.isPending || updateMutation.isPending;
 
@@ -601,8 +603,16 @@ export default function WorkshopManager({
           <CardContent>
             <Stack spacing={2}>
               <Skeleton variant="text" height={36} width="60%" />
-              <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2 }} />
-              <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 2 }} />
+              <Skeleton
+                variant="rectangular"
+                height={180}
+                sx={{ borderRadius: 2 }}
+              />
+              <Skeleton
+                variant="rectangular"
+                height={220}
+                sx={{ borderRadius: 2 }}
+              />
             </Stack>
           </CardContent>
         </Card>
@@ -623,7 +633,8 @@ export default function WorkshopManager({
     if (workshops.length === 0) {
       return (
         <Alert severity="info">
-          No workshops available yet. Return to the main list to create or approve a submission.
+          No workshops available yet. Return to the main list to create or
+          approve a submission.
         </Alert>
       );
     }
@@ -646,13 +657,16 @@ export default function WorkshopManager({
             </Button>
           }
         >
-          We couldn&apos;t find the requested workshop. It may have been deleted or archived.
+          We couldn&apos;t find the requested workshop. It may have been deleted
+          or archived.
         </Alert>
       );
     }
 
     const createdByYou = Boolean(
-      focusedWorkshop.createdBy && userId && focusedWorkshop.createdBy === userId
+      focusedWorkshop.createdBy &&
+        userId &&
+        focusedWorkshop.createdBy === userId
     );
     const creatorChipLabel = createdByYou
       ? "Created by you"
@@ -735,8 +749,8 @@ export default function WorkshopManager({
                       {focusedWorkshop.name}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Submitted by {focusedWorkshop.createdByName ?? "faculty"} ·{" "}
-                      {formatDateTime(focusedWorkshop.startDate)}
+                      Submitted by {focusedWorkshop.createdByName ?? "faculty"}{" "}
+                      · {formatDateTime(focusedWorkshop.startDate)}
                     </Typography>
                   </Stack>
                   <Stack
@@ -746,7 +760,11 @@ export default function WorkshopManager({
                     rowGap={1}
                     sx={{ "& .MuiChip-root": { fontSize: "0.75rem" } }}
                   >
-                    <Chip label={focusedWorkshop.location} color="primary" size="small" />
+                    <Chip
+                      label={focusedWorkshop.location}
+                      color="primary"
+                      size="small"
+                    />
                     <Chip
                       label={focusedWorkshop.fundingSource}
                       variant="outlined"
@@ -769,7 +787,13 @@ export default function WorkshopManager({
                     <Chip
                       label={`${statusLabel} status`}
                       size="small"
-                      color={statusColor as "default" | "success" | "warning" | "error"}
+                      color={
+                        statusColor as
+                          | "default"
+                          | "success"
+                          | "warning"
+                          | "error"
+                      }
                     />
                   </Stack>
                   {focusedWorkshop.requestedEdits ? (
@@ -787,7 +811,8 @@ export default function WorkshopManager({
                       {formatDateTime(focusedWorkshop.endDate)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Registration closes {formatDateTime(focusedWorkshop.registrationDeadline)}
+                      Registration closes{" "}
+                      {formatDateTime(focusedWorkshop.registrationDeadline)}
                     </Typography>
                   </Stack>
                   <Divider />
@@ -805,9 +830,16 @@ export default function WorkshopManager({
                         flexWrap="wrap"
                         rowGap={0.5}
                       >
-                        {focusedWorkshop.participatingProfessors.map((professor) => (
-                          <Chip key={professor} label={professor} size="small" variant="outlined" />
-                        ))}
+                        {focusedWorkshop.participatingProfessors.map(
+                          (professor) => (
+                            <Chip
+                              key={professor}
+                              label={professor}
+                              size="small"
+                              variant="outlined"
+                            />
+                          )
+                        )}
                       </Stack>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
@@ -821,7 +853,8 @@ export default function WorkshopManager({
                       Description
                     </Typography>
                     <Typography variant="body2">
-                      {focusedWorkshop.description || "No description provided."}
+                      {focusedWorkshop.description ||
+                        "No description provided."}
                     </Typography>
                   </Stack>
                   <Divider />
@@ -830,7 +863,8 @@ export default function WorkshopManager({
                       Agenda
                     </Typography>
                     <Typography variant="body2">
-                      {focusedWorkshop.fullAgenda || "Agenda details will be shared later."}
+                      {focusedWorkshop.fullAgenda ||
+                        "Agenda details will be shared later."}
                     </Typography>
                   </Stack>
                   <Divider />
@@ -843,7 +877,8 @@ export default function WorkshopManager({
                       {focusedWorkshop.requiredBudget.toLocaleString()}
                     </Typography>
                     <Typography variant="body2">
-                      Ticket price: EGP {focusedWorkshop.price?.toLocaleString() ?? "0"}
+                      Ticket price: EGP{" "}
+                      {focusedWorkshop.price?.toLocaleString() ?? "0"}
                     </Typography>
                     {focusedWorkshop.extraRequiredResources ? (
                       <Typography variant="body2" color="text.secondary">
@@ -881,7 +916,9 @@ export default function WorkshopManager({
                             variant="contained"
                             color="success"
                             startIcon={<CheckCircleIcon />}
-                            onClick={() => approveMutation.mutate(focusedWorkshop.id)}
+                            onClick={() =>
+                              approveMutation.mutate(focusedWorkshop.id)
+                            }
                             loading={approvingThis}
                             disabled={
                               approvingThis ||
@@ -896,7 +933,9 @@ export default function WorkshopManager({
                             variant="outlined"
                             color="error"
                             startIcon={<BlockIcon />}
-                            onClick={() => handleOpenRejectDialog(focusedWorkshop)}
+                            onClick={() =>
+                              handleOpenRejectDialog(focusedWorkshop)
+                            }
                             loading={rejectingThis}
                             disabled={
                               rejectingThis ||
@@ -926,7 +965,9 @@ export default function WorkshopManager({
                           variant="outlined"
                           color="secondary"
                           startIcon={<RateReviewIcon />}
-                          onClick={() => handleOpenRequestEditsDialog(focusedWorkshop)}
+                          onClick={() =>
+                            handleOpenRequestEditsDialog(focusedWorkshop)
+                          }
                           loading={requestingEditsThis}
                           disabled={requestingEditsThis}
                         >
@@ -953,7 +994,9 @@ export default function WorkshopManager({
                         {canViewParticipants ? (
                           <Button
                             startIcon={<PeopleIcon />}
-                            onClick={() => handleViewParticipants(focusedWorkshop)}
+                            onClick={() =>
+                              handleViewParticipants(focusedWorkshop)
+                            }
                           >
                             View participants
                           </Button>
@@ -970,8 +1013,13 @@ export default function WorkshopManager({
                               <LoadingButton
                                 startIcon={<WorkspacePremiumIcon />}
                                 loading={sendingCertificatesThis}
-                                disabled={!canSendCertificates || sendingCertificatesThis}
-                                onClick={() => handleSendCertificates(focusedWorkshop)}
+                                disabled={
+                                  !canSendCertificates ||
+                                  sendingCertificatesThis
+                                }
+                                onClick={() =>
+                                  handleSendCertificates(focusedWorkshop)
+                                }
                               >
                                 Send certificates
                               </LoadingButton>
@@ -991,7 +1039,10 @@ export default function WorkshopManager({
                             color="error"
                             variant="outlined"
                             onClick={() =>
-                              handleDeleteClick(focusedWorkshop.id, focusedWorkshop.name)
+                              handleDeleteClick(
+                                focusedWorkshop.id,
+                                focusedWorkshop.name
+                              )
                             }
                             disabled={deleteMutation.isPending}
                           >
@@ -1002,7 +1053,9 @@ export default function WorkshopManager({
                     </>
                   ) : (
                     <Stack spacing={1}>
-                      <Alert severity={statusAlertSeverity}>Status: {statusLabel}</Alert>
+                      <Alert severity={statusAlertSeverity}>
+                        Status: {statusLabel}
+                      </Alert>
                       {focusedWorkshop.requestedEdits ? (
                         <Alert severity="warning" variant="outlined">
                           Requested edits: {focusedWorkshop.requestedEdits}
@@ -1011,7 +1064,9 @@ export default function WorkshopManager({
                       {canViewParticipants ? (
                         <Button
                           startIcon={<PeopleIcon />}
-                          onClick={() => handleViewParticipants(focusedWorkshop)}
+                          onClick={() =>
+                            handleViewParticipants(focusedWorkshop)
+                          }
                         >
                           View participants
                         </Button>
@@ -1028,8 +1083,12 @@ export default function WorkshopManager({
                             <LoadingButton
                               startIcon={<WorkspacePremiumIcon />}
                               loading={sendingCertificatesThis}
-                              disabled={!canSendCertificates || sendingCertificatesThis}
-                              onClick={() => handleSendCertificates(focusedWorkshop)}
+                              disabled={
+                                !canSendCertificates || sendingCertificatesThis
+                              }
+                              onClick={() =>
+                                handleSendCertificates(focusedWorkshop)
+                              }
                             >
                               Send certificates
                             </LoadingButton>
@@ -1049,7 +1108,10 @@ export default function WorkshopManager({
                           color="error"
                           variant="outlined"
                           onClick={() =>
-                            handleDeleteClick(focusedWorkshop.id, focusedWorkshop.name)
+                            handleDeleteClick(
+                              focusedWorkshop.id,
+                              focusedWorkshop.name
+                            )
                           }
                           disabled={deleteMutation.isPending}
                         >
@@ -1213,7 +1275,13 @@ export default function WorkshopManager({
                         <Chip
                           label={`${statusLabel} status`}
                           size="small"
-                          color={statusColor as "default" | "success" | "warning" | "error"}
+                          color={
+                            statusColor as
+                              | "default"
+                              | "success"
+                              | "warning"
+                              | "error"
+                          }
                         />
                       </Stack>
                       <Typography variant="h6" fontWeight={700}>
@@ -1272,7 +1340,10 @@ export default function WorkshopManager({
                       </Stack>
                       {showFullCardDetails ? (
                         <Stack spacing={0.5}>
-                          <Typography variant="subtitle2" color="text.secondary">
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                          >
                             Budget &amp; requirements
                           </Typography>
                           <Typography variant="body2">
@@ -1280,7 +1351,8 @@ export default function WorkshopManager({
                             {workshop.requiredBudget.toLocaleString()}
                           </Typography>
                           <Typography variant="body2">
-                            Ticket price: EGP {workshop.price?.toLocaleString() ?? "0"}
+                            Ticket price: EGP{" "}
+                            {workshop.price?.toLocaleString() ?? "0"}
                           </Typography>
                           {workshop.extraRequiredResources ? (
                             <Typography variant="body2" color="text.secondary">
@@ -1614,8 +1686,7 @@ export default function WorkshopManager({
                     {...register("price", { valueAsNumber: true })}
                     error={Boolean(errors.price)}
                     helperText={
-                      errors.price?.message ??
-                      "Set to 0 if attendance is free."
+                      errors.price?.message ?? "Set to 0 if attendance is free."
                     }
                   />
                 </Grid>
@@ -1693,8 +1764,8 @@ export default function WorkshopManager({
                   Capacity: {participantsQuery.data.capacity}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Registered: {participantsQuery.data.registeredCount} · Remaining:{" "}
-                  {participantsQuery.data.remainingSpots}
+                  Registered: {participantsQuery.data.registeredCount} ·
+                  Remaining: {participantsQuery.data.remainingSpots}
                 </Typography>
               </Stack>
               <Divider />
@@ -1714,9 +1785,11 @@ export default function WorkshopManager({
                   </TableHead>
                   <TableBody>
                     {participantsQuery.data.participants.map((participant) => {
-                      const fullName = `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim() ||
+                      const fullName =
+                        `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim() ||
                         "Participant";
-                      const gucId = participant.studentId ?? participant.staffId ?? "—";
+                      const gucId =
+                        participant.studentId ?? participant.staffId ?? "—";
                       return (
                         <TableRow key={participant.id}>
                           <TableCell>{fullName}</TableCell>
@@ -1781,7 +1854,9 @@ export default function WorkshopManager({
         <DialogActions>
           <Button
             onClick={closeModerationDialog}
-            disabled={rejectMutation.isPending || requestEditsMutation.isPending}
+            disabled={
+              rejectMutation.isPending || requestEditsMutation.isPending
+            }
           >
             Cancel
           </Button>
@@ -1821,7 +1896,10 @@ export default function WorkshopManager({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDeleteDialog} disabled={deleteMutation.isPending}>
+          <Button
+            onClick={closeDeleteDialog}
+            disabled={deleteMutation.isPending}
+          >
             Cancel
           </Button>
           <LoadingButton
@@ -1834,7 +1912,6 @@ export default function WorkshopManager({
           </LoadingButton>
         </DialogActions>
       </Dialog>
-
     </Stack>
   );
 }

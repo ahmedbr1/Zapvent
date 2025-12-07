@@ -381,7 +381,11 @@ export default function ConferenceManagementPage() {
           return (
             <Grid item xs={12} md={6} lg={4} key={conference.id}>
               <Card
-                sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+                sx={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
               >
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Stack spacing={1.5}>
@@ -465,7 +469,10 @@ export default function ConferenceManagementPage() {
                             startIcon={<ArchiveIcon />}
                             color="inherit"
                             onClick={() =>
-                              handleArchiveConference(conference.id, conference.name)
+                              handleArchiveConference(
+                                conference.id,
+                                conference.name
+                              )
                             }
                             loading={archivingThis}
                             disabled={archiveDisabled}
@@ -487,6 +494,7 @@ export default function ConferenceManagementPage() {
                       Edit
                     </Button>
                     <Button
+                      variant="contained"
                       color="error"
                       startIcon={<DeleteIcon />}
                       onClick={() =>

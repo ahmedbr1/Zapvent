@@ -9,6 +9,10 @@ import adminRoutes from "./adminRoutes";
 import commentRoutes from "./commentRoutes";
 import ratingRoutes from "./ratingRoutes";
 import pollRoutes from "./pollRoutes";
+import forumRoutes from "./forumRoutes";
+import conferenceVideoRoutes from "./conferenceVideoRoutes";
+import vendorGalleryRoutes from "./vendorGalleryRoutes";
+import friendRoutes from "./friendRoutes";
 
 const api = Router();
 api.use("/users", userRoutes);
@@ -22,5 +26,9 @@ api.use("/admin", adminRoutes);
 api.use("/comments", commentRoutes);
 api.use("/ratings", ratingRoutes);
 api.use("/polls", pollRoutes);
+api.use("/forum", forumRoutes);
+api.use("/conference-videos", conferenceVideoRoutes);
+api.use("/vendor-gallery", vendorGalleryRoutes);
+api.use("/friends", friendRoutes);
 
 export default api;

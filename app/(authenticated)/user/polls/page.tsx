@@ -24,11 +24,13 @@ import { useSnackbar } from "notistack";
 export default function VendorPollsPage() {
   const token = useAuthToken();
   const { enqueueSnackbar } = useSnackbar();
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string>
+  >({});
   const [votingPollId, setVotingPollId] = useState<string | null>(null);
 
   const pollsQuery = useQuery({
-    queryKey: ["vendor-polls", token],
+    queryKey: ["vendor-polls"],
     queryFn: () => fetchVendorPolls(token ?? undefined),
     enabled: Boolean(token),
   });
@@ -59,7 +61,8 @@ export default function VendorPollsPage() {
       pollsQuery.refetch();
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "Failed to submit your vote.";
+      const message =
+        error instanceof Error ? error.message : "Failed to submit your vote.";
       enqueueSnackbar(message, { variant: "error" });
     },
     onSettled: () => {
@@ -83,7 +86,8 @@ export default function VendorPollsPage() {
           Vendor booth polls
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Help decide which vendors are invited to set up their booths. Each account can vote once per poll, but you can change it anytime.
+          Help decide which vendors are invited to set up their booths. Each
+          account can vote once per poll, but you can change it anytime.
         </Typography>
       </Stack>
 
@@ -91,12 +95,19 @@ export default function VendorPollsPage() {
         <Grid container spacing={3}>
           {Array.from({ length: 2 }).map((_, index) => (
             <Grid key={index} size={{ xs: 12 }}>
-              <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 3 }} />
+              <Skeleton
+                variant="rectangular"
+                height={220}
+                sx={{ borderRadius: 3 }}
+              />
             </Grid>
           ))}
         </Grid>
       ) : pollsQuery.isError ? (
-        <Alert severity="error" action={<Button onClick={() => pollsQuery.refetch()}>Retry</Button>}>
+        <Alert
+          severity="error"
+          action={<Button onClick={() => pollsQuery.refetch()}>Retry</Button>}
+        >
           Unable to fetch polls right now. Please try again.
         </Alert>
       ) : polls.length === 0 ? (
@@ -106,18 +117,29 @@ export default function VendorPollsPage() {
           {polls.map((poll) => {
             const selectedVendorId = selectedOptions[poll.id] ?? "";
             const hasVoted = Boolean(poll.selectedVendorId);
-            const voteDisabled = voteMutation.isPending && votingPollId === poll.id;
+            const voteDisabled =
+              voteMutation.isPending && votingPollId === poll.id;
             const actionDisabled =
               !selectedVendorId ||
               (hasVoted && selectedVendorId === poll.selectedVendorId) ||
               voteDisabled;
 
             return (
-              <Card key={poll.id} sx={{ borderRadius: 3, boxShadow: "0 16px 40px rgba(15,23,42,0.08)" }}>
+              <Card
+                key={poll.id}
+                sx={{
+                  borderRadius: 3,
+                  boxShadow: "0 16px 40px rgba(15,23,42,0.08)",
+                }}
+              >
                 <CardContent>
                   <Stack spacing={2}>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip icon={<HowToVoteIcon />} label="Open poll" color="primary" />
+                      <Chip
+                        icon={<HowToVoteIcon />}
+                        label="Open poll"
+                        color="primary"
+                      />
                       <Typography variant="body2" color="text.secondary">
                         {poll.durations
                           .map(
@@ -144,9 +166,14 @@ export default function VendorPollsPage() {
                           const percentage =
                             poll.totalVotes === 0
                               ? 0
-                              : Math.round((option.votes / poll.totalVotes) * 100);
+                              : Math.round(
+                                  (option.votes / poll.totalVotes) * 100
+                                );
                           return (
-                            <Grid key={option.vendorId} size={{ xs: 12, md: 6 }}>
+                            <Grid
+                              key={option.vendorId}
+                              size={{ xs: 12, md: 6 }}
+                            >
                               <Stack
                                 spacing={1}
                                 sx={{
@@ -160,9 +187,15 @@ export default function VendorPollsPage() {
                                   control={<Radio />}
                                   label={
                                     <Stack spacing={0.5}>
-                                      <Typography fontWeight={600}>{option.vendorName}</Typography>
-                                      <Typography variant="caption" color="text.secondary">
-                                        {option.votes} vote{option.votes === 1 ? "" : "s"}
+                                      <Typography fontWeight={600}>
+                                        {option.vendorName}
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        {option.votes} vote
+                                        {option.votes === 1 ? "" : "s"}
                                       </Typography>
                                     </Stack>
                                   }

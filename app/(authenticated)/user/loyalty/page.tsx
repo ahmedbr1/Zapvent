@@ -20,7 +20,7 @@ export default function LoyaltyPartnersPage() {
   const token = useAuthToken();
 
   const query = useQuery({
-    queryKey: ["loyalty-vendors", token],
+    queryKey: ["loyalty-vendors"],
     queryFn: () => fetchLoyaltyVendors(token ?? undefined),
     enabled: Boolean(token),
   });
@@ -34,7 +34,8 @@ export default function LoyaltyPartnersPage() {
           GUC Loyalty Partners
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Access campus-wide offers from verified vendors. Present your GUC ID alongside the promo code to redeem the discount.
+          Access campus-wide offers from verified vendors. Present your GUC ID
+          alongside the promo code to redeem the discount.
         </Typography>
       </Stack>
 
@@ -42,17 +43,25 @@ export default function LoyaltyPartnersPage() {
         <Grid container spacing={3}>
           {Array.from({ length: 3 }).map((_, index) => (
             <Grid key={index} size={{ xs: 12, md: 6 }}>
-              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 3 }} />
+              <Skeleton
+                variant="rectangular"
+                height={200}
+                sx={{ borderRadius: 3 }}
+              />
             </Grid>
           ))}
         </Grid>
       ) : query.isError ? (
-        <Alert severity="error" action={<Button onClick={() => query.refetch()}>Retry</Button>}>
+        <Alert
+          severity="error"
+          action={<Button onClick={() => query.refetch()}>Retry</Button>}
+        >
           We couldn&apos;t load the loyalty partner list right now.
         </Alert>
       ) : partners.length === 0 ? (
         <Alert severity="info">
-          No partners have joined the loyalty program yet. Check back soon for new offers.
+          No partners have joined the loyalty program yet. Check back soon for
+          new offers.
         </Alert>
       ) : (
         <Grid container spacing={3}>
@@ -70,7 +79,11 @@ export default function LoyaltyPartnersPage() {
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Stack spacing={1.5}>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip icon={<FavoriteIcon />} label="Loyalty partner" color="secondary" />
+                      <Chip
+                        icon={<FavoriteIcon />}
+                        label="Loyalty partner"
+                        color="secondary"
+                      />
                       <Chip
                         icon={<DiscountIcon />}
                         label={`${partner.loyaltyProgram.discountRate.toFixed(1)}% off`}

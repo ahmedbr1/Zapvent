@@ -63,7 +63,14 @@ export function EventFiltersBar({
   return (
     <Stack
       spacing={2}
-      sx={{ p: 2.5, borderRadius: 3, backgroundColor: "#FFFFFF", mb: 3 }}
+      sx={{
+        p: 2.5,
+        borderRadius: 3,
+        backgroundColor: "#FFFFFF",
+        mb: 3,
+        boxShadow: "0 2px 12px rgba(15, 23, 42, 0.04)",
+        border: "1px solid rgba(15, 23, 42, 0.06)",
+      }}
     >
       <Stack
         direction={{ xs: "column", md: "row" }}
